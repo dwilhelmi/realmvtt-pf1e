@@ -1,0 +1,386 @@
+<script>
+  function onLevelChange(value) {
+    console.log("TODO LEVEL CHANGE");
+  }
+
+  function onXPChange(value) {
+    console.log("TODO XP CHANGE");
+  }
+
+  function updateStat(value, stat) {
+    console.log("TODO UPDATE STAT", value, stat);
+  }
+
+  function updateSaveProficiency(value, save) {
+    console.log("TODO UPDATE SAVE PROFICIENCY", value, save);
+  }
+
+  function rollSave(save) {
+    console.log("TODO ROLL SAVE", save);
+  }
+</script>
+
+<div style="display: flex; flex-direction: row">
+  <!-- PORTAIT, HP, AC, Level, XP, Hero Points -->
+  <div style="display: flex; flex-direction: column">
+    <div
+      style="
+        width: 130px;
+        min-width: 130px;
+        max-width: 130px;
+        min-height: 130px;
+        max-height: 130px;
+      "
+    >
+      <portrait width="130px" height="130px"></portrait>
+    </div>
+  </div>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      width: 100%;
+      margin-left: 4px;
+    "
+  >
+    <div style="width: 100%; display: flex; gap: 4px; align-items: flex-end">
+      <numberfield
+        width="60px"
+        placeholder="0"
+        size="xs"
+        field="level"
+        label="Level"
+        minvalue="0"
+        defaultvalue="0"
+        onchange="onLevelChange(value)"
+      >
+      </numberfield>
+
+      <numberfield
+        placeholder="0"
+        width="100px"
+        size="xs"
+        field="xp"
+        label="XP"
+        maxvalue="1000"
+        minvalue="0"
+        onchange="onXPChange(value)"
+      >
+      </numberfield>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 8px;
+          margin-left: auto;
+          align-items: center;
+        "
+      >
+        <numberfield
+          placeholder="0"
+          width="60px"
+          size="xs"
+          field="classDC"
+          label="Class DC"
+          minvalue="0"
+          defaultvalue="0"
+        >
+        </numberfield>
+
+        <div>
+          <label
+            size="xs"
+            variant="bold"
+            field="heroPtsLabel"
+            label="Hero Points"
+          ></label>
+          <counter
+            field="heroPoints"
+            size="md"
+            icon="IconCrown"
+            maxvalue="3"
+            minvalue="0"
+          ></counter>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 100%">
+      <progressbar
+        field="nextLevelProgress"
+        label=""
+        width="100%"
+        maxvalue="1000"
+        currentvaluefield="xp"
+        color="primary"
+      ></progressbar>
+    </div>
+
+    <div style="width: 100%; display: flex; gap: 4px">
+      <numberfield
+        icon="IconHeart"
+        width="50%"
+        placeholder="0"
+        field="curhp"
+        label="Current HP"
+        color="pink"
+      >
+      </numberfield>
+
+      <numberfield
+        icon="IconHeartFilled"
+        width="50%"
+        placeholder="0"
+        field="hitpoints"
+        label="Max HP"
+        color="green"
+      ></numberfield>
+
+      <numberfield
+        width="50%"
+        placeholder="0"
+        field="tempHp"
+        label="Temp HP"
+        color="blue"
+      >
+      </numberfield>
+    </div>
+  </div>
+</div>
+
+<divider
+  field="attributes"
+  label="Attribute Modifiers"
+  size="md"
+  color="primary"
+></divider>
+
+<!-- STATS -->
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 4px;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="strength"
+    showsign="true"
+    label="STR"
+    onchange="updateStat(value, 'strength')"
+    textalign="center"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="dexterity"
+    label="DEX"
+    showsign="true"
+    onchange="updateStat(value, 'dexterity')"
+    textalign="center"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="constitution"
+    label="CON"
+    showsign="true"
+    onchange="updateStat(value, 'constitution')"
+    textalign="center"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="intelligence"
+    label="INT"
+    showsign="true"
+    onchange="updateStat(value, 'intelligence')"
+    textalign="center"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="wisdom"
+    label="WIS"
+    showsign="true"
+    onchange="updateStat(value, 'wisdom')"
+    textalign="center"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    size="md"
+    width="70px"
+    field="charisma"
+    label="CHA"
+    showsign="true"
+    onchange="updateStat(value, 'charisma')"
+    textalign="center"
+  ></numberfield>
+</div>
+
+<!-- SAVING THROWS -->
+<divider
+  field="savingThrows"
+  label="Saving Throws"
+  size="md"
+  color="primary"
+></divider>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 4px;
+    width: 100%;
+    justify-content: center;
+    align-items: flex-end;
+  "
+>
+  <div
+    style="display: flex; flex-direction: column; gap: 2px; text-align: center"
+  >
+    <label field="fortLabel" size="xs" variant="bold" label="Fortitude"></label>
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: flex-end;
+      "
+    >
+      <numberfield
+        placeholder="0"
+        size="xs"
+        width="68px"
+        field="fortitude"
+        showsign="true"
+        textalign="center"
+      ></numberfield>
+      <iconbutton
+        size="md"
+        variant="light"
+        options='[{"icon": "D20", "label": "Roll Fortitude Save", "value": "roll"}]'
+        field="Roll Fortitude Save"
+        onclick="rollSave('fortitude')"
+      ></iconbutton>
+    </div>
+    <dropdown
+      size="xs"
+      field="fortitudeProficiency"
+      width="100px"
+      textalign="center"
+      placeholder="None"
+      defaultvalue="none"
+      onchange="updateSaveProficiency(value, 'fortitude')"
+      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+    ></dropdown>
+  </div>
+
+  <div
+    style="display: flex; flex-direction: column; gap: 2px; text-align: center"
+  >
+    <label field="reflexLabel" size="xs" variant="bold" label="Reflex"></label>
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: flex-end;
+      "
+    >
+      <numberfield
+        placeholder="0"
+        size="xs"
+        width="68px"
+        field="reflex"
+        showsign="true"
+        textalign="center"
+      ></numberfield>
+      <iconbutton
+        size="md"
+        variant="light"
+        options='[{"icon": "D20", "label": "Roll Reflex Save", "value": "roll"}]'
+        field="Roll Reflex Save"
+        onclick="rollSave('reflex')"
+      ></iconbutton>
+    </div>
+    <dropdown
+      size="xs"
+      field="reflexProficiency"
+      width="100px"
+      textalign="center"
+      placeholder="None"
+      defaultvalue="none"
+      onchange="updateSaveProficiency(value, 'reflex')"
+      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+    ></dropdown>
+  </div>
+
+  <div
+    style="display: flex; flex-direction: column; gap: 2px; text-align: center"
+  >
+    <label field="willLabel" size="xs" variant="bold" label="Will"></label>
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: flex-end;
+      "
+    >
+      <numberfield
+        placeholder="0"
+        size="xs"
+        width="68px"
+        field="will"
+        showsign="true"
+        textalign="center"
+      ></numberfield>
+      <iconbutton
+        size="md"
+        variant="light"
+        options='[{"icon": "D20", "label": "Roll Will Save", "value": "roll"}]'
+        field="Roll Will Save"
+        onclick="rollSave('will')"
+      ></iconbutton>
+    </div>
+    <dropdown
+      size="xs"
+      field="willProficiency"
+      width="100px"
+      placeholder="None"
+      textalign="center"
+      defaultvalue="none"
+      onchange="updateSaveProficiency(value, 'will')"
+      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+    ></dropdown>
+  </div>
+</div>
+
+<!-- TODO 
+- Scripts to control all the above including:
+-- Training levels in attacks, skills
+-- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
+-- Auto-calculating of class DC, Spell DC, skill DCs, etc
+-- Auto-calculating of HP, armor, etc
+-->
