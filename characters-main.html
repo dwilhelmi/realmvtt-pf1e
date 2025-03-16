@@ -11,6 +11,10 @@
     console.log("TODO UPDATE STAT", value, stat);
   }
 
+  function updateAbilityBoosts() {
+    console.log("TODO UPDATE ABILITY BOOSTS");
+  }
+
   function updateSaveProficiency(value, save) {
     console.log("TODO UPDATE SAVE PROFICIENCY", value, save);
   }
@@ -18,10 +22,56 @@
   function rollSave(save) {
     console.log("TODO ROLL SAVE", save);
   }
+
+  function rollRecoveryCheck() {
+    console.log("TODO ROLL RECOVERY CHECK");
+  }
+
+  function raiseShield() {
+    console.log("TODO RAISE SHIELD");
+  }
+
+  function rest() {
+    console.log("TODO REST");
+  }
+
+  function onAlternateAncestryBoostsChange(value) {
+    console.log("TODO ON ALTERNATE ANCESTRY BOOSTS CHANGE", value);
+    // Human is the same, so check if we're human
+    const alternateAncestryBoosts = value;
+    const hasSecondFreeBoost = false; // TODO check ancestry for this
+    const showAncestryBoost2 = alternateAncestryBoosts || hasSecondFreeBoost;
+    api.setHidden("ancestryBoost2", !showAncestryBoost2);
+  }
+
+  function isAncestryBoost2Disabled() {
+    // If alternateAncestryBoosts is true, or if we're human, we show ancestryBoost2
+    const alternateAncestryBoosts = record.data?.alternateAncestryBoosts;
+    const hasSecondFreeBoost = false; // TODO check ancestry for this
+    const showAncestryBoost2 = alternateAncestryBoosts || hasSecondFreeBoost;
+    api.setHidden("ancestryBoost2", !showAncestryBoost2);
+  }
+
+  function getAncestryBoostOptions(field) {
+    console.log(
+      "TODO GET ANCESTRY BOOST OPTIONS BASED ON FIELD AND SET ANCESTRY",
+      field
+    );
+    // TODO get the boosts already provided by the ancestry and return the default less those
+    // Or if none, return the default
+    return [
+      { label: "Strength", value: "strength" },
+      { label: "Dexterity", value: "dexterity" },
+      { label: "Constitution", value: "constitution" },
+      { label: "Intelligence", value: "intelligence" },
+      { label: "Wisdom", value: "wisdom" },
+      { label: "Charisma", value: "charisma" },
+    ];
+  }
 </script>
 
 <div style="display: flex; flex-direction: row">
-  <!-- PORTAIT, HP, AC, Level, XP, Hero Points -->
+  <!-- PORTAIT, HP, Level, XP, Hero Points -->
   <div style="display: flex; flex-direction: column">
     <div
       style="
@@ -95,6 +145,7 @@
             size="xs"
             variant="bold"
             field="heroPtsLabel"
+            textalign="center"
             label="Hero Points"
           ></label>
           <counter
@@ -151,6 +202,139 @@
   </div>
 </div>
 
+<!-- Armor, Shield, Dying / Wounded / Recovery Check and Rest -->
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    margin-top: 4px;
+    align-items: flex-end;
+    justify-content: center;
+  "
+>
+  <numberfield
+    placeholder="0"
+    width="70px"
+    icon="IconShirt"
+    size="xs"
+    field="ac"
+    label="AC"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    width="70px"
+    icon="IconShield"
+    size="xs"
+    field="shieldHp"
+    label="Shield HP"
+  ></numberfield>
+
+  <numberfield
+    placeholder="0"
+    width="70px"
+    size="xs"
+    field="shieldMaxHp"
+    label="Max Sh. HP"
+  ></numberfield>
+
+  <iconbutton
+    size="md"
+    variant="default"
+    options='[{"icon": "IconShieldFilled", "label": "Raise Shield", "value": "raiseShield"}]'
+    field="Raise Shield"
+    onclick="raiseShield()"
+  ></iconbutton>
+
+  <numberfield
+    placeholder="0"
+    width="30px"
+    hidecontrols="true"
+    size="xs"
+    field="shieldAC"
+    label="AC"
+  ></numberfield>
+  <numberfield
+    placeholder="0"
+    width="30px"
+    hidecontrols="true"
+    size="xs"
+    field="shieldHardness"
+    label="H"
+  ></numberfield>
+  <numberfield
+    placeholder="0"
+    width="30px"
+    hidecontrols="true"
+    size="xs"
+    field="shieldBt"
+    label="BT"
+  ></numberfield>
+  <checkbox
+    field="shieldBroken"
+    label="Broken"
+    size="xs"
+    color="secondary"
+  ></checkbox>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 4px;
+  "
+>
+  <div
+    style="display: flex; flex-direction: row; gap: 4px; align-items: center"
+    ;
+  >
+    <label size="xs" variant="bold" label="Recovery Check"></label>
+    <iconbutton
+      size="md"
+      variant="light"
+      color="red"
+      options='[{"icon": "D20", "label": "Roll Recovery Check", "value": "roll"}]'
+      field="Roll Recovery Check"
+      onclick="rollRecoveryCheck()"
+    ></iconbutton>
+  </div>
+
+  <counter
+    field="dying"
+    size="xs"
+    label="Dying"
+    color="red"
+    icon="IconSkull"
+    maxvalue="4"
+    textalign="center"
+    minvalue="0"
+  ></counter>
+
+  <counter
+    field="wounded"
+    size="xs"
+    label="Wounded"
+    color="red"
+    icon="IconDroplet"
+    maxvalue="3"
+    textalign="center"
+    minvalue="0"
+  ></counter>
+
+  <iconbutton
+    size="md"
+    variant="default"
+    options='[{"icon": "IconBed", "label": "Rest", "value": "rest"}]'
+    field="Rest"
+    onclick="rest()"
+  ></iconbutton>
+</div>
+
 <divider
   field="attributes"
   label="Attribute Modifiers"
@@ -166,6 +350,7 @@
     gap: 8px;
     margin-top: 4px;
     justify-content: center;
+    align-items: flex-end;
     width: 100%;
     margin-bottom: 4px;
   "
@@ -235,6 +420,60 @@
     onchange="updateStat(value, 'charisma')"
     textalign="center"
   ></numberfield>
+
+  <popover
+    position="bottom"
+    offset="4"
+    witharrow="true"
+    onclose="updateAbilityBoosts()"
+  >
+    <popover.target>
+      <iconbutton
+        size="md"
+        variant="light"
+        hideonlocked="true"
+        options='[{"icon": "IconEdit", "label": "Edit Ability Boosts", "value": "abilityBonus"}]'
+        field="Edit Ability Boosts"
+      ></iconbutton>
+    </popover.target>
+    <popover.dropdown>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Ancestry Boosts"></label>
+        <checkbox
+          field="alternateAncestryBoosts"
+          label="Use Alternate Ability Selection"
+          size="xs"
+          color="primary"
+          onchange="onAlternateAncestryBoostsChange(value)"
+        ></checkbox>
+        <div style="display: flex; flex-direction: row; gap: 4px">
+          <dropdown
+            size="xs"
+            field="ancestryBoost1"
+            placeholder="Choose Ability"
+            optionsfunction="return getAncestryBoostOptions('ancestryBoost1');"
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="ancestryBoost2"
+            placeholder="Choose Ability"
+            hidden="true"
+            onload="isAncestryBoost2Disabled()"
+            optionsfunction="return getAncestryBoostOptions('ancestryBoost2');"
+          ></dropdown>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Background Boosts"></label>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Class Boosts"></label>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Free Boosts"></label>
+      </div>
+    </popover.dropdown>
+  </popover>
 </div>
 
 <!-- SAVING THROWS -->
@@ -378,9 +617,15 @@
 </div>
 
 <!-- TODO 
-- Scripts to control all the above including:
--- Training levels in attacks, skills
--- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
--- Auto-calculating of class DC, Spell DC, skill DCs, etc
--- Auto-calculating of HP, armor, etc
--->
+  - Scripts to control all the above including:
+  -- Training levels in attacks, skills
+  -- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
+  -- Auto-calculating of class DC, Spell DC, skill DCs, etc
+  -- Auto-calculating of HP, armor, etc
+
+  -- Class, Ancestry, Heritage, Background
+
+  -- Popover for ability bonus options/settings
+
+  -- Speed, Size, Senses, Perception 
+  -->
