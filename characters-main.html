@@ -1,4 +1,48 @@
 <script>
+  function onDrop(type, recordLink) {
+    if (type === "ancestry") {
+      onDropAncestry(recordLink);
+    } else if (type === "heritage") {
+      onDropHeritage(recordLink);
+    } else if (type === "class") {
+      onDropClass(recordLink);
+    } else if (type === "background") {
+      onDropBackground(recordLink);
+    }
+  }
+
+  function onDropAncestry(recordLink) {
+    console.log("TODO ON DROP ANCESTRY", recordLink);
+  }
+
+  function onDropHeritage(recordLink) {
+    console.log("TODO ON DROP HERITAGE", recordLink);
+  }
+
+  function onDropClass(recordLink) {
+    console.log("TODO ON DROP CLASS", recordLink);
+  }
+
+  function onDropBackground(recordLink) {
+    console.log("TODO ON DROP BACKGROUND", recordLink);
+  }
+
+  function onDeleteAncestry() {
+    console.log("TODO ON DELETE ANCESTRY");
+  }
+
+  function onDeleteHeritage() {
+    console.log("TODO ON DELETE HERITAGE");
+  }
+
+  function onDeleteClass() {
+    console.log("TODO ON DELETE CLASS");
+  }
+
+  function onDeleteBackground() {
+    console.log("TODO ON DELETE BACKGROUND");
+  }
+
   function onLevelChange(value) {
     console.log("TODO LEVEL CHANGE");
   }
@@ -11,8 +55,47 @@
     console.log("TODO UPDATE STAT", value, stat);
   }
 
-  function updateAbilityBoosts() {
-    console.log("TODO UPDATE ABILITY BOOSTS");
+  function updateAbilityBoosts(value, field) {
+    console.log("TODO UPDATE ABILITY BOOSTS", value, field);
+    const boosts = {
+      ancestryBoost1: record.data?.ancestryBoost1,
+      ancestryBoost2: record.data?.ancestryBoost2,
+      backgroundBoost1: record.data?.backgroundBoost1,
+      backgroundBoost2: record.data?.backgroundBoost2,
+      classBoost: record.data?.classBoost,
+      freeBoosts: record.data?.freeBoosts,
+    };
+
+    if (boosts[field]) {
+      boosts[field] = value;
+    }
+
+    const valuesToSet = {
+      "fields.ancestryBoostError.hidden": true,
+      "fields.backgroundBoostError.hidden": true,
+    };
+
+    // Check for invalid ancestry/background boosts
+    if (
+      boosts.ancestryBoost1 &&
+      boosts.ancestryBoost2 &&
+      boosts.ancestryBoost1 === boosts.ancestryBoost2
+    ) {
+      valuesToSet["fields.ancestryBoostError.hidden"] = false;
+    }
+
+    if (
+      boosts.backgroundBoost1 &&
+      boosts.backgroundBoost2 &&
+      boosts.backgroundBoost1 === boosts.backgroundBoost2
+    ) {
+      valuesToSet["fields.backgroundBoostError.hidden"] = false;
+    }
+
+    // TODO add a function to common that sets all attributes based on this and any modifiers
+    // and call here
+
+    api.setValues(valuesToSet);
   }
 
   function updateSaveProficiency(value, save) {
@@ -36,20 +119,40 @@
   }
 
   function onAlternateAncestryBoostsChange(value) {
-    console.log("TODO ON ALTERNATE ANCESTRY BOOSTS CHANGE", value);
-    // Human is the same, so check if we're human
     const alternateAncestryBoosts = value;
-    const hasSecondFreeBoost = false; // TODO check ancestry for this
+    // TODO check ancestry for this, default to true
+    const hasSecondFreeBoost = true;
     const showAncestryBoost2 = alternateAncestryBoosts || hasSecondFreeBoost;
     api.setHidden("ancestryBoost2", !showAncestryBoost2);
   }
 
-  function isAncestryBoost2Disabled() {
+  function setAncestryBoostFields() {
     // If alternateAncestryBoosts is true, or if we're human, we show ancestryBoost2
     const alternateAncestryBoosts = record.data?.alternateAncestryBoosts;
-    const hasSecondFreeBoost = false; // TODO check ancestry for this
+    // TODO check ancestry for this, default to true
+    const hasSecondFreeBoost = true;
     const showAncestryBoost2 = alternateAncestryBoosts || hasSecondFreeBoost;
-    api.setHidden("ancestryBoost2", !showAncestryBoost2);
+
+    const valuesToSet = {
+      "fields.ancestryBoost2.hidden": !showAncestryBoost2,
+    };
+
+    // TODO get the boosts/flaws from ancestry
+    let ancestryBoosts = "None";
+    let ancestryFlaws = "None";
+
+    valuesToSet["data.ancestryBoostLabel"] = `Boosts: ${ancestryBoosts}`;
+    valuesToSet["data.ancestryFlawLabel"] = `Flaws: ${ancestryFlaws}`;
+
+    if (ancestryBoosts !== "None") {
+      valuesToSet["fields.ancestryBoostLabel.hidden"] = false;
+    }
+
+    if (ancestryFlaws !== "None") {
+      valuesToSet["fields.ancestryFlawLabel.hidden"] = false;
+    }
+
+    api.setValues(valuesToSet);
   }
 
   function getAncestryBoostOptions(field) {
@@ -67,6 +170,43 @@
       { label: "Wisdom", value: "wisdom" },
       { label: "Charisma", value: "charisma" },
     ];
+  }
+
+  function getBackgroundBoostOptions(field) {
+    // TODO get the boosts already provided by the background and return the default less those
+    // Or if none, return the default
+    let boosts = [
+      { label: "Strength", value: "strength" },
+      { label: "Dexterity", value: "dexterity" },
+      { label: "Constitution", value: "constitution" },
+      { label: "Intelligence", value: "intelligence" },
+      { label: "Wisdom", value: "wisdom" },
+      { label: "Charisma", value: "charisma" },
+    ];
+
+    if (field === "backgroundBoost1") {
+      // TODO
+    }
+    return boosts;
+  }
+
+  function getClassBoostOptions() {
+    // TODO get the boosts options from the class
+    // Or return all if class not set
+    let boosts = [
+      { label: "Strength", value: "strength" },
+      { label: "Dexterity", value: "dexterity" },
+      { label: "Constitution", value: "constitution" },
+      { label: "Intelligence", value: "intelligence" },
+      { label: "Wisdom", value: "wisdom" },
+      { label: "Charisma", value: "charisma" },
+    ];
+
+    if (record.data?.class) {
+      // TODO get the boosts already provided by the class and return the default less those
+    }
+
+    return boosts;
   }
 </script>
 
@@ -242,7 +382,7 @@
   <iconbutton
     size="md"
     variant="default"
-    options='[{"icon": "IconShieldFilled", "label": "Raise Shield", "value": "raiseShield"}]'
+    options='[{"icon": "IconShield", "label": "Raise Shield", "value": "raiseShield"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "lowerShield"}]'
     field="Raise Shield"
     onclick="raiseShield()"
   ></iconbutton>
@@ -335,6 +475,84 @@
   ></iconbutton>
 </div>
 
+<div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+    <stringfield
+      placeholder="Drag and drop an Ancestry"
+      field="ancestryName"
+      width="100%"
+      label="Ancestry"
+      size="sm"
+    ></stringfield>
+    <list
+      width="fit-content"
+      height="32px"
+      hidden="true"
+      listtype="record_link_list"
+      field="ancestries"
+      onchange="onDeleteAncestry();"
+    >
+    </list>
+  </div>
+  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+    <stringfield
+      placeholder="Drag and drop a Heritage"
+      field="heritageName"
+      width="100%"
+      label="Heritage"
+      size="sm"
+    ></stringfield>
+    <list
+      width="fit-content"
+      height="32px"
+      hidden="true"
+      listtype="record_link_list"
+      field="heritages"
+      onchange="onDeleteHeritage();"
+    >
+    </list>
+  </div>
+</div>
+
+<div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+    <stringfield
+      placeholder="Drag and drop a Class"
+      field="className"
+      width="100%"
+      label="Class"
+      size="sm"
+    ></stringfield>
+    <list
+      width="fit-content"
+      height="32px"
+      hidden="true"
+      listtype="record_link_list"
+      field="classes"
+      onchange="onDeleteClass();"
+    >
+    </list>
+  </div>
+  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
+    <stringfield
+      placeholder="Drag and drop a Background"
+      field="backgroundName"
+      width="100%"
+      label="Background"
+      size="sm"
+    ></stringfield>
+    <list
+      width="fit-content"
+      height="32px"
+      hidden="true"
+      listtype="record_link_list"
+      field="backgrounds"
+      onchange="onDeleteBackground();"
+    >
+    </list>
+  </div>
+</div>
+
 <divider
   field="attributes"
   label="Attribute Modifiers"
@@ -421,12 +639,7 @@
     textalign="center"
   ></numberfield>
 
-  <popover
-    position="bottom"
-    offset="4"
-    witharrow="true"
-    onclose="updateAbilityBoosts()"
-  >
+  <popover position="bottom" offset="4" witharrow="true">
     <popover.target>
       <iconbutton
         size="md"
@@ -439,6 +652,13 @@
     <popover.dropdown>
       <div style="display: flex; flex-direction: column; gap: 4px">
         <label size="xs" variant="bold" label="Ancestry Boosts"></label>
+        <label
+          size="xs"
+          field="ancestryBoostError"
+          hidden="true"
+          color="red"
+          label="Invalid Ancestry Boosts!"
+        ></label>
         <checkbox
           field="alternateAncestryBoosts"
           label="Use Alternate Ability Selection"
@@ -451,26 +671,76 @@
             size="xs"
             field="ancestryBoost1"
             placeholder="Choose Ability"
+            icon="IconCirclePlus"
             optionsfunction="return getAncestryBoostOptions('ancestryBoost1');"
+            onchange="updateAbilityBoosts(value, 'ancestryBoost1')"
           ></dropdown>
           <dropdown
             size="xs"
             field="ancestryBoost2"
             placeholder="Choose Ability"
             hidden="true"
-            onload="isAncestryBoost2Disabled()"
+            icon="IconCirclePlus"
+            onload="setAncestryBoostFields()"
             optionsfunction="return getAncestryBoostOptions('ancestryBoost2');"
+            onchange="updateAbilityBoosts(value, 'ancestryBoost2')"
+          ></dropdown>
+        </div>
+        <label size="xs" field="ancestryBoostLabel" hidden="true"></label>
+        <label size="xs" field="ancestryFlawLabel" hidden="true"></label>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Background Boosts"></label>
+        <label
+          size="xs"
+          field="backgroundBoostError"
+          hidden="true"
+          color="red"
+          label="Invalid Background Boosts!"
+        ></label>
+        <div style="display: flex; flex-direction: row; gap: 4px">
+          <dropdown
+            size="xs"
+            field="backgroundBoost1"
+            placeholder="Choose Ability"
+            icon="IconCirclePlus"
+            optionsfunction="return getBackgroundBoostOptions('backgroundBoost1');"
+            onchange="updateAbilityBoosts(value, 'backgroundBoost1')"
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="backgroundBoost2"
+            placeholder="Choose Ability"
+            icon="IconCirclePlus"
+            optionsfunction="return getBackgroundBoostOptions('backgroundBoost2');"
+            onchange="updateAbilityBoosts(value, 'backgroundBoost2')"
           ></dropdown>
         </div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 4px">
-        <label size="xs" variant="bold" label="Background Boosts"></label>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 4px">
         <label size="xs" variant="bold" label="Class Boosts"></label>
+        <div style="display: flex; flex-direction: row; gap: 4px">
+          <dropdown
+            size="xs"
+            field="classBoost"
+            placeholder="Choose Ability"
+            icon="IconCirclePlus"
+            optionsfunction="return getClassBoostOptions();"
+            onchange="updateAbilityBoosts(value, 'classBoost')"
+          ></dropdown>
+        </div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 4px">
         <label size="xs" variant="bold" label="Free Boosts"></label>
+        <dropdown
+          size="xs"
+          field="freeBoosts"
+          placeholder="Choose 4 Abilities"
+          icon="IconCirclePlus"
+          options='[{"label": "Strength", "value": "strength"}, {"label": "Dexterity", "value": "dexterity"}, {"label": "Constitution", "value": "constitution"}, {"label": "Intelligence", "value": "intelligence"}, {"label": "Wisdom", "value": "wisdom"}, {"label": "Charisma", "value": "charisma"}]'
+          multiselect="4"
+          onchange="updateAbilityBoosts(value, 'freeBoosts')"
+        ></dropdown>
       </div>
     </popover.dropdown>
   </popover>
@@ -617,15 +887,15 @@
 </div>
 
 <!-- TODO 
-  - Scripts to control all the above including:
-  -- Training levels in attacks, skills
-  -- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
-  -- Auto-calculating of class DC, Spell DC, skill DCs, etc
-  -- Auto-calculating of HP, armor, etc
+- Scripts to control all the above including:
+-- Training levels in attacks, skills
+-- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
+-- Auto-calculating of class DC, Spell DC, skill DCs, etc
+-- Auto-calculating of HP, armor, etc
 
-  -- Class, Ancestry, Heritage, Background
+-- Class, Ancestry, Heritage, Background
 
-  -- Popover for ability bonus options/settings
+-- Popover for ability bonus options/settings
 
-  -- Speed, Size, Senses, Perception 
-  -->
+-- Speed, Size, Senses, Perception 
+-->

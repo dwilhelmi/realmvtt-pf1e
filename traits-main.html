@@ -1,0 +1,21 @@
+<div style="width: 100%; gap: 8px; display: flex; flex-direction: column">
+  <dropdown
+    field="type"
+    size="md"
+    width="100%"
+    label="Type"
+    placeholder="General"
+    defaultvalue="general"
+    options='[{"label": "Ancestry", "value": "ancestry"}, {"label": "Heritage", "value": "heritage"}, {"label": "Class", "value": "class"}, {"label": "Background", "value": "background"}, {"label": "Combat", "value": "combat"}, {"label": "Spell", "value": "spell"}, {"label": "General", "value": "general"}]'
+  ></dropdown>
+  <div style="width: 100%">
+    <richtextfield
+      field="description"
+      width="100%"
+      label="Description"
+    ></richtextfield>
+  </div>
+  <label label="Rules Elements" textalign="center" variant="bold"></label>
+  <list width="100%" height="100%" listtype="modifier_list" field="modifiers">
+  </list>
+</div>
