@@ -102,8 +102,16 @@
     console.log("TODO UPDATE SAVE PROFICIENCY", value, save);
   }
 
+  function updatePerceptionProficiency(value) {
+    console.log("TODO UPDATE PERCEPTION PROFICIENCY", value);
+  }
+
   function rollSave(save) {
     console.log("TODO ROLL SAVE", save);
+  }
+
+  function rollPerception() {
+    console.log("TODO ROLL PERCEPTION");
   }
 
   function rollRecoveryCheck() {
@@ -342,137 +350,205 @@
   </div>
 </div>
 
-<!-- Armor, Shield, Dying / Wounded / Recovery Check and Rest -->
-<div
-  style="
-    display: flex;
-    flex-direction: row;
-    gap: 4px;
-    margin-top: 4px;
-    align-items: flex-end;
-    justify-content: center;
-  "
->
-  <numberfield
-    placeholder="0"
-    width="70px"
-    icon="IconShirt"
-    size="xs"
-    field="ac"
-    label="AC"
-  ></numberfield>
-
-  <numberfield
-    placeholder="0"
-    width="70px"
-    icon="IconShield"
-    size="xs"
-    field="shieldHp"
-    label="Shield HP"
-  ></numberfield>
-
-  <numberfield
-    placeholder="0"
-    width="70px"
-    size="xs"
-    field="shieldMaxHp"
-    label="Max Sh. HP"
-  ></numberfield>
-
-  <iconbutton
-    size="md"
-    variant="default"
-    options='[{"icon": "IconShield", "label": "Raise Shield", "value": "raiseShield"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "lowerShield"}]'
-    field="Raise Shield"
-    onclick="raiseShield()"
-  ></iconbutton>
-
-  <numberfield
-    placeholder="0"
-    width="30px"
-    hidecontrols="true"
-    size="xs"
-    field="shieldAC"
-    label="AC"
-  ></numberfield>
-  <numberfield
-    placeholder="0"
-    width="30px"
-    hidecontrols="true"
-    size="xs"
-    field="shieldHardness"
-    label="H"
-  ></numberfield>
-  <numberfield
-    placeholder="0"
-    width="30px"
-    hidecontrols="true"
-    size="xs"
-    field="shieldBt"
-    label="BT"
-  ></numberfield>
-  <checkbox
-    field="shieldBroken"
-    label="Broken"
-    size="xs"
-    color="secondary"
-  ></checkbox>
-</div>
-
-<div
-  style="
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    justify-content: center;
-    align-items: flex-end;
-    margin-bottom: 4px;
-  "
->
+<div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
   <div
-    style="display: flex; flex-direction: row; gap: 4px; align-items: center"
-    ;
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      text-align: center;
+      align-items: center;
+      width: 100%;
+    "
   >
-    <label size="xs" variant="bold" label="Recovery Check"></label>
-    <iconbutton
-      size="md"
-      variant="light"
-      color="red"
-      options='[{"icon": "D20", "label": "Roll Recovery Check", "value": "roll"}]'
-      field="Roll Recovery Check"
-      onclick="rollRecoveryCheck()"
-    ></iconbutton>
+    <label
+      field="perceptionLabel"
+      size="xs"
+      variant="bold"
+      label="Perception"
+    ></label>
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: flex-end;
+      "
+    >
+      <numberfield
+        placeholder="0"
+        size="xs"
+        width="68px"
+        field="perception"
+        showsign="true"
+        textalign="center"
+      ></numberfield>
+      <iconbutton
+        size="md"
+        variant="light"
+        options='[{"icon": "D20", "label": "Roll Perception", "value": "roll"}]'
+        field="Roll Perception"
+        onclick="rollPerception()"
+      ></iconbutton>
+    </div>
+    <dropdown
+      size="xs"
+      field="perceptionProficiency"
+      width="100px"
+      textalign="center"
+      placeholder="Trained"
+      defaultvalue="trained"
+      onchange="updatePerceptionProficiency(value)"
+      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+    ></dropdown>
   </div>
 
-  <counter
-    field="dying"
-    size="xs"
-    label="Dying"
-    color="red"
-    icon="IconSkull"
-    maxvalue="4"
-    textalign="center"
-    minvalue="0"
-  ></counter>
+  <!-- Armor, Shield, Dying / Wounded / Recovery Check and Rest -->
+  <div style="display: flex; flex-direction: column; gap: 4px; width: 100%">
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        margin-top: 4px;
+        align-items: flex-end;
+        justify-content: center;
+      "
+    >
+      <numberfield
+        placeholder="0"
+        width="70px"
+        icon="IconShirt"
+        size="xs"
+        field="ac"
+        label="AC"
+      ></numberfield>
 
-  <counter
-    field="wounded"
-    size="xs"
-    label="Wounded"
-    color="red"
-    icon="IconDroplet"
-    maxvalue="3"
-    textalign="center"
-    minvalue="0"
-  ></counter>
+      <numberfield
+        placeholder="0"
+        width="70px"
+        icon="IconShield"
+        size="xs"
+        field="shieldHp"
+        label="Shield HP"
+      ></numberfield>
 
-  <iconbutton
-    size="md"
-    variant="default"
-    options='[{"icon": "IconBed", "label": "Rest", "value": "rest"}]'
-    field="Rest"
-    onclick="rest()"
-  ></iconbutton>
+      <numberfield
+        placeholder="0"
+        width="70px"
+        size="xs"
+        field="shieldMaxHp"
+        label="Max Sh. HP"
+      ></numberfield>
+
+      <iconbutton
+        size="md"
+        variant="default"
+        options='[{"icon": "IconShield", "label": "Raise Shield", "value": "raiseShield"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "lowerShield"}]'
+        field="Raise Shield"
+        onclick="raiseShield()"
+      ></iconbutton>
+
+      <numberfield
+        placeholder="0"
+        width="30px"
+        hidecontrols="true"
+        size="xs"
+        field="shieldAC"
+        label="AC"
+      ></numberfield>
+      <numberfield
+        placeholder="0"
+        width="30px"
+        hidecontrols="true"
+        size="xs"
+        field="shieldHardness"
+        label="H"
+      ></numberfield>
+      <numberfield
+        placeholder="0"
+        width="30px"
+        hidecontrols="true"
+        size="xs"
+        field="shieldBt"
+        label="BT"
+      ></numberfield>
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          justify-content: center;
+          align-items: center;
+          align-self: center;
+        "
+      >
+        <label size="xs" variant="bold" label="Broken"></label>
+        <checkbox field="shieldBroken" size="xs" color="secondary"></checkbox>
+      </div>
+    </div>
+
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        justify-content: flex-end;
+        align-items: flex-end;
+        margin-bottom: 4px;
+      "
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+        "
+        ;
+      >
+        <label size="xs" variant="bold" label="Recovery Check"></label>
+        <iconbutton
+          size="md"
+          variant="light"
+          color="red"
+          options='[{"icon": "D20", "label": "Roll Recovery Check", "value": "roll"}]'
+          field="Roll Recovery Check"
+          onclick="rollRecoveryCheck()"
+        ></iconbutton>
+      </div>
+
+      <counter
+        field="dying"
+        size="xs"
+        label="Dying"
+        color="red"
+        icon="IconSkull"
+        maxvalue="4"
+        textalign="center"
+        minvalue="0"
+      ></counter>
+
+      <counter
+        field="wounded"
+        size="xs"
+        label="Wounded"
+        color="red"
+        icon="IconDroplet"
+        maxvalue="3"
+        textalign="center"
+        minvalue="0"
+      ></counter>
+
+      <iconbutton
+        size="md"
+        variant="default"
+        options='[{"icon": "IconBed", "label": "Rest", "value": "rest"}]'
+        field="Rest"
+        onclick="rest()"
+      ></iconbutton>
+    </div>
+  </div>
 </div>
 
 <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
@@ -554,9 +630,9 @@
 </div>
 
 <divider
-  field="attributes"
+  field="attributesDivider"
   label="Attribute Modifiers"
-  size="md"
+  size="sm"
   color="primary"
 ></divider>
 
@@ -748,9 +824,9 @@
 
 <!-- SAVING THROWS -->
 <divider
-  field="savingThrows"
+  field="savingThrowsDivider"
   label="Saving Throws"
-  size="md"
+  size="sm"
   color="primary"
 ></divider>
 
@@ -883,6 +959,35 @@
       onchange="updateSaveProficiency(value, 'will')"
       options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
     ></dropdown>
+  </div>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    margin-top: 8px;
+  "
+>
+  <divider field="otherDivider" size="sm" color="primary"></divider>
+
+  <div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
+    <stringfield
+      width="100%"
+      field="speed"
+      label="Speed"
+      placeholder="Speed"
+      size="xs"
+    ></stringfield>
+    <stringfield
+      width="100%"
+      field="senses"
+      label="Senses"
+      placeholder="None"
+      size="xs"
+    ></stringfield>
   </div>
 </div>
 
