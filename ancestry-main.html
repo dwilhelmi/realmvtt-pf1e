@@ -1,0 +1,169 @@
+<script>
+  // Sets the traits for the ancestry
+  function setTraits(traits) {
+    const ancestryDataPath = getNearestParentDataPath(dataPath);
+    const ancestry = ancestryDataPath ? api.getValue(ancestryDataPath) : record;
+
+    // Set the traits list to the values within traitsList
+    const traitsObjects = [];
+    for (const trait of traits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const valuesToSet = {
+      "data.traitsList": traitsObjects,
+    };
+
+    api.setValuesOnRecord(ancestry, valuesToSet);
+  }
+
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const ancestryDataPath = getNearestParentDataPath(dataPath);
+    const ancestry = ancestryDataPath ? api.getValue(ancestryDataPath) : record;
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      ancestry.data?.traits &&
+      ancestry.data?.traits.length > 0 &&
+      !ancestry.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of ancestry.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet["data.traitsList"] = traitsObjects;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValuesOnRecord(ancestry, valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <div style="width: 100%; display: flex; gap: 4px">
+        <numberfield
+          width="100%"
+          field="hp"
+          label="Hit Points"
+          placeholder="Enter Hit Points..."
+        >
+        </numberfield>
+        <dropdown
+          size="sm"
+          width="100%"
+          field="size"
+          placeholder="Select Size"
+          label="Size"
+          options='[{"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}]'
+        >
+        </dropdown>
+      </div>
+      <stringfield
+        width="100%"
+        field="speed"
+        label="Speed"
+        placeholder="Enter Speed..."
+      >
+      </stringfield>
+    </div>
+  </div>
+
+  <dropdown
+    width="100%"
+    field="boosts"
+    label="Boosts"
+    placeholder="Select Attribute Boosts..."
+    multiselect="7"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}, {"label": "Free", "value": "free"}]'
+  >
+  </dropdown>
+
+  <dropdown
+    width="100%"
+    field="flaws"
+    label="Flaws"
+    placeholder="Select Attribute Flaws..."
+    multiselect="6"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  >
+  </dropdown>
+
+  <stringfield
+    width="100%"
+    field="vision"
+    label="Vision"
+    placeholder="Enter Vision..."
+  >
+  </stringfield>
+</div>
+
+<div style="margin-top: 8px; margin-bottom: 8px">
+  <divider label="Description"></divider>
+</div>
+
+<richtextfield
+  placeholder="Enter Species description..."
+  field="description"
+  label="Description"
+></richtextfield>
