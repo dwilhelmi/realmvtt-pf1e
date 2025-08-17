@@ -1,0 +1,172 @@
+<script>
+  // Sets the traits for the feature
+  function setTraits(traits) {
+    const featureDataPath = getNearestParentDataPath(dataPath);
+    const feature = featureDataPath ? api.getValue(featureDataPath) : record;
+
+    // Set the traits list to the values within traitsList
+    const traitsObjects = [];
+    for (const trait of traits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const valuesToSet = {
+      [`${featureDataPath}${featureDataPath ? "." : ""}data.traitsList`]:
+        traitsObjects,
+    };
+
+    api.setValuesOnRecord(feature, valuesToSet);
+  }
+
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const featureDataPath = getNearestParentDataPath(dataPath);
+    const feature = featureDataPath ? api.getValue(featureDataPath) : record;
+    const dataPrefix = featureDataPath ? `${featureDataPath}.data` : "data";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      feature.data?.traits &&
+      feature.data?.traits.length > 0 &&
+      !feature.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of feature.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    const showActions = feature.data?.type === "active";
+    if (showActions && feature.fields?.actions?.hidden !== false) {
+      valuesToSet["fields.actions.hidden"] = false;
+    } else if (!showActions && feature.fields?.actions?.hidden !== true) {
+      valuesToSet["fields.actions.hidden"] = true;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValuesOnRecord(feature, valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px; width: 100%">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div style="display: flex; flex-direction: column; width: 100%">
+      <div
+        style="
+          display: flex;
+          gap: 4px;
+          flex-direction: row;
+          width: 100%;
+          margin-bottom: 4px;
+          align-items: flex-end;
+        "
+      >
+        <iconbutton
+          field="actions"
+          size="xl"
+          variant="subtle"
+          color="default"
+          disablediflocked="true"
+          hidden="true"
+          width="max-content"
+          options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+          {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+          {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+          {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"}]'
+        ></iconbutton>
+        <numberfield
+          width="100px"
+          field="level"
+          label="Level"
+          placeholder="None"
+        ></numberfield>
+        <div style="min-width: 125px; flex-grow: 1">
+          <dropdown
+            width="100%"
+            field="type"
+            combo="true"
+            onchange="showHideFields();"
+            label="Type"
+            placeholder="Select Type..."
+            options='[{"label": "Passive", "value": "passive"},
+          {"label": "Active", "value": "active"}]'
+          ></dropdown>
+        </div>
+      </div>
+      <dropdown
+        width="100%"
+        field="subtype"
+        combo="true"
+        label="Subtype"
+        placeholder="Select Subtype..."
+        options='[{"label": "Ancestry Feature", "value": "ancestryfeature"},
+{"label": "Class Feature", "value": "classfeature"},
+{"label": "Calling", "value": "calling"},
+{"label": "Defensive", "value": "defensive"},
+{"label": "Offensive", "value": "offensive"},
+{"label": "Interaction", "value": "interaction"}]'
+      ></dropdown>
+    </div>
+  </div>
+
+  <div style="margin-top: 8px; margin-bottom: 8px">
+    <divider label="Description"></divider>
+  </div>
+
+  <richtextfield
+    field="description"
+    label="Description"
+    placeholder="Enter description..."
+  ></richtextfield>
+</div>

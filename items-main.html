@@ -16,7 +16,8 @@
     }
 
     const valuesToSet = {
-      "data.traitsList": traitsObjects,
+      [`${itemDataPath}${itemDataPath ? "." : ""}data.traitsList`]:
+        traitsObjects,
     };
 
     api.setValuesOnRecord(item, valuesToSet);
@@ -27,6 +28,7 @@
   function showHideFields() {
     const itemDataPath = getNearestParentDataPath(dataPath);
     const item = itemDataPath ? api.getValue(itemDataPath) : record;
+    const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
 
     const valuesToSet = {};
 
@@ -46,7 +48,7 @@
         });
       }
 
-      valuesToSet["data.traitsList"] = traitsObjects;
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
