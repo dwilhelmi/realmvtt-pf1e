@@ -1,0 +1,244 @@
+<script>
+  function showHideFields() {
+    const modPath = dataPath.replace(".data.type", "");
+    const modifier = api.getValue(modPath);
+    const typeValue = modifier?.data?.type || "";
+
+    const valuesToSet = {};
+
+    if (
+      (typeValue.includes("Bonus") || typeValue.includes("Penalty")) &&
+      modifier.fields?.modifierType?.hidden !== false
+    ) {
+      valuesToSet[`${modPath}.fields.modifierType.hidden`] = false;
+    } else if (
+      !typeValue.includes("Bonus") &&
+      !typeValue.includes("Penalty") &&
+      modifier.fields?.modifierType?.hidden !== true
+    ) {
+      valuesToSet[`${modPath}.fields.modifierType.hidden`] = true;
+    }
+
+    let showFieldField = true;
+    let showAttributeField = false;
+    let showSkillField = false;
+    let showAttackField = false;
+    let showSaveField = false;
+
+    if (typeValue === "attributeBonus") {
+      showAttributeField = true;
+      showFieldField = false;
+    } else if (typeValue === "attributePenalty") {
+      showAttributeField = true;
+      showFieldField = false;
+    } else if (typeValue === "attackBonus") {
+      showFieldField = false;
+      showAttackField = true;
+    } else if (typeValue === "attackPenalty") {
+      showFieldField = false;
+      showAttackField = true;
+    } else if (typeValue === "damageBonus") {
+      showFieldField = false;
+      showAttackField = true;
+    } else if (typeValue === "damagePenalty") {
+      showAttackField = true;
+      showFieldField = false;
+    } else if (typeValue === "skillBonus") {
+      showFieldField = false;
+      showSkillField = true;
+    } else if (typeValue === "skillPenalty") {
+      showFieldField = false;
+      showSkillField = true;
+    } else if (typeValue === "saveBonus") {
+      showFieldField = false;
+      showSaveField = true;
+    } else if (typeValue === "savePenalty") {
+      showFieldField = false;
+      showSaveField = true;
+    }
+
+    if (modifier.fields?.field?.hidden !== !showFieldField) {
+      valuesToSet[`${modPath}.fields.field.hidden`] = !showFieldField;
+    }
+    if (modifier.fields?.fieldAttribute?.hidden !== !showAttributeField) {
+      valuesToSet[`${modPath}.fields.fieldAttribute.hidden`] =
+        !showAttributeField;
+    }
+    if (modifier.fields?.fieldSkill?.hidden !== !showSkillField) {
+      valuesToSet[`${modPath}.fields.fieldSkill.hidden`] = !showSkillField;
+    }
+    if (modifier.fields?.fieldAttack?.hidden !== !showAttackField) {
+      valuesToSet[`${modPath}.fields.fieldAttack.hidden`] = !showAttackField;
+    }
+    if (modifier.fields?.fieldSave?.hidden !== !showSaveField) {
+      valuesToSet[`${modPath}.fields.fieldSave.hidden`] = !showSaveField;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div style="display: flex; flex-direction: row; gap: 4px">
+  <dropdown
+    width="100%"
+    size="xs"
+    field="type"
+    placeholder="Select Modifier"
+    onchange="showHideFields()"
+    onload="showHideFields()"
+    label="Modifier"
+    options='[{"label": "Attribute Bonus", "value": "attributeBonus"},
+      {"label": "Attribute Penalty", "value": "attributePenalty"},
+      {"label": "Attack Bonus", "value": "attackBonus"}, 
+      {"label": "Attack Penalty", "value": "attackPenalty"},
+      {"label": "Damage Bonus", "value": "damageBonus"},
+      {"label": "Damage Penalty", "value": "damagePenalty"},
+      {"label": "Attack Calculation", "value": "attackCalculation"},
+      {"label": "Healing Bonus", "value": "healingBonus"},
+      {"label": "Healing Penalty", "value": "healingPenalty"},
+      {"label": "Cantrip Damage Bonus", "value": "cantripDamageBonus"},
+      {"label": "Cantrip Damage Penalty", "value": "cantripDamagePenalty"},
+      {"label": "Spell Damage Bonus", "value": "spellDamageBonus"},
+      {"label": "Spell Damage Penalty", "value": "spellDamagePenalty"},
+      {"label": "Spell Attack Bonus", "value": "spellAttackBonus"},
+      {"label": "Spell Attack Penalty", "value": "spellAttackPenalty"},
+      {"label": "Spell DC Bonus", "value": "spellDCBonus"},
+      {"label": "Spell DC Penalty", "value": "spellDCPenalty"},
+      {"label": "Saving Throw Bonus", "value": "saveBonus"},
+      {"label": "Saving Throw Penalty", "value": "savePenalty"},
+      {"label": "Skill Check Bonus", "value": "skillBonus"},
+      {"label": "Skill Check Penalty", "value": "skillPenalty"},
+      {"label": "Armor Class Calculation", "value": "armorClassCalculation"},
+      {"label": "Armor Class Bonus", "value": "armorClassBonus"},
+      {"label": "Armor Class Penalty", "value": "armorClassPenalty"},
+      {"label": "Hit Point Maximum", "value": "hitpoints"},
+      {"label": "Add Resistance", "value": "resistance"},
+      {"label": "Add Weakness", "value": "weakness"},
+      {"label": "Add Immunity", "value": "immunity"},
+      {"label": "Initiative Bonus", "value": "initiativeBonus"},
+      {"label": "Initiative Penalty", "value": "initiativePenalty"}]'
+  >
+  </dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="modifierType"
+    hidden="true"
+    label="Type"
+    placeholder="Select Type"
+    options='[{"label": "Circumstance", "value": "circumstance"}, {"label": "Item", "value": "item"}, {"label": "Status", "value": "status"}, {"label": "None", "value": "none"}]'
+  ></dropdown>
+
+  <stringfield
+    width="100%"
+    size="xs"
+    field="field"
+    label="Field"
+    placeholder="Enter Field, if Applicable"
+  ></stringfield>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldAttribute"
+    label="Attribute"
+    hidden="true"
+    placeholder="Select Attribute"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  ></dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldSkill"
+    label="Skill"
+    hidden="true"
+    placeholder="Select Skill"
+    options='[{"label": "All", "value": "all"}, 
+    {"label": "Strength-based", "value": "str"},
+    {"label": "Dexterity-based", "value": "dex"},
+    {"label": "Constitution-based", "value": "con"},
+    {"label": "Intelligence-based", "value": "int"},
+    {"label": "Wisdom-based", "value": "wis"},
+    {"label": "Charisma-based", "value": "cha"},
+    {"label": "Acrobatics", "value": "acrobatics"},
+    {"label": "Arcana", "value": "arcana"},
+    {"label": "Athletics", "value": "athletics"},
+    {"label": "Crafting", "value": "crafting"},
+    {"label": "Deception", "value": "deception"},
+    {"label": "Diplomacy", "value": "diplomacy"},
+    {"label": "Intimidation", "value": "intimidation"},
+    {"label": "Medicine", "value": "medicine"},
+    {"label": "Nature", "value": "nature"},
+    {"label": "Occultism", "value": "occultism"},
+    {"label": "Performance", "value": "performance"},
+    {"label": "Religion", "value": "religion"},
+    {"label": "Society", "value": "society"},
+    {"label": "Stealth", "value": "stealth"},
+    {"label": "Survival", "value": "survival"},
+    {"label": "Thievery", "value": "thievery"}]'
+  ></dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldAttack"
+    label="Attack Type"
+    placeholder="Select Attack Type"
+    hidden="true"
+    options='[{"label": "All", "value": "all"}, {"label": "Strength-based", "value": "str"}, {"label": "Dexterity-based", "value": "dex"}, {"label": "All Ranged", "value": "ranged"}, {"label": "All Melee", "value": "melee"}]'
+  ></dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldSave"
+    label="Save Type"
+    placeholder="Select Save Type"
+    hidden="true"
+    options='[{"label": "All", "value": "all"}, {"label": "Fortitude", "value": "fortitude"}, {"label": "Reflex", "value": "reflex"}, {"label": "Will", "value": "will"}]'
+  ></dropdown>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+    margin-top: 4px;
+  "
+>
+  <dropdown
+    width="35%"
+    size="xs"
+    field="valueType"
+    placeholder="Select Value Type"
+    label="Value Type"
+    options='[{"label": "Number", "value": "number"}, 
+      {"label": "String", "value": "string"}, {"label": "From Field", "value": "field"}]'
+  >
+  </dropdown>
+
+  <stringfield
+    width="35%"
+    size="xs"
+    field="value"
+    label="Value"
+    placeholder="Enter Value"
+  ></stringfield>
+
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <checkbox size="xs" field="active" label="Active by Default"></checkbox>
+    <checkbox
+      size="xs"
+      hidden="true"
+      width="175px"
+      field="itemOnly"
+      label="Only Applies To This Item"
+    ></checkbox>
+  </div>
+</div>
