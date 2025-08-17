@@ -1366,25 +1366,24 @@ function getEffectsAndModifiersForToken(
 
 /**
  * Returns all Pathfinder 2e skills with their associated ability scores
- * @returns {Object} Object mapping skill names to their ability scores
  */
 function getPathfinderSkills() {
   return {
-    Acrobatics: "Dexterity",
-    Arcana: "Intelligence",
-    Athletics: "Strength",
-    Crafting: "Intelligence",
-    Deception: "Charisma",
-    Diplomacy: "Charisma",
-    Intimidation: "Charisma",
-    Medicine: "Wisdom",
-    Nature: "Wisdom",
-    Occultism: "Intelligence",
-    Performance: "Charisma",
-    Religion: "Wisdom",
-    Society: "Intelligence",
-    Stealth: "Dexterity",
-    Survival: "Wisdom",
-    Thievery: "Dexterity",
+    Acrobatics: "dex",
+    Arcana: "int",
+    Athletics: "str",
+    Crafting: "int",
+    Deception: "cha",
+    Diplomacy: "cha",
+    Intimidation: "cha",
+    Medicine: "wis",
+    Nature: "wis",
+    Occultism: "int",
+    Performance: "cha",
+    Religion: "wis",
+    Society: "int",
+    Stealth: "dex",
+    Survival: "wis",
+    Thievery: "dex",
   };
 }

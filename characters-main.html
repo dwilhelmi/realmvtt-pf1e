@@ -171,12 +171,12 @@
     // TODO get the boosts already provided by the ancestry and return the default less those
     // Or if none, return the default
     return [
-      { label: "Strength", value: "strength" },
-      { label: "Dexterity", value: "dexterity" },
-      { label: "Constitution", value: "constitution" },
-      { label: "Intelligence", value: "intelligence" },
-      { label: "Wisdom", value: "wisdom" },
-      { label: "Charisma", value: "charisma" },
+      { label: "Strength", value: "str" },
+      { label: "Dexterity", value: "dex" },
+      { label: "Constitution", value: "con" },
+      { label: "Intelligence", value: "int" },
+      { label: "Wisdom", value: "wis" },
+      { label: "Charisma", value: "cha" },
     ];
   }
 
@@ -184,12 +184,12 @@
     // TODO get the boosts already provided by the background and return the default less those
     // Or if none, return the default
     let boosts = [
-      { label: "Strength", value: "strength" },
-      { label: "Dexterity", value: "dexterity" },
-      { label: "Constitution", value: "constitution" },
-      { label: "Intelligence", value: "intelligence" },
-      { label: "Wisdom", value: "wisdom" },
-      { label: "Charisma", value: "charisma" },
+      { label: "Strength", value: "str" },
+      { label: "Dexterity", value: "dex" },
+      { label: "Constitution", value: "con" },
+      { label: "Intelligence", value: "int" },
+      { label: "Wisdom", value: "wis" },
+      { label: "Charisma", value: "cha" },
     ];
 
     if (field === "backgroundBoost1") {
@@ -202,12 +202,12 @@
     // TODO get the boosts options from the class
     // Or return all if class not set
     let boosts = [
-      { label: "Strength", value: "strength" },
-      { label: "Dexterity", value: "dexterity" },
-      { label: "Constitution", value: "constitution" },
-      { label: "Intelligence", value: "intelligence" },
-      { label: "Wisdom", value: "wisdom" },
-      { label: "Charisma", value: "charisma" },
+      { label: "Strength", value: "str" },
+      { label: "Dexterity", value: "dex" },
+      { label: "Constitution", value: "con" },
+      { label: "Intelligence", value: "int" },
+      { label: "Wisdom", value: "wis" },
+      { label: "Charisma", value: "cha" },
     ];
 
     if (record.data?.class) {
@@ -653,10 +653,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="strength"
+    field="str"
     showsign="true"
     label="STR"
-    onchange="updateStat(value, 'strength')"
+    onchange="updateStat(value, 'str')"
     textalign="center"
   ></numberfield>
 
@@ -664,10 +664,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="dexterity"
+    field="dex"
     label="DEX"
     showsign="true"
-    onchange="updateStat(value, 'dexterity')"
+    onchange="updateStat(value, 'dex')"
     textalign="center"
   ></numberfield>
 
@@ -675,10 +675,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="constitution"
+    field="con"
     label="CON"
     showsign="true"
-    onchange="updateStat(value, 'constitution')"
+    onchange="updateStat(value, 'con')"
     textalign="center"
   ></numberfield>
 
@@ -686,10 +686,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="intelligence"
+    field="int"
     label="INT"
     showsign="true"
-    onchange="updateStat(value, 'intelligence')"
+    onchange="updateStat(value, 'int')"
     textalign="center"
   ></numberfield>
 
@@ -697,10 +697,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="wisdom"
+    field="wis"
     label="WIS"
     showsign="true"
-    onchange="updateStat(value, 'wisdom')"
+    onchange="updateStat(value, 'wis')"
     textalign="center"
   ></numberfield>
 
@@ -708,10 +708,10 @@
     placeholder="0"
     size="md"
     width="70px"
-    field="charisma"
+    field="cha"
     label="CHA"
     showsign="true"
-    onchange="updateStat(value, 'charisma')"
+    onchange="updateStat(value, 'cha')"
     textalign="center"
   ></numberfield>
 
@@ -813,7 +813,7 @@
           field="freeBoosts"
           placeholder="Choose 4 Abilities"
           icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "strength"}, {"label": "Dexterity", "value": "dexterity"}, {"label": "Constitution", "value": "constitution"}, {"label": "Intelligence", "value": "intelligence"}, {"label": "Wisdom", "value": "wisdom"}, {"label": "Charisma", "value": "charisma"}]'
+          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
           multiselect="4"
           onchange="updateAbilityBoosts(value, 'freeBoosts')"
         ></dropdown>
