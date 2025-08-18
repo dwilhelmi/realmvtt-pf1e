@@ -24,6 +24,7 @@
     let showSkillField = false;
     let showAttackField = false;
     let showSaveField = false;
+    let showAllChecksField = false;
 
     if (typeValue === "attributeBonus") {
       showAttributeField = true;
@@ -55,6 +56,12 @@
     } else if (typeValue === "savePenalty") {
       showFieldField = false;
       showSaveField = true;
+    } else if (typeValue === "allBonus") {
+      showAllChecksField = true;
+      showFieldField = false;
+    } else if (typeValue === "allPenalty") {
+      showAllChecksField = true;
+      showFieldField = false;
     }
 
     if (modifier.fields?.field?.hidden !== !showFieldField) {
@@ -73,10 +80,26 @@
     if (modifier.fields?.fieldSave?.hidden !== !showSaveField) {
       valuesToSet[`${modPath}.fields.fieldSave.hidden`] = !showSaveField;
     }
+    if (modifier.fields?.fieldAllChecks?.hidden !== !showAllChecksField) {
+      valuesToSet[`${modPath}.fields.fieldAllChecks.hidden`] =
+        !showAllChecksField;
+    }
 
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }
+  }
+
+  function setField(value) {
+    const modPath = getNearestParentDataPath(dataPath);
+    const modifier = api.getValue(modPath);
+    const typeValue = modifier?.data?.type || "";
+
+    const valuesToSet = {
+      [`${modPath}.data.field`]: value,
+    };
+
+    api.setValues(valuesToSet);
   }
 </script>
 
@@ -89,7 +112,9 @@
     onchange="showHideFields()"
     onload="showHideFields()"
     label="Modifier"
-    options='[{"label": "Attribute Bonus", "value": "attributeBonus"},
+    options='[{"label": "All Checks and DCs Bonus", "value": "allBonus"},
+      {"label": "All Checks and DCs Penalty", "value": "allPenalty"},
+      {"label": "Attribute Bonus", "value": "attributeBonus"},
       {"label": "Attribute Penalty", "value": "attributePenalty"},
       {"label": "Attack Bonus", "value": "attackBonus"}, 
       {"label": "Attack Penalty", "value": "attackPenalty"},
@@ -147,7 +172,25 @@
     label="Attribute"
     hidden="true"
     placeholder="Select Attribute"
+    onchange="setField(value)"
     options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  ></dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldAllChecks"
+    label="Field"
+    hidden="true"
+    placeholder="Select Field"
+    onchange="setField(value)"
+    options='[{"label": "All", "value": "all"}, 
+    {"label": "Strength-based", "value": "str"},
+    {"label": "Dexterity-based", "value": "dex"},
+    {"label": "Constitution-based", "value": "con"},
+    {"label": "Intelligence-based", "value": "int"},
+    {"label": "Wisdom-based", "value": "wis"},
+    {"label": "Charisma-based", "value": "cha"}]'
   ></dropdown>
 
   <dropdown
@@ -157,6 +200,7 @@
     label="Skill"
     hidden="true"
     placeholder="Select Skill"
+    onchange="setField(value)"
     options='[{"label": "All", "value": "all"}, 
     {"label": "Strength-based", "value": "str"},
     {"label": "Dexterity-based", "value": "dex"},
@@ -189,6 +233,7 @@
     label="Attack Type"
     placeholder="Select Attack Type"
     hidden="true"
+    onchange="setField(value)"
     options='[{"label": "All", "value": "all"}, {"label": "Strength-based", "value": "str"}, {"label": "Dexterity-based", "value": "dex"}, {"label": "All Ranged", "value": "ranged"}, {"label": "All Melee", "value": "melee"}]'
   ></dropdown>
 
@@ -199,6 +244,7 @@
     label="Save Type"
     placeholder="Select Save Type"
     hidden="true"
+    onchange="setField(value)"
     options='[{"label": "All", "value": "all"}, {"label": "Fortitude", "value": "fortitude"}, {"label": "Reflex", "value": "reflex"}, {"label": "Will", "value": "will"}]'
   ></dropdown>
 </div>

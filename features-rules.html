@@ -1,0 +1,29 @@
+<div style="display: flex; flex-direction: column; gap: 4px">
+  <label label="Settings" size="md" textalign="center" variant="bold"></label>
+  <checkbox
+    field="toggleable"
+    label="Toggleable"
+    description="Show a toggle on the Actions tab for a character with this Feature."
+    size="sm"
+    textalign="right"
+  ></checkbox>
+
+  <label
+    label="Provides Attack"
+    size="sm"
+    textalign="left"
+    variant="bold"
+  ></label>
+  <label
+    label="Add an Item below if this Feature provides an attack."
+    size="sm"
+    textalign="left"
+    color="dimmed"
+    variant="standard"
+  ></label>
+  <list field="item" listtype="attached_item_list"></list>
+
+  <label label="Modifiers" size="md" textalign="center" variant="bold"></label>
+
+  <list field="modifiers" listtype="modifier_list" variant="striped"></list>
+</div>

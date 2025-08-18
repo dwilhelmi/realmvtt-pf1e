@@ -378,7 +378,7 @@ const traitDescriptions = {
   Incapacitation:
     "An ability with this trait can take a character completely out of the fight or even kill them, and it's harder to use on a more powerful character. If a spell has the incapacitation trait, any creature of more than twice the spell's rank treats the result of their check to prevent being incapacitated by the spell as one degree of success better, or the result of any check the spellcaster made to incapacitate them as one degree of success worse. If any other effect has the incapacitation trait, a creature of higher level than the item, creature, or hazard generating the effect gains the same benefits.",
   Incarnate:
-    "A spell with the incarnate trait is similar in theme to spells that summon creatures, but it doesn't conjure a minion with the summoned trait. Instead, when summoned, the incarnate creature takes its Arrive action when you finish Casting the Spell. At the end of your next turn, the incarnate creature can either Step, Stride, or take the action for another movement type it has (such as Climb or Burrow), and then takes its Depart action. The spell then ends. The names of specific Arrive and Depart actions are listed in italics after the word “Arrive” or “Depart” respectively, along with any traits. A creature summoned by an incarnate spell acts in your interests, directs its effects away from you and your allies as much as possible, and might listen to your requests, but ultimately makes its own decisions. If the spell indicates that the incarnate makes a decision, the GM determines what the incarnate would do. It might even become more inclined to do precisely as you wish over multiple summonings. The incarnate is not fully a creature. It can't take any other actions, nor can it be targeted or harmed by Strikes, spells, or other effects unless they would be able to target or end a spell effect (such as dispel magic). It has a size for the purposes of determining its placement for effects, but it doesn't block movement. If applicable, its effects use your spell DCs and spell attack roll modifier.",
+    "A spell with the incarnate trait is similar in theme to spells that summon creatures, but it doesn't conjure a minion with the summoned trait. Instead, when summoned, the incarnate creature takes its Arrive action when you finish Casting the Spell. At the end of your next turn, the incarnate creature can either Step, Stride, or take the action for another movement type it has (such as Climb or Burrow), and then takes its Depart action. The spell then ends. The names of specific Arrive and Depart actions are listed in italics after the word &quote;Arrive&quote; or &quote;Depart&quote; respectively, along with any traits. A creature summoned by an incarnate spell acts in your interests, directs its effects away from you and your allies as much as possible, and might listen to your requests, but ultimately makes its own decisions. If the spell indicates that the incarnate makes a decision, the GM determines what the incarnate would do. It might even become more inclined to do precisely as you wish over multiple summonings. The incarnate is not fully a creature. It can't take any other actions, nor can it be targeted or harmed by Strikes, spells, or other effects unless they would be able to target or end a spell effect (such as dispel magic). It has a size for the purposes of determining its placement for effects, but it doesn't block movement. If applicable, its effects use your spell DCs and spell attack roll modifier.",
   Incorporeal:
     "An incorporeal creature or object has no physical form. It can pass through solid objects, including walls. When inside an object, an incorporeal creature can't perceive, attack, or interact with anything outside the object, and if it starts its turn in an object, it is slowed 1 until the end of its turn. A corporeal and an incorporeal creature can pass through one another, but they can't end their movement in each other's space. An incorporeal creature can't attempt Strength-based checks against physical creatures or objects—only against incorporeal ones—unless those objects have the ghost touch property rune. Likewise, a corporeal creature can't attempt Strength-based checks against incorporeal creatures or objects. Incorporeal creatures usually have immunity to effects or conditions that require a physical body, like disease, poison, and precision damage. They usually have resistance against all damage (except force damage, spirit damage, and damage from Strikes with the ghost touch property rune), with double the resistance against non-magical damage.",
   Inevitable:
@@ -685,7 +685,7 @@ const traitDescriptions = {
   Structure:
     "A spell, item activation, or ability with the structure trait creates a magical building or other structure. The structure must be created on a plot of land free of other structures. The structure adapts to the natural terrain, adopting the structural requirements for being built there. The structure adjusts around small features such as ponds or spires of rock, but it can't be created on water or other nonsolid surfaces. If created on snow, sand dunes, or other soft surfaces with a solid surface underneath, the structure's foundation (if any) reaches the solid ground. If the structure is on a solid but unstable surface, such as a swamp or an area plagued by tremors, roll a @Check[flat|dc:3] each day; on a failure, the structure begins to sink or collapse.</p><p>The structure doesn't harm creatures within the area when it appears, and it can't be created within a crowd or in a densely populated area. Any creature inadvertently caught inside the structure when it's created ends up unharmed inside the complete structure and always has a clear path of escape. A creature inside the structure when the effect ends isn't harmed, and it lands harmlessly on the ground if it was on an upper level of the structure",
   SubjectiveGravity:
-    "All bodies of mass can be centers of gravity with the same force, but only if a non-mindless creature wills it. Unattended items, objects, and mindless creatures treat the plane as having microgravity. Creatures on a plane with subjective gravity can move normally along a solid surface by imagining “down” near their feet. Designating this downward direction is a free action that has the concentration trait. If suspended in midair, a creature can replicate flight by choosing a “down” direction and falling in that direction, moving up to their Speed or fly Speed. This pseudo-flight uses the Fly action.",
+    "All bodies of mass can be centers of gravity with the same force, but only if a non-mindless creature wills it. Unattended items, objects, and mindless creatures treat the plane as having microgravity. Creatures on a plane with subjective gravity can move normally along a solid surface by imagining "down" near their feet. Designating this downward direction is a free action that has the concentration trait. If suspended in midair, a creature can replicate flight by choosing a "down" direction and falling in that direction, moving up to their Speed or fly Speed. This pseudo-flight uses the Fly action.",
   Subtle:
     "A spell with the subtle trait can be cast without incantations and doesn't have obvious manifestations.",
   Suli: "Sulis are planar scions descended from jann.",
@@ -1152,6 +1152,17 @@ function getEffectsAndModifiersForToken(
   }
   let results = [];
 
+  // For effects we also need to check those that include -circumstance, -item, -status,
+  // so make a new array to include those
+  const allTypes = [...types];
+  for (const type of allTypes) {
+    if (type.endsWith("Penalty") || type.endsWith("Bonus")) {
+      allTypes.push(`${type}-circumstance`);
+      allTypes.push(`${type}-item`);
+      allTypes.push(`${type}-status`);
+    }
+  }
+
   // Set of stack modifiers that we have seen so we don't duplicate them
   const stackModifiers = {};
 
@@ -1163,6 +1174,17 @@ function getEffectsAndModifiersForToken(
       const ruleType = rule?.type || "";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = rule.value || "";
+      let bonusPenaltyType = "none";
+
+      // For effects, we get the modifierType from the suffix, if it ends with -circumstance, -item, or -status
+      if (ruleType.endsWith("-circumstance")) {
+        bonusPenaltyType = "circumstance";
+      } else if (ruleType.endsWith("-item")) {
+        bonusPenaltyType = "item";
+      } else if (ruleType.endsWith("-status")) {
+        bonusPenaltyType = "status";
+      }
+
       if (rule.valueType === "number") {
         value = parseInt(rule.value, 10);
         if (isNaN(value)) {
@@ -1199,6 +1221,7 @@ function getEffectsAndModifiersForToken(
             value: value,
             active: true,
             modifierType: ruleType,
+            type: bonusPenaltyType,
             field: rule?.field || "",
             valueType: rule.valueType,
             isPenalty: isPenalty,
@@ -1217,6 +1240,7 @@ function getEffectsAndModifiersForToken(
             value: value,
             active: true,
             modifierType: ruleType,
+            type: bonusPenaltyType,
             field: rule?.field || "",
             valueType: rule.valueType,
             isPenalty: isPenalty,
@@ -1250,6 +1274,7 @@ function getEffectsAndModifiersForToken(
             value: value,
             active: true,
             modifierType: ruleType,
+            type: bonusPenaltyType,
             field: rule?.field || "",
             valueType: rule.valueType,
             isPenalty: isPenalty,
@@ -1278,6 +1303,7 @@ function getEffectsAndModifiersForToken(
     const modifiers = feature.data?.modifiers || [];
     modifiers.forEach((modifier) => {
       const ruleType = modifier.data?.type || "";
+      const bonusPenaltyType = modifier.data?.modifierType || "none";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = modifier.data?.value || "";
       if (modifier.data?.valueType === "number") {
@@ -1314,6 +1340,7 @@ function getEffectsAndModifiersForToken(
           name: feature?.name || "Feature",
           value: value,
           active: modifier.data?.active === true,
+          type: bonusPenaltyType,
           modifierType: ruleType,
           field: modifier.data?.field || "",
           valueType: modifier.data?.valueType,
@@ -1325,7 +1352,7 @@ function getEffectsAndModifiersForToken(
     });
   });
 
-  // Special case for armor, if this is a stealth check
+  // TODO - fix for pf2e Special case for armor, if this is a stealth check
   if (field === "stealth") {
     const bestEquippedArmor = target?.data?.armor || undefined;
     if (bestEquippedArmor?.stealthPenalty) {
@@ -1341,8 +1368,8 @@ function getEffectsAndModifiersForToken(
     }
   }
 
-  if (types && types.length > 0) {
-    results = results.filter((r) => types.includes(r.modifierType));
+  if (allTypes && allTypes.length > 0) {
+    results = results.filter((r) => allTypes.includes(r.modifierType));
   }
 
   if (field && field !== "") {
@@ -1355,6 +1382,48 @@ function getEffectsAndModifiersForToken(
   results = results.filter(
     (r) => r.itemId === itemId || r.itemId === undefined
   );
+
+  // For the roll, we need only count 1 status / item / circumstance bonus or penalty,
+  // and we take the highest of each
+  const filteredResults = [];
+  const bonusGroups = { circumstance: [], item: [], status: [] };
+  const penaltyGroups = { circumstance: [], item: [], status: [] };
+
+  // Group results by type and bonus/penalty
+  results.forEach(result => {
+    if (result.type === "none") {
+      // Keep non-typed modifiers as-is
+      filteredResults.push(result);
+      return;
+    }
+
+    const isPenalty = result.modifierType.toLowerCase().includes("penalty");
+    const groups = isPenalty ? penaltyGroups : bonusGroups;
+    
+    if (groups[result.type]) {
+      groups[result.type].push(result);
+    }
+  });
+
+  // For each type, keep only the highest value
+  Object.keys(bonusGroups).forEach(type => {
+    if (bonusGroups[type].length > 0) {
+      const highestBonus = bonusGroups[type].reduce((highest, current) => 
+        (current.value || 0) > (highest.value || 0) ? current : highest
+      );
+      filteredResults.push(highestBonus);
+    }
+    
+    if (penaltyGroups[type].length > 0) {
+      const highestPenalty = penaltyGroups[type].reduce((highest, current) => 
+        (current.value || 0) < (highest.value || 0) ? current : highest
+      );
+      filteredResults.push(highestPenalty);
+    }
+  });
+
+  // Replace results with filtered results
+  results = filteredResults;
 
   // Filter by appliedById if provided
   if (appliedById) {
