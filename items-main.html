@@ -20,15 +20,15 @@
         traitsObjects,
     };
 
-    api.setValuesOnRecord(item, valuesToSet);
+    api.setValues(valuesToSet);
   }
 
   // Show or hide relevant values on load or change of type
-  // TODO swap out other functions with this one
   function showHideFields() {
     const itemDataPath = getNearestParentDataPath(dataPath);
     const item = itemDataPath ? api.getValue(itemDataPath) : record;
     const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+    const fieldsPath = itemDataPath ? `${itemDataPath}.fields` : "fields";
 
     const valuesToSet = {};
 
@@ -52,7 +52,7 @@
     }
 
     if (Object.keys(valuesToSet).length > 0) {
-      api.setValuesOnRecord(item, valuesToSet);
+      api.setValues(valuesToSet);
     }
   }
 

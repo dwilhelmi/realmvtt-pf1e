@@ -685,7 +685,7 @@ const traitDescriptions = {
   Structure:
     "A spell, item activation, or ability with the structure trait creates a magical building or other structure. The structure must be created on a plot of land free of other structures. The structure adapts to the natural terrain, adopting the structural requirements for being built there. The structure adjusts around small features such as ponds or spires of rock, but it can't be created on water or other nonsolid surfaces. If created on snow, sand dunes, or other soft surfaces with a solid surface underneath, the structure's foundation (if any) reaches the solid ground. If the structure is on a solid but unstable surface, such as a swamp or an area plagued by tremors, roll a @Check[flat|dc:3] each day; on a failure, the structure begins to sink or collapse.</p><p>The structure doesn't harm creatures within the area when it appears, and it can't be created within a crowd or in a densely populated area. Any creature inadvertently caught inside the structure when it's created ends up unharmed inside the complete structure and always has a clear path of escape. A creature inside the structure when the effect ends isn't harmed, and it lands harmlessly on the ground if it was on an upper level of the structure",
   SubjectiveGravity:
-    "All bodies of mass can be centers of gravity with the same force, but only if a non-mindless creature wills it. Unattended items, objects, and mindless creatures treat the plane as having microgravity. Creatures on a plane with subjective gravity can move normally along a solid surface by imagining "down" near their feet. Designating this downward direction is a free action that has the concentration trait. If suspended in midair, a creature can replicate flight by choosing a "down" direction and falling in that direction, moving up to their Speed or fly Speed. This pseudo-flight uses the Fly action.",
+    "All bodies of mass can be centers of gravity with the same force, but only if a non-mindless creature wills it. Unattended items, objects, and mindless creatures treat the plane as having microgravity. Creatures on a plane with subjective gravity can move normally along a solid surface by imagining &quote;down&quote; near their feet. Designating this downward direction is a free action that has the concentration trait. If suspended in midair, a creature can replicate flight by choosing a &quote;down&quote; direction and falling in that direction, moving up to their Speed or fly Speed. This pseudo-flight uses the Fly action.",
   Subtle:
     "A spell with the subtle trait can be cast without incantations and doesn't have obvious manifestations.",
   Suli: "Sulis are planar scions descended from jann.",
@@ -1293,6 +1293,16 @@ function getEffectsAndModifiersForToken(
     ? target?.data?.inventory
     : [];
 
+  // Collect all modifiers from ancestry and class features
+  const ancestries = target?.data?.ancestries || [];
+  for (const ancestry of ancestries) {
+    features.push(...(ancestry.data?.features || []));
+  }
+  const classes = target?.data?.classes || [];
+  for (const classObj of classes) {
+    features.push(...(classObj.data?.features || []));
+  }
+
   // Filter items that are not equipped or that require attunement and not attuned
   const equippedItems = items.filter(
     (item) =>
@@ -1390,7 +1400,7 @@ function getEffectsAndModifiersForToken(
   const penaltyGroups = { circumstance: [], item: [], status: [] };
 
   // Group results by type and bonus/penalty
-  results.forEach(result => {
+  results.forEach((result) => {
     if (result.type === "none") {
       // Keep non-typed modifiers as-is
       filteredResults.push(result);
@@ -1399,23 +1409,23 @@ function getEffectsAndModifiersForToken(
 
     const isPenalty = result.modifierType.toLowerCase().includes("penalty");
     const groups = isPenalty ? penaltyGroups : bonusGroups;
-    
+
     if (groups[result.type]) {
       groups[result.type].push(result);
     }
   });
 
   // For each type, keep only the highest value
-  Object.keys(bonusGroups).forEach(type => {
+  Object.keys(bonusGroups).forEach((type) => {
     if (bonusGroups[type].length > 0) {
-      const highestBonus = bonusGroups[type].reduce((highest, current) => 
+      const highestBonus = bonusGroups[type].reduce((highest, current) =>
         (current.value || 0) > (highest.value || 0) ? current : highest
       );
       filteredResults.push(highestBonus);
     }
-    
+
     if (penaltyGroups[type].length > 0) {
-      const highestPenalty = penaltyGroups[type].reduce((highest, current) => 
+      const highestPenalty = penaltyGroups[type].reduce((highest, current) =>
         (current.value || 0) < (highest.value || 0) ? current : highest
       );
       filteredResults.push(highestPenalty);
@@ -1455,4 +1465,226 @@ function getPathfinderSkills() {
     Survival: "wis",
     Thievery: "dex",
   };
+}
+
+// Call this function after adding a talent/feature or equipping an item
+function updateAllAttributes(record, callback = undefined) {
+  const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+  const valuesToSet = {};
+
+  // First recalculate the ability scores based on base values and total mods
+  attributes.forEach((attribute) => {
+    // Get the base value and total modifier
+    const baseValue =
+      record.data?.[`base${capitalize(attribute)}`] ||
+      record.data?.[attribute] ||
+      0;
+    const totalMod = record.data?.[`total${capitalize(attribute)}Mod`] || 0;
+
+    // Calculate the actual attribute value
+    const calculatedValue = parseInt(baseValue, 10) + parseInt(totalMod, 10);
+
+    // Update the attribute if it's different from the current value
+    if (calculatedValue !== parseInt(record.data?.[attribute] || 0, 10)) {
+      valuesToSet[`data.${attribute}`] = calculatedValue;
+    }
+
+    // Now calculate the modifiers and other derived values
+    updateAttribute({
+      record,
+      attribute,
+      value: calculatedValue,
+      moreValuesToSet: valuesToSet,
+    });
+  });
+
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValuesOnRecord(record, valuesToSet, callback);
+  }
+}
+
+function updateAttribute({
+  record,
+  attribute,
+  value,
+  moreValuesToSet = undefined,
+}) {
+  const valuesToSet = {};
+
+  const val = parseInt(value, 10);
+  if (isNaN(val)) {
+    return;
+  }
+
+  // Get the current total modifier for this attribute
+  const totalMod =
+    record.data?.[`total${capitalize(attribute)}Mod`] !== undefined
+      ? parseInt(record.data?.[`total${capitalize(attribute)}Mod`], 10)
+      : 0;
+
+  // Calculate the base value by subtracting the total modifier from the new value
+  const baseValue = val - parseInt(totalMod, 10);
+
+  // Store the base value
+  valuesToSet[`data.base${capitalize(attribute)}`] = baseValue;
+
+  // Get hitpoints max modifiers
+  const hitpointsMaxMods = getEffectsAndModifiersForToken(record, [
+    "hitpoints",
+  ]);
+  const extraHitpoints = hitpointsMaxMods.reduce((acc, mod) => {
+    return acc + parseInt(mod.value || 0, 10);
+  }, 0);
+
+  // If this was constitution, update hitpoints
+  if (attribute === "con") {
+    // hitpoints = CON MOD + hp rolled at each level (min 1)
+    const conMod = value;
+    // Hit Points in PF2e is Ancestry HP + (Class HP + Con Mod)*Level
+    const ancestryHp = record.data?.ancestries?.[0]?.hp || 0;
+    const classHp = record.data?.classes?.[0]?.hp || 0;
+    const level = record.data?.level || 0;
+    const totalHp = ancestryHp + (conMod + classHp) * level;
+    valuesToSet[`data.hitpoints`] = totalHp;
+    // If curhp is not set, set it to hitpoints
+    if (record.data?.curhp === undefined) {
+      valuesToSet[`data.curhp`] = totalHp;
+    }
+  }
+
+  // You can carry an amount of Bulk equal to 5 plus your Strength modifier without penalty
+  let strength = parseInt(record.data?.str || 0, 10);
+  if (attribute === "str") {
+    strength = value;
+  }
+  valuesToSet[`data.bulk`] = 5 + strength;
+
+  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
+  // TODO GET BEST ARMOR
+  // const bestArmor = getBestArmor(record);
+  // PLACEHOLDER
+  const bestArmor = {
+    ac: 10,
+    addDex: false,
+    shield: 0,
+    shieldName: "",
+    armorType: "",
+  };
+  let ac = Math.max(10, bestArmor.ac);
+  let dexterity = record.data?.dex || 0;
+  if (attribute === "dex") {
+    dexterity = value;
+  }
+  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
+  if (bestArmor.addDex) {
+    ac += dexterity;
+  }
+  if (bestArmor.shield) {
+    ac += bestArmor.shield;
+  }
+  const acBonus = getEffectsAndModifiersForToken(
+    record,
+    ["armorClassBonus", "armorClassPenalty"],
+    "all"
+  );
+  const armorModsSet = new Set();
+  acBonus.forEach((modifier) => {
+    if (!armorModsSet.has(JSON.stringify(modifier))) {
+      ac += modifier.value;
+      armorModsSet.add(JSON.stringify(modifier));
+    }
+  });
+  // Also get the armor type bonuses
+  if (bestArmor.armorType) {
+    const armorTypeBonus = getEffectsAndModifiersForToken(
+      record,
+      ["armorClassBonus", "armorClassPenalty"],
+      bestArmor.armorType
+    );
+    armorTypeBonus.forEach((modifier) => {
+      if (!armorModsSet.has(JSON.stringify(modifier))) {
+        ac += modifier.value;
+        armorModsSet.add(JSON.stringify(modifier));
+      }
+    });
+  }
+  // Also get the shield bonus
+  if (bestArmor.shieldName) {
+    const shieldBonus = getEffectsAndModifiersForToken(
+      record,
+      ["armorClassBonus", "armorClassPenalty"],
+      "Shield"
+    );
+    shieldBonus.forEach((modifier) => {
+      if (!armorModsSet.has(JSON.stringify(modifier))) {
+        ac += modifier.value;
+        armorModsSet.add(JSON.stringify(modifier));
+      }
+    });
+  }
+  valuesToSet[`data.ac`] = ac;
+
+  // If moreValuesToSet is provided, add it to the valuesToSet else call API directly
+  if (moreValuesToSet) {
+    Object.keys(valuesToSet).forEach((key) => {
+      moreValuesToSet[key] = valuesToSet[key];
+    });
+  } else {
+    api.setValuesOnRecord(record, valuesToSet);
+  }
+}
+
+// This function is called after adding/editing a talent/feature or equipping an item
+function onAddEditFeature(record, callback = undefined) {
+  // Check for ability score bonuses
+  const abilityScoreBonus = getEffectsAndModifiersForToken(record, [
+    "attributeBonus",
+    "attributePenalty",
+  ]);
+
+  const valuesToSet = {};
+
+  // Initialize total modifier values for each ability
+  const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+
+  // Reset all total mods to 0 first
+  attributes.forEach((attribute) => {
+    valuesToSet[`data.total${capitalize(attribute)}Mod`] = 0;
+  });
+
+  // Calculate the total modifier for each ability
+  abilityScoreBonus.forEach((modifier) => {
+    const ability = modifier.field || "";
+    if (ability && attributes.includes(ability)) {
+      const currentTotalMod =
+        valuesToSet[`data.total${capitalize(ability)}Mod`] || 0;
+      valuesToSet[`data.total${capitalize(ability)}Mod`] =
+        currentTotalMod + modifier.value;
+    } else if (ability === "all") {
+      attributes.forEach((attribute) => {
+        const currentTotalMod =
+          valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
+        valuesToSet[`data.total${capitalize(attribute)}Mod`] =
+          currentTotalMod + modifier.value;
+      });
+    }
+  });
+
+  attributes.forEach((attribute) => {
+    const baseValue =
+      record.data?.[`base${capitalize(attribute)}`] ||
+      record.data?.[attribute] ||
+      0;
+    const totalMod = valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
+    valuesToSet[`data.${attribute}`] =
+      parseInt(baseValue, 10) + parseInt(totalMod, 10);
+  });
+
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {
+      updateAllAttributes(recordUpdated, callback);
+    });
+  } else {
+    updateAllAttributes(record, callback);
+  }
 }

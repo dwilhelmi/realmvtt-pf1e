@@ -8,20 +8,24 @@
     textalign="right"
   ></checkbox>
 
-  <label
-    label="Provides Attack"
-    size="sm"
-    textalign="left"
-    variant="bold"
-  ></label>
-  <label
-    label="Add an Item below if this Feature provides an attack."
-    size="sm"
-    textalign="left"
-    color="dimmed"
-    variant="standard"
-  ></label>
-  <list field="item" listtype="attached_item_list"></list>
+  <div style="display: flex; flex-direction: row; gap: 4px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <label
+        label="Provides Attack"
+        size="sm"
+        textalign="left"
+        variant="bold"
+      ></label>
+      <label
+        label="Add an Item here if this Feature provides an attack."
+        size="sm"
+        textalign="left"
+        color="dimmed"
+        variant="standard"
+      ></label>
+    </div>
+    <list field="item" variant="outline" listtype="attached_item_list"></list>
+  </div>
 
   <label label="Modifiers" size="md" textalign="center" variant="bold"></label>
 

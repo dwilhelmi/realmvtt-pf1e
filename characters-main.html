@@ -12,7 +12,26 @@
   }
 
   function onDropAncestry(recordLink) {
-    console.log("TODO ON DROP ANCESTRY", recordLink);
+    // Check if already on Character
+    const ancestries = record?.data?.ancestries || [];
+    const ancestryName = recordLink.tooltip;
+
+    const ancestryObj = { ...recordLink.value };
+
+    api.setValues(
+      {
+        "data.ancestries": [ancestryObj],
+        "data.ancestryName": ancestryName,
+      },
+      (updatedRecord) => {
+        // Recalculate ability scores for bonuses and such
+        onAddEditFeature(record, (updatedRecord) => {
+          api.setHidden("ancestries", false, () => {
+            api.setHidden("ancestryDetailsLabel", true);
+          });
+        });
+      }
+    );
   }
 
   function onDropHeritage(recordLink) {
@@ -28,7 +47,12 @@
   }
 
   function onDeleteAncestry() {
-    console.log("TODO ON DELETE ANCESTRY");
+    // Recalculate ability scores for bonuses and such
+    onAddEditFeature(record, (updatedRecord) => {
+      api.setHidden("ancestries", true, () => {
+        api.setHidden("ancestryDetailsLabel", false);
+      });
+    });
   }
 
   function onDeleteHeritage() {

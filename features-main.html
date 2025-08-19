@@ -20,7 +20,7 @@
         traitsObjects,
     };
 
-    api.setValuesOnRecord(feature, valuesToSet);
+    api.setValues(valuesToSet);
   }
 
   // Show or hide relevant values on load or change of type
@@ -28,6 +28,7 @@
     const featureDataPath = getNearestParentDataPath(dataPath);
     const feature = featureDataPath ? api.getValue(featureDataPath) : record;
     const dataPrefix = featureDataPath ? `${featureDataPath}.data` : "data";
+    const fieldsPath = featureDataPath ? `${featureDataPath}.fields` : "fields";
 
     const valuesToSet = {};
 
@@ -52,13 +53,13 @@
 
     const showActions = feature.data?.type === "active";
     if (showActions && feature.fields?.actions?.hidden !== false) {
-      valuesToSet["fields.actions.hidden"] = false;
+      valuesToSet[`${fieldsPath}.actions.hidden`] = false;
     } else if (!showActions && feature.fields?.actions?.hidden !== true) {
-      valuesToSet["fields.actions.hidden"] = true;
+      valuesToSet[`${fieldsPath}.actions.hidden`] = true;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
-      api.setValuesOnRecord(feature, valuesToSet);
+      api.setValues(valuesToSet);
     }
   }
 </script>

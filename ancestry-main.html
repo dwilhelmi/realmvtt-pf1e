@@ -20,7 +20,7 @@
         traitsObjects,
     };
 
-    api.setValuesOnRecord(ancestry, valuesToSet);
+    api.setValues(valuesToSet);
   }
 
   // Show or hide relevant values on load or change of type
@@ -28,6 +28,9 @@
     const ancestryDataPath = getNearestParentDataPath(dataPath);
     const ancestry = ancestryDataPath ? api.getValue(ancestryDataPath) : record;
     const dataPrefix = ancestryDataPath ? `${ancestryDataPath}.data` : "data";
+    const fieldsPath = ancestryDataPath
+      ? `${ancestryDataPath}.fields`
+      : "fields";
 
     const valuesToSet = {};
 
@@ -51,7 +54,7 @@
     }
 
     if (Object.keys(valuesToSet).length > 0) {
-      api.setValuesOnRecord(ancestry, valuesToSet);
+      api.setValues(valuesToSet);
     }
   }
 </script>
