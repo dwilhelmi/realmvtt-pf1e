@@ -111,7 +111,7 @@
   }
 
   function updateStat(value, stat) {
-    console.log("TODO UPDATE STAT", value, stat);
+    updateAttribute({ record, attribute: stat, value });
   }
 
   function updateAbilityBoosts(value, field) {

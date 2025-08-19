@@ -1170,13 +1170,35 @@ function getDamageType(rollString) {
 // Checks for replacements in a string modifier
 function checkForReplacements(value, replacements = {}, recordOverride = null) {
   let thisRecord = recordOverride || record;
-  // Case for 'Half Character Level' or 'Half <class> Level'
-  const matchLevel = value.match(/[Hh]alf [Cc]haracter [Ll]evel/);
-  const matchCharacterLevel = value.match(/[Cc]haracter [Ll]evel/);
-  if (matchLevel) {
-    value = Math.floor(parseInt(thisRecord?.data?.level || "1", 10) / 2);
+
+  // Ensure value is a string for regex operations
+  if (typeof value !== "string") {
+    value = String(value || "");
+  }
+
+  // Case for 'Half Level' or 'Half Character Level'
+  const matchHalfLevel =
+    value.match(/[Hh]alf [Cc]haracter [Ll]evel/) ||
+    value.match(/[Hh]alf [Ll]evel/);
+  const matchCharacterLevel =
+    value.match(/[Cc]haracter [Ll]evel/) || value.match(/[Ll]evel/);
+  if (matchHalfLevel) {
+    // Minimum of 1 if half level is 0
+    value = value.replaceAll(
+      matchHalfLevel[0],
+      String(
+        Math.max(
+          1,
+          Math.floor(parseInt(thisRecord?.data?.level || "1", 10) / 2)
+        )
+      )
+    );
   } else if (matchCharacterLevel) {
-    value = Math.floor(parseInt(thisRecord?.data?.level || "1", 10));
+    // Minimum of 1
+    value = value.replaceAll(
+      matchCharacterLevel[0],
+      String(Math.floor(parseInt(thisRecord?.data?.level || "1", 10)))
+    );
   }
 
   // Case for Strength|Dexterity|Constitution|Wisdom|Intelligence|Charisma
@@ -1184,10 +1206,20 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
     /[Ss]trength|[Dd]exterity|[Cc]onstitution|[Ww]isdom|[Ii]ntelligence|[Cc]harisma/
   );
   if (matchModifier) {
+    let attribute = "str";
+    if (matchModifier[0].toLowerCase().includes("dexterity")) {
+      attribute = "dex";
+    } else if (matchModifier[0].toLowerCase().includes("constitution")) {
+      attribute = "con";
+    } else if (matchModifier[0].toLowerCase().includes("wisdom")) {
+      attribute = "wis";
+    } else if (matchModifier[0].toLowerCase().includes("intelligence")) {
+      attribute = "int";
+    } else if (matchModifier[0].toLowerCase().includes("charisma")) {
+      attribute = "cha";
+    }
     const attributeMod = parseInt(
-      thisRecord?.data?.[
-        `${matchModifier[0].toLowerCase().replace(" ", "")}`
-      ] || "0",
+      thisRecord?.data?.[`${attribute}`] || "0",
       10
     );
     value = value.replaceAll(matchModifier[0], attributeMod);
@@ -1816,6 +1848,72 @@ function onAddEditFeature(record, callback = undefined) {
     valuesToSet[`data.${attribute}`] =
       parseInt(baseValue, 10) + parseInt(totalMod, 10);
   });
+
+  // Check for sense bonuses
+  const senseBonus = getEffectsAndModifiersForToken(record, ["sense"]);
+  const currentSenses = record.data?.senses || "";
+
+  senseBonus.forEach((modifier) => {
+    const sense = modifier.value || modifier.field || "";
+    if (sense && !currentSenses.includes(sense)) {
+      let newSenses = currentSenses;
+
+      // If the new sense is Darkvision, replace any existing Low-Light vision
+      if (sense.toLowerCase() === "darkvision") {
+        newSenses = currentSenses.replace(/low-light/gi, "Darkvision");
+      }
+
+      // Append new sense with comma if there are existing senses
+      if (newSenses && !newSenses.includes(sense)) {
+        newSenses = `${newSenses}, ${sense}`;
+      } else if (!newSenses) {
+        newSenses = sense;
+      }
+
+      valuesToSet[`data.senses`] = newSenses;
+    }
+  });
+
+  // Check for Resistence, Weakness, Immunity
+  const resistanceBonus = getEffectsAndModifiersForToken(record, [
+    "resistance",
+  ]);
+  const weaknessBonus = getEffectsAndModifiersForToken(record, ["weakness"]);
+  const immunityBonus = getEffectsAndModifiersForToken(record, ["immunity"]);
+  const resistances = [];
+  const weaknesses = [];
+  const immunities = [];
+
+  resistanceBonus.forEach((modifier) => {
+    const resistance = modifier.value || modifier.field || "";
+    resistances.push(resistance);
+  });
+
+  weaknessBonus.forEach((modifier) => {
+    const weakness = modifier.value || modifier.field || "";
+    weaknesses.push(weakness);
+  });
+
+  immunityBonus.forEach((modifier) => {
+    const immunity = modifier.value || modifier.field || "";
+    immunities.push(immunity);
+  });
+  if (
+    JSON.stringify(resistances) !==
+    JSON.stringify(record.data?.resistances || [])
+  ) {
+    valuesToSet[`data.resistances`] = resistances;
+  }
+  if (
+    JSON.stringify(weaknesses) !== JSON.stringify(record.data?.weaknesses || [])
+  ) {
+    valuesToSet[`data.weaknesses`] = weaknesses;
+  }
+  if (
+    JSON.stringify(immunities) !== JSON.stringify(record.data?.immunities || [])
+  ) {
+    valuesToSet[`data.immunities`] = immunities;
+  }
 
   if (Object.keys(valuesToSet).length > 0) {
     api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {
