@@ -1467,6 +1467,10 @@ function getEffectsAndModifiersForToken(
   for (const ancestry of ancestries) {
     features.push(...(ancestry.data?.features || []));
   }
+  const heritages = target?.data?.heritages || [];
+  for (const heritage of heritages) {
+    features.push(...(heritage.data?.features || []));
+  }
   const classes = target?.data?.classes || [];
   for (const classObj of classes) {
     features.push(...(classObj.data?.features || []));
@@ -1885,6 +1889,7 @@ function onAddEditFeature(record, callback = undefined) {
   const immunities = [];
 
   resistanceBonus.forEach((modifier) => {
+    const field = modifier.field || "";
     const resistance = modifier.value || modifier.field || "";
     resistances.push(resistance);
   });

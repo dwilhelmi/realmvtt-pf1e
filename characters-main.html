@@ -70,7 +70,54 @@
   }
 
   function onDropHeritage(recordLink) {
-    console.log("TODO ON DROP HERITAGE", recordLink);
+    // Check if already on Character
+    const heritages = record?.data?.heritages || [];
+    const heritageName = recordLink.tooltip;
+    const heritageObj = { ...recordLink.value };
+
+    // Add all non-rarity traits to the character
+    const traits = heritageObj.data?.traits || [];
+    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+    heritageObj.data.traits = nonRarityTraits;
+
+    // Set traits list
+    const traitsObjects = [];
+    for (const trait of nonRarityTraits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const curTraits = record.data?.traits || [];
+    // Ensure uniqueness by using a Set for better deduplication
+    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+
+    const curTraitsList = record.data?.traitsList || [];
+    // Ensure uniqueness by name, keeping the first occurrence of each trait name
+    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
+      (trait, index, self) =>
+        self.findIndex((t) => t.name === trait.name) === index
+    );
+
+    api.setValues(
+      {
+        "data.heritages": [heritageObj],
+        "data.heritageName": heritageName,
+        "data.traitsList": newTraitsList,
+        "data.traits": newTraits,
+      },
+      (updatedRecord) => {
+        // Recalculate ability scores for bonuses and such
+        onAddEditFeature(updatedRecord, () => {
+          api.setHidden("heritages", false, () => {
+            api.setHidden("heritageDetailsLabel", true);
+          });
+        });
+      }
+    );
   }
 
   function onDropClass(recordLink) {
@@ -91,7 +138,12 @@
   }
 
   function onDeleteHeritage() {
-    console.log("TODO ON DELETE HERITAGE");
+    // Recalculate ability scores for bonuses and such
+    onAddEditFeature(record, () => {
+      api.setHidden("heritages", true, () => {
+        api.setHidden("heritageDetailsLabel", false);
+      });
+    });
   }
 
   function onDeleteClass() {

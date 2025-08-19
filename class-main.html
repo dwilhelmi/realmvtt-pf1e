@@ -1,0 +1,131 @@
+<script>
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const classDataPath = getNearestParentDataPath(dataPath);
+    const classObj = classDataPath ? api.getValue(classDataPath) : record;
+    const dataPrefix = classDataPath ? `${classDataPath}.data` : "data";
+    const fieldsPath = classDataPath ? `${classDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      classObj.data?.traits &&
+      classObj.data?.traits.length > 0 &&
+      !classObj.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of classObj.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Feature"
+    size="lg"
+    variant="bold"
+  ></label>
+</div>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <stringfield
+        field="primaryAbility"
+        label="Primary Ability"
+        placeholder="Enter primary Ability details..."
+      >
+      </stringfield>
+      <dropdown
+        field="hitDie"
+        label="Hit Point Die"
+        placeholder="Select Hit Die"
+        options='[{"label": "D6 per level", "value": "d6"}, {"label": "D8 per level", "value": "d8"}, {"label": "D10 per level", "value": "d10"}, {"label": "D12 per level", "value": "d12"}]'
+      >
+      </dropdown>
+    </div>
+  </div>
+  <!-- Other -->
+</div>
+
+<div style="margin-top: 8px; margin-bottom: 8px">
+  <divider label="Description"></divider>
+</div>
+
+<richtextfield
+  placeholder="Enter Class description..."
+  field="Description"
+  label="Description"
+></richtextfield>

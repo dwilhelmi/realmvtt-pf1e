@@ -105,60 +105,27 @@
       "
     >
       <div style="width: 100%; display: flex; gap: 4px">
-        <numberfield
+        <stringfield
           width="100%"
-          field="hp"
-          label="Hit Points"
-          placeholder="Enter Hit Points..."
+          field="ancestry"
+          label="Ancestry"
+          placeholder="Enter Ancestry..."
         >
-        </numberfield>
+        </stringfield>
+      </div>
+      <div style="width: 100%; display: flex; gap: 4px">
         <dropdown
-          size="sm"
           width="100%"
-          field="size"
-          placeholder="Select Size"
-          label="Size"
-          options='[{"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}]'
+          field="versatile"
+          label="Versatile Heritage"
+          default="no"
+          placeholder="No"
+          options='[{"label": "No", "value": "no"}, {"label": "Yes", "value": "yes"}]'
         >
         </dropdown>
       </div>
-      <stringfield
-        width="100%"
-        field="speed"
-        label="Speed"
-        placeholder="Enter Speed..."
-      >
-      </stringfield>
     </div>
   </div>
-
-  <dropdown
-    width="100%"
-    field="boosts"
-    label="Boosts"
-    placeholder="Select Attribute Boosts..."
-    multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}, {"label": "Free", "value": "free"}]'
-  >
-  </dropdown>
-
-  <dropdown
-    width="100%"
-    field="flaws"
-    label="Flaws"
-    placeholder="Select Attribute Flaws..."
-    multiselect="6"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
-
-  <stringfield
-    width="100%"
-    field="vision"
-    label="Vision"
-    placeholder="Enter Vision..."
-  >
-  </stringfield>
 </div>
 
 <div style="margin-top: 8px; margin-bottom: 8px">
