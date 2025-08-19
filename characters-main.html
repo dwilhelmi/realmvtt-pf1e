@@ -15,23 +15,58 @@
     // Check if already on Character
     const ancestries = record?.data?.ancestries || [];
     const ancestryName = recordLink.tooltip;
-
     const ancestryObj = { ...recordLink.value };
+
+    // Add all non-rarity traits to the character
+    const traits = ancestryObj.data?.traits || [];
+    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+    ancestryObj.data.traits = nonRarityTraits;
+
+    // Set traits list
+    const traitsObjects = [];
+    for (const trait of nonRarityTraits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const curTraits = record.data?.traits || [];
+    // Ensure uniqueness by using a Set for better deduplication
+    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+
+    const curTraitsList = record.data?.traitsList || [];
+    // Ensure uniqueness by name, keeping the first occurrence of each trait name
+    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
+      (trait, index, self) =>
+        self.findIndex((t) => t.name === trait.name) === index
+    );
 
     api.setValues(
       {
         "data.ancestries": [ancestryObj],
         "data.ancestryName": ancestryName,
+        "data.size": ancestryObj.data?.size,
+        "data.senses": ancestryObj.data?.vision,
+        "data.speed": ancestryObj.data?.speed,
+        "data.traitsList": newTraitsList,
+        "data.traits": newTraits,
       },
       (updatedRecord) => {
         // Recalculate ability scores for bonuses and such
-        onAddEditFeature(record, (updatedRecord) => {
+        onAddEditFeature(updatedRecord, () => {
           api.setHidden("ancestries", false, () => {
             api.setHidden("ancestryDetailsLabel", true);
           });
         });
       }
     );
+  }
+
+  function updateLanguages(value) {
+    setLanguages(value);
   }
 
   function onDropHeritage(recordLink) {
@@ -48,7 +83,7 @@
 
   function onDeleteAncestry() {
     // Recalculate ability scores for bonuses and such
-    onAddEditFeature(record, (updatedRecord) => {
+    onAddEditFeature(record, () => {
       api.setHidden("ancestries", true, () => {
         api.setHidden("ancestryDetailsLabel", false);
       });
@@ -998,6 +1033,15 @@
   <divider field="otherDivider" size="sm" color="primary"></divider>
 
   <div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
+    <dropdown
+      width="100%"
+      size="xs"
+      field="size"
+      label="Size"
+      placeholder="Medium"
+      defaultvalue="medium"
+      options='[{"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}]'
+    ></dropdown>
     <stringfield
       width="100%"
       field="speed"
@@ -1012,6 +1056,78 @@
       placeholder="None"
       size="xs"
     ></stringfield>
+  </div>
+
+  <div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
+    <div style="display: flex; flex-direction: column; gap: 2px; width: 100%">
+      <label size="xs" variant="bold" label="Languages"></label>
+      <list field="languagesList" listtype="language_list" size="xs"></list>
+    </div>
+    <popover position="bottom" offset="4" witharrow="true">
+      <popover.target>
+        <iconbutton
+          size="sm"
+          variant="light"
+          hideonlocked="true"
+          options='[{"icon": "IconEdit", "label": "Edit Languages", "value": "languages"}]'
+          field="Edit Languages"
+        ></iconbutton>
+      </popover.target>
+      <popover.dropdown>
+        <div
+          style="display: flex; flex-direction: column; gap: 4px; width: 300px"
+        >
+          <dropdown
+            size="xs"
+            field="languages"
+            placeholder="Enter Languages..."
+            multiselect="100"
+            width="100%"
+            combo="true"
+            label="Languages"
+            onchange="updateLanguages(value)"
+            optionsfunction="return getLanguageOptions();"
+          ></dropdown>
+        </div>
+      </popover.dropdown>
+    </popover>
+    <div style="display: flex; flex-direction: column; gap: 2px; width: 100%">
+      <label size="xs" variant="bold" label="Traits"></label>
+      <list
+        field="traitsList"
+        listtype="traits_list"
+        size="xs"
+        emptylisttext="None"
+      ></list>
+    </div>
+    <popover position="bottom" offset="4" witharrow="true">
+      <popover.target>
+        <iconbutton
+          size="sm"
+          variant="light"
+          hideonlocked="true"
+          options='[{"icon": "IconEdit", "label": "Edit Traits", "value": "traits"}]'
+          field="Edit Traits"
+        ></iconbutton>
+      </popover.target>
+      <popover.dropdown>
+        <div
+          style="display: flex; flex-direction: column; gap: 4px; width: 300px"
+        >
+          <dropdown
+            size="xs"
+            field="traits"
+            placeholder="Enter Traits..."
+            multiselect="100"
+            width="100%"
+            combo="true"
+            label="Traits"
+            onchange="setTraits(value)"
+            optionsfunction="return getTraitOptions();"
+          ></dropdown>
+        </div>
+      </popover.dropdown>
+    </popover>
   </div>
 </div>
 

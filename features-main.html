@@ -1,28 +1,4 @@
 <script>
-  // Sets the traits for the feature
-  function setTraits(traits) {
-    const featureDataPath = getNearestParentDataPath(dataPath);
-    const feature = featureDataPath ? api.getValue(featureDataPath) : record;
-
-    // Set the traits list to the values within traitsList
-    const traitsObjects = [];
-    for (const trait of traits) {
-      traitsObjects.push({
-        _id: generateUuid(),
-        name: trait,
-        identified: true,
-        data: {},
-      });
-    }
-
-    const valuesToSet = {
-      [`${featureDataPath}${featureDataPath ? "." : ""}data.traitsList`]:
-        traitsObjects,
-    };
-
-    api.setValues(valuesToSet);
-  }
-
   // Show or hide relevant values on load or change of type
   function showHideFields() {
     const featureDataPath = getNearestParentDataPath(dataPath);

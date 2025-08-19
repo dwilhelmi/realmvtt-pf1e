@@ -811,6 +811,15 @@ const traitDescriptions = {
     "These undead are mindless rotting corpses that hunger for living flesh.",
 };
 
+function getIsTraitRarity(trait) {
+  return (
+    trait.toLowerCase().trim().startsWith("uncommon") ||
+    trait.toLowerCase().trim().startsWith("common") ||
+    trait.toLowerCase().trim().startsWith("rare") ||
+    trait.toLowerCase().trim().startsWith("unqiue")
+  );
+}
+
 // Helper function to convert PascalCase to readable format with spaces
 function formatTraitName(name) {
   return name.replace(/([A-Z])/g, " $1").trim();
@@ -866,6 +875,134 @@ function getTraitOptions() {
       value: trait,
       label: formatTraitName(trait),
     })),
+  ];
+}
+
+// Function to get all languages as options for dropdown
+function getLanguageOptions() {
+  return [
+    // Common Languages
+    { value: "Taldane", label: "Taldane (Common)" },
+    { value: "Razatlani", label: "Razatlani (Common)" },
+    { value: "Sakvroth", label: "Sakvroth (Common)" },
+    { value: "Fey", label: "Fey (Common)" },
+    { value: "Common", label: "Common (Common)" },
+    { value: "Draconic", label: "Draconic (Common)" },
+    { value: "Dwarven", label: "Dwarven (Common)" },
+    { value: "Elven", label: "Elven (Common)" },
+    { value: "Gnomish", label: "Gnomish (Common)" },
+    { value: "Goblin", label: "Goblin (Common)" },
+    { value: "Halfling", label: "Halfling (Common)" },
+    { value: "Jotun", label: "Jotun (Common)" },
+    { value: "Orcish", label: "Orcish (Common)" },
+    { value: "Tanuki", label: "Tanuki (Common)" },
+    { value: "Wayang", label: "Wayang (Common)" },
+    { value: "Yaksha", label: "Yaksha (Common)" },
+    { value: "Iblydosi", label: "Iblydosi (Common)" },
+
+    // Uncommon Languages
+    { value: "Alghollthu", label: "Alghollthu (Uncommon)" },
+    { value: "Amurrun", label: "Amurrun (Uncommon)" },
+    { value: "Arboreal", label: "Arboreal (Uncommon)" },
+    { value: "Boggard", label: "Boggard (Uncommon)" },
+    { value: "Caligni", label: "Caligni (Uncommon)" },
+    { value: "Cyclops", label: "Cyclops (Uncommon)" },
+    { value: "Daemonic", label: "Daemonic (Uncommon)" },
+    { value: "Iruxi", label: "Iruxi (Uncommon)" },
+    { value: "Protean", label: "Protean (Uncommon)" },
+    { value: "Requian", label: "Requian (Uncommon)" },
+    { value: "Sphinx", label: "Sphinx (Uncommon)" },
+    { value: "Utopian", label: "Utopian (Uncommon)" },
+    { value: "Anadi", label: "Anadi (Uncommon)" },
+    { value: "Tengu", label: "Tengu (Uncommon)" },
+    { value: "Azlanti", label: "Azlanti (Uncommon)" },
+    { value: "Strix", label: "Strix (Uncommon)" },
+    { value: "Thassilonian", label: "Thassilonian (Uncommon)" },
+    { value: "Garundi", label: "Garundi (Uncommon)" },
+    { value: "Erutaki", label: "Erutaki (Uncommon)" },
+    { value: "Varki", label: "Varki (Uncommon)" },
+    { value: "Shoony", label: "Shoony (Uncommon)" },
+    { value: "Destrachan", label: "Destrachan (Uncommon)" },
+    { value: "D'ziriak", label: "D'ziriak (Uncommon)" },
+    { value: "Jistkan", label: "Jistkan (Uncommon)" },
+    { value: "Jyoti", label: "Jyoti (Uncommon)" },
+    { value: "Ysoki", label: "Ysoki (Uncommon)" },
+    { value: "Adlet", label: "Adlet (Uncommon)" },
+    { value: "Girtablilu", label: "Girtablilu (Uncommon)" },
+    { value: "Calda", label: "Calda (Uncommon)" },
+    { value: "Ekujae", label: "Ekujae (Uncommon)" },
+    { value: "Kibwani", label: "Kibwani (Uncommon)" },
+    { value: "Lirgeni", label: "Lirgeni (Uncommon)" },
+    { value: "Mzunu", label: "Mzunu (Uncommon)" },
+    { value: "Ocotan", label: "Ocotan (Uncommon)" },
+    { value: "Xanmba", label: "Xanmba (Uncommon)" },
+    { value: "Anugobu", label: "Anugobu (Uncommon)" },
+    { value: "Kitsune", label: "Kitsune (Uncommon)" },
+    { value: "Nagaji", label: "Nagaji (Uncommon)" },
+    { value: "Muan", label: "Muan (Uncommon)" },
+    { value: "Petran", label: "Petran (Uncommon)" },
+    { value: "Pyric", label: "Pyric (Uncommon)" },
+    { value: "Sussuran", label: "Sussuran (Uncommon)" },
+    { value: "Talican", label: "Talican (Uncommon)" },
+    { value: "Thalassic", label: "Thalassic (Uncommon)" },
+    { value: "Chthonian", label: "Chthonian (Uncommon)" },
+    { value: "Empyrean", label: "Empyrean (Uncommon)" },
+    { value: "Diabolic", label: "Diabolic (Uncommon)" },
+    { value: "Minkaian", label: "Minkaian (Uncommon)" },
+    { value: "Kholo", label: "Kholo (Uncommon)" },
+    { value: "Aklo", label: "Aklo (Uncommon)" },
+    { value: "Necril", label: "Necril (Uncommon)" },
+    { value: "Shadowtongue", label: "Shadowtongue (Uncommon)" },
+    { value: "Hallit", label: "Hallit (Uncommon)" },
+    { value: "Kelish", label: "Kelish (Uncommon)" },
+    { value: "Mwangi", label: "Mwangi (Uncommon)" },
+    { value: "Osiriani", label: "Osiriani (Uncommon)" },
+    { value: "Shoanti", label: "Shoanti (Uncommon)" },
+    { value: "Skald", label: "Skald (Uncommon)" },
+    { value: "Tien", label: "Tien (Uncommon)" },
+    { value: "Varisian", label: "Varisian (Uncommon)" },
+    { value: "Vudrani", label: "Vudrani (Uncommon)" },
+    { value: "Tripkee", label: "Tripkee (Uncommon)" },
+
+    // Rare Languages
+    { value: "Androffan", label: "Androffan (Rare)" },
+    { value: "Grioth", label: "Grioth (Rare)" },
+    { value: "Kovintal", label: "Kovintal (Rare)" },
+    { value: "Mi-Go", label: "Mi-Go (Rare)" },
+    { value: "Munavri", label: "Munavri (Rare)" },
+    { value: "Samsaran", label: "Samsaran (Rare)" },
+    { value: "Sasquatch", label: "Sasquatch (Rare)" },
+    { value: "Shae", label: "Shae (Rare)" },
+    { value: "Vanara", label: "Vanara (Rare)" },
+    { value: "Vishkanyan", label: "Vishkanyan (Rare)" },
+    { value: "Yithian", label: "Yithian (Rare)" },
+    { value: "Rasu", label: "Rasu (Rare)" },
+    { value: "Goloma", label: "Goloma (Rare)" },
+    { value: "Shisk", label: "Shisk (Rare)" },
+    { value: "Arcadian", label: "Arcadian (Rare)" },
+    { value: "Wyrwood", label: "Wyrwood (Rare)" },
+    { value: "Minatan", label: "Minatan (Rare)" },
+    { value: "Wayang", label: "Wayang (Rare)" },
+    { value: "Senzar", label: "Senzar (Rare)" },
+    { value: "Jistka", label: "Jistka (Rare)" },
+    { value: "Akitonian", label: "Akitonian (Rare)" },
+    { value: "Formian", label: "Formian (Rare)" },
+    { value: "Ikeshti", label: "Ikeshti (Rare)" },
+    { value: "Shobhad", label: "Shobhad (Rare)" },
+    { value: "Hwan", label: "Hwan (Rare)" },
+    { value: "Okaiyan", label: "Okaiyan (Rare)" },
+    { value: "Drooni", label: "Drooni (Rare)" },
+    { value: "Ancient Osiriani", label: "Ancient Osiriani (Rare)" },
+    { value: "Kashrishi", label: "Kashrishi (Rare)" },
+    { value: "Vishkanya", label: "Vishkanya (Rare)" },
+    { value: "Ratajin", label: "Ratajin (Rare)" },
+    { value: "Elder Thing", label: "Elder Thing (Rare)" },
+    { value: "Orvian", label: "Orvian (Rare)" },
+    { value: "Surki", label: "Surki (Rare)" },
+    { value: "Lashunta", label: "Lashunta (Rare)" },
+
+    // Secret Languages
+    { value: "Wildsong", label: "Wildsong (Secret)" },
   ];
 }
 
@@ -1541,10 +1678,10 @@ function updateAttribute({
     // hitpoints = CON MOD + hp rolled at each level (min 1)
     const conMod = value;
     // Hit Points in PF2e is Ancestry HP + (Class HP + Con Mod)*Level
-    const ancestryHp = record.data?.ancestries?.[0]?.hp || 0;
-    const classHp = record.data?.classes?.[0]?.hp || 0;
+    const ancestryHp = record.data?.ancestries?.[0]?.data?.hp || 0;
+    const classHp = record.data?.classes?.[0]?.data?.hp || 0;
     const level = record.data?.level || 0;
-    const totalHp = ancestryHp + (conMod + classHp) * level;
+    const totalHp = extraHitpoints + ancestryHp + (conMod + classHp) * level;
     valuesToSet[`data.hitpoints`] = totalHp;
     // If curhp is not set, set it to hitpoints
     if (record.data?.curhp === undefined) {
@@ -1687,4 +1824,55 @@ function onAddEditFeature(record, callback = undefined) {
   } else {
     updateAllAttributes(record, callback);
   }
+}
+
+// Add languages to the character or npc
+function setLanguages(languages) {
+  const recordDataPath = getNearestParentDataPath(dataPath);
+
+  // Set the traits list to the values within traitsList
+  const languageList = [];
+  for (const language of languages) {
+    // Strip rarity information from parentheses if present
+    const cleanLanguageName = language.replace(/\s*\([^)]*\)$/, "");
+
+    languageList.push({
+      _id: generateUuid(),
+      name: cleanLanguageName,
+      identified: true,
+      data: {
+        description: `Can speak the ${cleanLanguageName} language.`,
+      },
+    });
+  }
+
+  const valuesToSet = {
+    [`${recordDataPath}${recordDataPath ? "." : ""}data.languagesList`]:
+      languageList,
+  };
+
+  api.setValues(valuesToSet);
+}
+
+// Sets the traits for the record
+function setTraits(traits) {
+  const recordDataPath = getNearestParentDataPath(dataPath);
+
+  // Set the traits list to the values within traitsList
+  const traitsObjects = [];
+  for (const trait of traits) {
+    traitsObjects.push({
+      _id: generateUuid(),
+      name: trait,
+      identified: true,
+      data: {},
+    });
+  }
+
+  const valuesToSet = {
+    [`${recordDataPath}${recordDataPath ? "." : ""}data.traitsList`]:
+      traitsObjects,
+  };
+
+  api.setValues(valuesToSet);
 }
