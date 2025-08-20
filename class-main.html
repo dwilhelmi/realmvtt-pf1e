@@ -102,19 +102,21 @@
         margin-bottom: 4px;
       "
     >
-      <stringfield
-        field="primaryAbility"
-        label="Primary Ability"
-        placeholder="Enter primary Ability details..."
-      >
-      </stringfield>
       <dropdown
-        field="hitDie"
-        label="Hit Point Die"
-        placeholder="Select Hit Die"
-        options='[{"label": "D6 per level", "value": "d6"}, {"label": "D8 per level", "value": "d8"}, {"label": "D10 per level", "value": "d10"}, {"label": "D12 per level", "value": "d12"}]'
+        field="keyAbility"
+        label="Key Ability"
+        multiselect="6"
+        placeholder="Select Key Ability Options..."
+        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
       >
       </dropdown>
+      <numberfield
+        field="hp"
+        label="Hit Points"
+        placeholder="Enter Hit Points..."
+        width="100%"
+      >
+      </numberfield>
     </div>
   </div>
   <!-- Other -->

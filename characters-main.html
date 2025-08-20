@@ -60,6 +60,7 @@
           api.setHidden("ancestries", false, () => {
             api.setHidden("ancestryDetailsLabel", true);
           });
+          promptForHeritage(ancestryName);
         });
       }
     );
@@ -67,6 +68,35 @@
 
   function updateLanguages(value) {
     setLanguages(value);
+  }
+
+  function promptForHeritage(ancestryName) {
+    const optionsPrompt = {
+      type: "heritage",
+      query: {
+        $or: [{ "data.ancestry": ancestryName }, { "data.versatile": "yes" }],
+      },
+    };
+
+    const onSelect = (choices) => {
+      const choice = choices && choices.length > 0 ? choices[0] : null;
+      if (choice) {
+        // Add the heritage to the character, then call the callback
+        onDropHeritage({
+          tooltip: choice.name,
+          value: choice,
+        });
+      }
+    };
+
+    api.showPrompt(
+      "Heritage",
+      "Select a Heritage",
+      "Select Heritage...",
+      [],
+      optionsPrompt,
+      onSelect
+    );
   }
 
   function onDropHeritage(recordLink) {
@@ -121,7 +151,54 @@
   }
 
   function onDropClass(recordLink) {
-    console.log("TODO ON DROP CLASS", recordLink);
+    // Check if already on Character
+    const classes = record?.data?.classes || [];
+    const className = recordLink.tooltip;
+    const classObj = { ...recordLink.value };
+
+    // Add all non-rarity traits to the character
+    const traits = classObj.data?.traits || [];
+    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+    classObj.data.traits = nonRarityTraits;
+
+    // Set traits list
+    const traitsObjects = [];
+    for (const trait of nonRarityTraits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const curTraits = record.data?.traits || [];
+    // Ensure uniqueness by using a Set for better deduplication
+    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+
+    const curTraitsList = record.data?.traitsList || [];
+    // Ensure uniqueness by name, keeping the first occurrence of each trait name
+    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
+      (trait, index, self) =>
+        self.findIndex((t) => t.name === trait.name) === index
+    );
+
+    api.setValues(
+      {
+        "data.classes": [classObj],
+        "data.className": className,
+        "data.traitsList": newTraitsList,
+        "data.traits": newTraits,
+      },
+      (updatedRecord) => {
+        // Recalculate ability scores for bonuses and such
+        onAddEditFeature(updatedRecord, () => {
+          api.setHidden("classes", false, () => {
+            api.setHidden("classDetailsLabel", true);
+          });
+        });
+      }
+    );
   }
 
   function onDropBackground(recordLink) {
@@ -147,7 +224,12 @@
   }
 
   function onDeleteClass() {
-    console.log("TODO ON DELETE CLASS");
+    // Recalculate ability scores for bonuses and such
+    onAddEditFeature(record, () => {
+      api.setHidden("classes", true, () => {
+        api.setHidden("classDetailsLabel", false);
+      });
+    });
   }
 
   function onDeleteBackground() {

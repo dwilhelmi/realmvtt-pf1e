@@ -1,0 +1,27 @@
+<!-- Represents a list of choices this character is prompted with, when they obtain the feature -->
+<div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+  <namefield
+    field="name"
+    label="Choice Name"
+    variant="bold"
+    size="xs"
+    placeholder="Enter Prompt Name..."
+    width="100%"
+  ></namefield>
+  <stringfield
+    field="description"
+    label="Choice Description"
+    size="xs"
+    placeholder="Enter Prompt Description..."
+    width="100%"
+  ></stringfield>
+  <dropdown
+    field="choices"
+    label="Feature Choices"
+    size="xs"
+    multiselect="100"
+    placeholder="Select Feature Choices..."
+    optionsquery='{"type": "features", "query": {}}'
+  >
+  </dropdown>
+</div>

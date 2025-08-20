@@ -1738,7 +1738,7 @@ function updateAttribute({
   // PLACEHOLDER
   const bestArmor = {
     ac: 10,
-    addDex: false,
+    addDex: true,
     shield: 0,
     shieldName: "",
     armorType: "",
@@ -1805,6 +1805,167 @@ function updateAttribute({
   } else {
     api.setValuesOnRecord(record, valuesToSet);
   }
+}
+
+// This function looks for all features in the record that have choices,
+// then checks for features that were provided by the choices. If we have
+// any choices that are not yet provided, we prompt the user to make a choice
+// and then add the feature to the record.
+function processChoices(record) {
+  const characterLevel = record.data?.level || 1;
+  const ancestryFeatures = [];
+  const heritageFeatures = [];
+  const classFeatures = [];
+  // Collect all features from ancestries, heritages, and classes
+  const ancestries = record.data?.ancestries || [];
+  const heritages = record.data?.heritages || [];
+  const classes = record.data?.classes || [];
+  for (const ancestry of ancestries) {
+    ancestryFeatures.push(...(ancestry.data?.features || []));
+  }
+  for (const heritage of heritages) {
+    heritageFeatures.push(...(heritage.data?.features || []));
+  }
+  for (const classObj of classes) {
+    classFeatures.push(...(classObj.data?.features || []));
+  }
+
+  const groups = [
+    {
+      name: "Ancestry",
+      // Assume only ever 1 ancestry
+      dataPath: "data.ancestries.0.data.features",
+      features: ancestryFeatures,
+    },
+    {
+      name: "Heritage",
+      // Assume only ever 1 heritage
+      dataPath: "data.heritages.0.data.features",
+      features: heritageFeatures,
+    },
+    {
+      name: "Class",
+      // Assume only ever 1 class
+      dataPath: "data.classes.0.data.features",
+      features: classFeatures,
+    },
+  ];
+
+  // Make a map of all features resulting from choices
+  const choicesToFeatures = {};
+
+  for (const group of groups) {
+    for (const feature of group.features) {
+      // On each feature we add, we will set the `choiceFromId` field to indicate
+      // it was from a choice on another feature containing a choice with that ID
+      if (feature.data?.choiceFromId !== undefined) {
+        choicesToFeatures[feature.data?.choiceFromId] = feature;
+      }
+    }
+  }
+
+  // Now check for choices that are not yet provided
+  const choicesToMake = [];
+
+  for (const group of groups) {
+    for (const feature of group.features) {
+      // If this feature is for our level or lower, check for choices
+      if (feature.data?.level && feature.data?.level <= characterLevel) {
+        const choices = feature.data?.choices || [];
+        for (const choice of choices) {
+          if (choicesToFeatures[choice._id] === undefined) {
+            // We need to make this choice
+            choicesToMake.push({ choice, feature, group });
+            choicesToFeatures[choice._id] = choice;
+          }
+        }
+      }
+    }
+  }
+
+  promptForChoices(record, choicesToMake, 0);
+}
+
+function promptForChoices(record, choicesToMake, index) {
+  if (index >= choicesToMake.length) {
+    // Update all attributes and return
+    // Re-query the record to get the latest values
+    api.getRecord("characters", record._id, (updatedRecord) => {
+      updateAllAttributes(updatedRecord);
+    });
+    return;
+  }
+
+  const choice = choicesToMake[index];
+  const choiceObj = choice.choice;
+  const feature = choice.feature;
+  const group = choice.group;
+
+  // Prompt the user for the choice
+  const promptName = choiceObj.name;
+  const promptDescription = choiceObj?.data?.description;
+  const promptOptions = choiceObj?.data?.choices || [];
+
+  // Prompt the user for the choice
+  const callback = (choices) => {
+    const choice = choices && choices.length > 0 ? choices[0] : null;
+    // TODO set the choice on the feature list for the group
+    if (choice) {
+      // We got the choice, so now we lookup the feature, and add it to the group's features
+      const dataPath = group.dataPath;
+      api.getRecord("features", choice, (featureRecord) => {
+        api.addValue(
+          dataPath,
+          {
+            ...featureRecord,
+            data: {
+              ...(featureRecord?.data || {}),
+              // Mark the id of the choice that provided this feature
+              level: featureRecord?.data?.level || feature?.data?.level || 1,
+              choiceFromId: choiceObj._id,
+            },
+          },
+          () => {
+            promptForChoices(record, choicesToMake, index + 1);
+          }
+        );
+      });
+    }
+  };
+
+  // Parse options (JSON strigns) into array of value/id
+  const options = promptOptions
+    .map((option) => {
+      try {
+        const choiceOpt = JSON.parse(option);
+        return {
+          label: choiceOpt.name,
+          value: choiceOpt._id,
+        };
+      } catch (e) {
+        return null;
+      }
+    })
+    .filter((option) => option !== null);
+
+  if (options.length === 0) {
+    // No options, so we can just go to the next choice
+    callback(null);
+    return;
+  }
+
+  // Prompt the user for the choice
+  api.showPrompt(
+    promptName,
+    promptDescription,
+    "Select Option...",
+    options, // Use the options provided
+    null, // No query for options
+    callback, // Callback when chosen
+    "OK",
+    "Cancel",
+    1 // Limit 1 choice
+  );
 }
 
 // This function is called after adding/editing a talent/feature or equipping an item
@@ -1927,6 +2088,10 @@ function onAddEditFeature(record, callback = undefined) {
   } else {
     updateAllAttributes(record, callback);
   }
+
+  // Check for choices that the character needs to make and
+  // process each one sequentially
+  processChoices(record);
 }
 
 // Add languages to the character or npc
