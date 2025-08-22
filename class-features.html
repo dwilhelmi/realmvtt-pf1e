@@ -1,4 +1,53 @@
-<div>
-  <label label="Features" size="md" textalign="center" variant="bold"></label>
+<label label="Features" size="md" textalign="center" variant="bold"></label>
+
+<label label="Feat Levels" size="md" textalign="center" variant="bold"></label>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+  <dropdown
+    label="Ancestry Feat Levels"
+    field="ancestryFeatLevels"
+    placeholder="Select ancestry feat levels..."
+    description="The levels at which this class gains an ancestry feat."
+    multiselect="20"
+    options='[{"label": "1", "value": "1"}, {"label": "2", "value": "2"}, {"label": "3", "value": "3"}, {"label": "4", "value": "4"}, {"label": "5", "value": "5"}, {"label": "6", "value": "6"}, {"label": "7", "value": "7"}, {"label": "8", "value": "8"}, {"label": "9", "value": "9"}, {"label": "10", "value": "10"}, {"label": "11", "value": "11"}, {"label": "12", "value": "12"}, {"label": "13", "value": "13"}, {"label": "14", "value": "14"}, {"label": "15", "value": "15"}, {"label": "16", "value": "16"}, {"label": "17", "value": "17"}, {"label": "18", "value": "18"}, {"label": "19", "value": "19"}, {"label": "20", "value": "20"}]'
+  ></dropdown>
+  <dropdown
+    label="Class Feat Levels"
+    field="classFeatLevels"
+    placeholder="Select class feat levels..."
+    description="The levels at which this class gains a class feat."
+    multiselect="20"
+    options='[{"label": "1", "value": "1"}, {"label": "2", "value": "2"}, {"label": "3", "value": "3"}, {"label": "4", "value": "4"}, {"label": "5", "value": "5"}, {"label": "6", "value": "6"}, {"label": "7", "value": "7"}, {"label": "8", "value": "8"}, {"label": "9", "value": "9"}, {"label": "10", "value": "10"}, {"label": "11", "value": "11"}, {"label": "12", "value": "12"}, {"label": "13", "value": "13"}, {"label": "14", "value": "14"}, {"label": "15", "value": "15"}, {"label": "16", "value": "16"}, {"label": "17", "value": "17"}, {"label": "18", "value": "18"}, {"label": "19", "value": "19"}, {"label": "20", "value": "20"}]'
+  ></dropdown>
+  <dropdown
+    label="General Feat Levels"
+    field="generalFeatLevels"
+    placeholder="Select general feat levels..."
+    description="The levels at which this class gains a general feat."
+    multiselect="20"
+    options='[{"label": "1", "value": "1"}, {"label": "2", "value": "2"}, {"label": "3", "value": "3"}, {"label": "4", "value": "4"}, {"label": "5", "value": "5"}, {"label": "6", "value": "6"}, {"label": "7", "value": "7"}, {"label": "8", "value": "8"}, {"label": "9", "value": "9"}, {"label": "10", "value": "10"}, {"label": "11", "value": "11"}, {"label": "12", "value": "12"}, {"label": "13", "value": "13"}, {"label": "14", "value": "14"}, {"label": "15", "value": "15"}, {"label": "16", "value": "16"}, {"label": "17", "value": "17"}, {"label": "18", "value": "18"}, {"label": "19", "value": "19"}, {"label": "20", "value": "20"}]'
+  ></dropdown>
+  <dropdown
+    label="Skill Feat Levels"
+    field="skillFeatLevels"
+    placeholder="Select skill feat levels..."
+    description="The levels at which this class gains a skill feat."
+    multiselect="20"
+    options='[{"label": "1", "value": "1"}, {"label": "2", "value": "2"}, {"label": "3", "value": "3"}, {"label": "4", "value": "4"}, {"label": "5", "value": "5"}, {"label": "6", "value": "6"}, {"label": "7", "value": "7"}, {"label": "8", "value": "8"}, {"label": "9", "value": "9"}, {"label": "10", "value": "10"}, {"label": "11", "value": "11"}, {"label": "12", "value": "12"}, {"label": "13", "value": "13"}, {"label": "14", "value": "14"}, {"label": "15", "value": "15"}, {"label": "16", "value": "16"}, {"label": "17", "value": "17"}, {"label": "18", "value": "18"}, {"label": "19", "value": "19"}, {"label": "20", "value": "20"}]'
+  ></dropdown>
+  <dropdown
+    label="Skill Increase Levels"
+    field="skillIncreaseLevels"
+    placeholder="Select skill increase levels..."
+    description="The levels at which this class gains a skill increase."
+    multiselect="20"
+    options='[{"label": "1", "value": "1"}, {"label": "2", "value": "2"}, {"label": "3", "value": "3"}, {"label": "4", "value": "4"}, {"label": "5", "value": "5"}, {"label": "6", "value": "6"}, {"label": "7", "value": "7"}, {"label": "8", "value": "8"}, {"label": "9", "value": "9"}, {"label": "10", "value": "10"}, {"label": "11", "value": "11"}, {"label": "12", "value": "12"}, {"label": "13", "value": "13"}, {"label": "14", "value": "14"}, {"label": "15", "value": "15"}, {"label": "16", "value": "16"}, {"label": "17", "value": "17"}, {"label": "18", "value": "18"}, {"label": "19", "value": "19"}, {"label": "20", "value": "20"}]'
+  ></dropdown>
+  <label
+    label="Additional Class Features by Level"
+    size="md"
+    textalign="center"
+    variant="bold"
+  ></label>
   <list listtype="class_feature_list" field="features"></list>
 </div>
