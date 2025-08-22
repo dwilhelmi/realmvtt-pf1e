@@ -211,29 +211,44 @@
 
   function onDeleteAncestry() {
     // Recalculate ability scores for bonuses and such
-    onAddEditFeature(record, () => {
-      api.setHidden("ancestries", true, () => {
-        api.setHidden("ancestryDetailsLabel", false);
-      });
-    });
+    onAddEditFeature(
+      record,
+      () => {
+        api.setHidden("ancestries", true, () => {
+          api.setHidden("ancestryDetailsLabel", false);
+        });
+      },
+      // Skip choice processing
+      true
+    );
   }
 
   function onDeleteHeritage() {
     // Recalculate ability scores for bonuses and such
-    onAddEditFeature(record, () => {
-      api.setHidden("heritages", true, () => {
-        api.setHidden("heritageDetailsLabel", false);
-      });
-    });
+    onAddEditFeature(
+      record,
+      () => {
+        api.setHidden("heritages", true, () => {
+          api.setHidden("heritageDetailsLabel", false);
+        });
+      },
+      // Skip choice processing
+      true
+    );
   }
 
   function onDeleteClass() {
     // Recalculate ability scores for bonuses and such
-    onAddEditFeature(record, () => {
-      api.setHidden("classes", true, () => {
-        api.setHidden("classDetailsLabel", false);
-      });
-    });
+    onAddEditFeature(
+      record,
+      () => {
+        api.setHidden("classes", true, () => {
+          api.setHidden("classDetailsLabel", false);
+        });
+      },
+      // Skip choice processing
+      true
+    );
   }
 
   function onDeleteBackground() {

@@ -1927,11 +1927,14 @@ function processChoices(record) {
 
 function promptForChoices(record, choicesToMake, index) {
   if (index >= choicesToMake.length) {
-    // Update all attributes and return
-    // Re-query the record to get the latest values
-    api.getRecord("characters", record._id, (updatedRecord) => {
-      updateAllAttributes(updatedRecord);
-    });
+    // Only call onAddEditFeature if we actually processed choices
+    if (choicesToMake.length > 0) {
+      // Re-query the record to get the latest values
+      api.getRecord("characters", record._id, (updatedRecord) => {
+        // Update all attributes after processing choices, but skip choice processing to prevent infinite loops
+        onAddEditFeature(updatedRecord, undefined, true);
+      });
+    }
     return;
   }
 
@@ -2235,11 +2238,33 @@ function updateProficiencies(record, valuesToSet) {
   ) {
     keyAbilityScore = parseInt(record.data?.[keyAbility] || "0", 10);
   }
-  const classDCProficiencyBonus = calculateProficiencyBonus(
-    record,
-    proficiencies.classDC
+  const currentClassDCProficiency = parseInt(
+    record.data?.classDCProficiency || "0",
+    10
   );
-  valuesToSet["data.classDC"] = classDCProficiencyBonus + keyAbilityScore + 1;
+
+  // If no class, reset class DC proficiency to 0
+  if (!classObj) {
+    valuesToSet["data.classDCProficiency"] = 0;
+    valuesToSet["data.classDC"] = 10 + keyAbilityScore;
+  } else {
+    const effectiveClassDCProficiency = Math.max(
+      currentClassDCProficiency,
+      proficiencies.classDC
+    );
+    const classDCProficiencyBonus = calculateProficiencyBonus(
+      record,
+      effectiveClassDCProficiency
+    );
+    valuesToSet["data.classDC"] =
+      10 + classDCProficiencyBonus + keyAbilityScore;
+    if (
+      currentClassDCProficiency < proficiencies.classDC ||
+      proficiencies.classDC === 0
+    ) {
+      valuesToSet["data.classDCProficiency"] = proficiencies.classDC;
+    }
+  }
 
   // Set saving throw modifiers
   const dexMod = parseInt(record.data?.dex || "0", 10);
@@ -2247,75 +2272,155 @@ function updateProficiencies(record, valuesToSet) {
   const wisMod = parseInt(record.data?.wis || "0", 10);
 
   // Reflex (DEX + proficiency bonus)
+  const currentReflex = parseInt(record.data?.reflex || "0", 10);
+  const effectiveReflex = Math.max(currentReflex, proficiencies.reflex);
   const reflexProficiencyBonus = calculateProficiencyBonus(
     record,
-    proficiencies.reflex
+    effectiveReflex
   );
   valuesToSet["data.reflexMod"] = dexMod + reflexProficiencyBonus;
-  valuesToSet["data.reflex"] = proficiencies.reflex.toString();
+  if (currentReflex < proficiencies.reflex || proficiencies.reflex === 0) {
+    valuesToSet["data.reflex"] = proficiencies.reflex.toString();
+  }
 
   // Fortitude (CON + proficiency bonus)
-  const fortitudeProficiencyBonus = calculateProficiencyBonus(
-    record,
+  const currentFortitude = parseInt(record.data?.fortitude || "0", 10);
+  const effectiveFortitude = Math.max(
+    currentFortitude,
     proficiencies.fortitude
   );
+  const fortitudeProficiencyBonus = calculateProficiencyBonus(
+    record,
+    effectiveFortitude
+  );
   valuesToSet["data.fortitudeMod"] = conMod + fortitudeProficiencyBonus;
-  valuesToSet["data.fortitude"] = proficiencies.fortitude.toString();
+  if (
+    currentFortitude < proficiencies.fortitude ||
+    proficiencies.fortitude === 0
+  ) {
+    valuesToSet["data.fortitude"] = proficiencies.fortitude.toString();
+  }
 
   // Will (WIS + proficiency bonus)
-  const willProficiencyBonus = calculateProficiencyBonus(
-    record,
-    proficiencies.will
-  );
+  const currentWill = parseInt(record.data?.will || "0", 10);
+  const effectiveWill = Math.max(currentWill, proficiencies.will);
+  const willProficiencyBonus = calculateProficiencyBonus(record, effectiveWill);
   valuesToSet["data.willMod"] = wisMod + willProficiencyBonus;
-  valuesToSet["data.will"] = proficiencies.will.toString();
+  if (currentWill < proficiencies.will || proficiencies.will === 0) {
+    valuesToSet["data.will"] = proficiencies.will.toString();
+  }
 
   // Perception (WIS + proficiency bonus)
-  const perceptionProficiencyBonus = calculateProficiencyBonus(
-    record,
+  const currentPerception = parseInt(record.data?.perception || "0", 10);
+  const effectivePerception = Math.max(
+    currentPerception,
     proficiencies.perception
   );
+  const perceptionProficiencyBonus = calculateProficiencyBonus(
+    record,
+    effectivePerception
+  );
   valuesToSet["data.perceptionMod"] = wisMod + perceptionProficiencyBonus;
-  valuesToSet["data.perception"] = proficiencies.perception.toString();
+  if (
+    currentPerception < proficiencies.perception ||
+    proficiencies.perception === 0
+  ) {
+    valuesToSet["data.perception"] = proficiencies.perception.toString();
+  }
 
   // Set skill modifiers
   const pathfinderSkills = getPathfinderSkills();
   for (const [skillName, abilityKey] of Object.entries(pathfinderSkills)) {
     const skillProficiency = proficiencies[skillName] || 0;
-    const skillProficiencyBonus = calculateProficiencyBonus(
-      record,
-      skillProficiency
-    );
     const abilityMod = parseInt(record.data?.[abilityKey] || "0", 10);
-    // For skills, don't override the user's set value if it was already set and is
-    // higher than the proficiency bonus
-    const currentSkillMod = parseInt(
-      record.data?.[`${skillName}Mod`] || "0",
+
+    // Get the current skill proficiency from the record
+    const currentSkillProficiency = parseInt(
+      record.data?.[skillName] || "0",
       10
     );
-    if (currentSkillMod < abilityMod + skillProficiencyBonus) {
-      valuesToSet[`data.${skillName}Mod`] = abilityMod + skillProficiencyBonus;
+
+    // Use the higher of current proficiency or calculated proficiency for the modifier
+    const effectiveProficiency = Math.max(
+      currentSkillProficiency,
+      skillProficiency
+    );
+    const skillProficiencyBonus = calculateProficiencyBonus(
+      record,
+      effectiveProficiency
+    );
+
+    // Always set the modifier based on the effective proficiency
+    valuesToSet[`data.${skillName}Mod`] = abilityMod + skillProficiencyBonus;
+
+    // Only update the proficiency value if the calculated one is higher or if it's 0
+    if (currentSkillProficiency < skillProficiency || skillProficiency === 0) {
       valuesToSet[`data.${skillName}`] = skillProficiency.toString();
     }
   }
 
   // Set armor and weapon proficiencies
-  valuesToSet["data.defenses.unarmored"] = proficiencies.unarmored;
-  valuesToSet["data.defenses.light"] = proficiencies.light;
-  valuesToSet["data.defenses.medium"] = proficiencies.medium;
-  valuesToSet["data.defenses.heavy"] = proficiencies.heavy;
+  const currentUnarmored = parseInt(
+    record.data?.defenses?.unarmored || "0",
+    10
+  );
+  if (
+    currentUnarmored < proficiencies.unarmored ||
+    proficiencies.unarmored === 0
+  ) {
+    valuesToSet["data.defenses.unarmored"] = proficiencies.unarmored;
+  }
 
-  valuesToSet["data.attacks.unarmed"] = proficiencies.unarmed;
-  valuesToSet["data.attacks.simple"] = proficiencies.simple;
-  valuesToSet["data.attacks.martial"] = proficiencies.martial;
-  valuesToSet["data.attacks.advanced"] = proficiencies.advanced;
+  const currentLight = parseInt(record.data?.defenses?.light || "0", 10);
+  if (currentLight < proficiencies.light || proficiencies.light === 0) {
+    valuesToSet["data.defenses.light"] = proficiencies.light;
+  }
+
+  const currentMedium = parseInt(record.data?.defenses?.medium || "0", 10);
+  if (currentMedium < proficiencies.medium || proficiencies.medium === 0) {
+    valuesToSet["data.defenses.medium"] = proficiencies.medium;
+  }
+
+  const currentHeavy = parseInt(record.data?.defenses?.heavy || "0", 10);
+  if (currentHeavy < proficiencies.heavy || proficiencies.heavy === 0) {
+    valuesToSet["data.defenses.heavy"] = proficiencies.heavy;
+  }
+
+  const currentUnarmed = parseInt(record.data?.attacks?.unarmed || "0", 10);
+  if (currentUnarmed < proficiencies.unarmed || proficiencies.unarmed === 0) {
+    valuesToSet["data.attacks.unarmed"] = proficiencies.unarmed;
+  }
+
+  const currentSimple = parseInt(record.data?.attacks?.simple || "0", 10);
+  if (currentSimple < proficiencies.simple || proficiencies.simple === 0) {
+    valuesToSet["data.attacks.simple"] = proficiencies.simple;
+  }
+
+  const currentMartial = parseInt(record.data?.attacks?.martial || "0", 10);
+  if (currentMartial < proficiencies.martial || proficiencies.martial === 0) {
+    valuesToSet["data.attacks.martial"] = proficiencies.martial;
+  }
+
+  const currentAdvanced = parseInt(record.data?.attacks?.advanced || "0", 10);
+  if (
+    currentAdvanced < proficiencies.advanced ||
+    proficiencies.advanced === 0
+  ) {
+    valuesToSet["data.attacks.advanced"] = proficiencies.advanced;
+  }
 
   // Set spellcasting proficiency
-  valuesToSet["data.spellcasting"] = proficiencies.spellcasting;
+  const currentSpellcasting = parseInt(record.data?.spellcasting || "0", 10);
+  if (
+    currentSpellcasting < proficiencies.spellcasting ||
+    proficiencies.spellcasting === 0
+  ) {
+    valuesToSet["data.spellcasting"] = proficiencies.spellcasting;
+  }
 }
 
 // This function is called after adding/editing a talent/feature or equipping an item
-function onAddEditFeature(record, callback = undefined) {
+function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Check for ability score bonuses
   const abilityScoreBonus = getEffectsAndModifiersForToken(record, [
     "attributeBonus",
@@ -2440,8 +2545,10 @@ function onAddEditFeature(record, callback = undefined) {
   }
 
   // Check for choices that the character needs to make and
-  // process each one sequentially
-  processChoices(record);
+  // process each one sequentially (unless explicitly skipped to prevent infinite loops)
+  if (!skipChoices) {
+    processChoices(record);
+  }
 }
 
 // Add languages to the character or npc
