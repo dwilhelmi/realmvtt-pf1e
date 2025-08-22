@@ -1951,7 +1951,6 @@ function promptForChoices(record, choicesToMake, index) {
   // Prompt the user for the choice
   const callback = (choices) => {
     const choice = choices && choices.length > 0 ? choices[0] : null;
-    // TODO set the choice on the feature list for the group
     if (choice) {
       // We got the choice, so now we lookup the feature, and add it to the group's features
       const dataPath = group.dataPath;
@@ -2086,6 +2085,7 @@ function updateProficiencies(record, valuesToSet) {
     stealth: 0,
     survival: 0,
     thievery: 0,
+    lore: {},
   };
 
   const possibleSkills = [
@@ -2153,7 +2153,21 @@ function updateProficiencies(record, valuesToSet) {
   if (classObj?.data?.trainedSkills) {
     const skills = classObj.data.trainedSkills || [];
     for (const skill of skills) {
-      proficiencies[skill] = 1;
+      const skillName = skill.toLowerCase();
+      // Check if it's a lore skill (ends with " lore")
+      if (skillName.endsWith(" lore")) {
+        const loreSkillName = skillName.replace(" lore", "");
+        if (
+          !proficiencies.lore[loreSkillName] ||
+          1 > proficiencies.lore[loreSkillName]
+        ) {
+          proficiencies.lore[loreSkillName] = 1;
+        }
+      }
+      // Check if it's a regular skill
+      else if (possibleSkills.includes(skillName)) {
+        proficiencies[skillName] = 1;
+      }
     }
   }
 
@@ -2214,9 +2228,19 @@ function updateProficiencies(record, valuesToSet) {
           }
         }
         // Check if it's a skill
-        else if (possibleSkills.includes(name)) {
-          if (rank > proficiencies[name]) {
-            proficiencies[name] = rank;
+        else if (possibleSkills.includes(name.toLowerCase())) {
+          if (rank > proficiencies[name.toLowerCase()]) {
+            proficiencies[name.toLowerCase()] = rank;
+          }
+        }
+        // Check if it's a lore skill (ends with " Lore")
+        else if (name.endsWith(" lore")) {
+          const loreSkillName = name.replace(" lore", "");
+          if (
+            !proficiencies.lore[loreSkillName] ||
+            rank > proficiencies.lore[loreSkillName]
+          ) {
+            proficiencies.lore[loreSkillName] = rank;
           }
         }
         // Otherwise assume it's a class DC
@@ -2332,7 +2356,11 @@ function updateProficiencies(record, valuesToSet) {
   const pathfinderSkills = getPathfinderSkills();
   for (const [skillName, abilityKey] of Object.entries(pathfinderSkills)) {
     const skillProficiency = proficiencies[skillName] || 0;
-    const abilityMod = parseInt(record.data?.[abilityKey] || "0", 10);
+
+    // Check if user has set a custom ability score for this skill
+    const customAbilityKey = record.data?.[`${skillName}Ability`];
+    const effectiveAbilityKey = customAbilityKey || abilityKey;
+    const abilityMod = parseInt(record.data?.[effectiveAbilityKey] || "0", 10);
 
     // Get the current skill proficiency from the record
     const currentSkillProficiency = parseInt(
@@ -2353,10 +2381,76 @@ function updateProficiencies(record, valuesToSet) {
     // Always set the modifier based on the effective proficiency
     valuesToSet[`data.${skillName}Mod`] = abilityMod + skillProficiencyBonus;
 
-    // Only update the proficiency value if the calculated one is higher or if it's 0
-    if (currentSkillProficiency < skillProficiency || skillProficiency === 0) {
+    // Only update the proficiency value if the calculated one is higher
+    // Don't override manually set higher values
+    if (currentSkillProficiency < skillProficiency) {
       valuesToSet[`data.${skillName}`] = skillProficiency.toString();
     }
+  }
+
+  // Set lore skills
+  const currentLoreSkills = record.data?.loreSkills || [];
+  const loreSkillsToSet = [];
+  const processedLoreSkills = new Set();
+
+  // Process each lore skill from proficiencies
+  for (const [loreSkillName, rank] of Object.entries(proficiencies.lore)) {
+    const formattedLoreSkillName =
+      loreSkillName.charAt(0).toUpperCase() + loreSkillName.slice(1);
+    const loreSkillFullName = `${formattedLoreSkillName} Lore`;
+
+    // Check if this lore skill already exists in current lore skills
+    const existingLoreSkill = currentLoreSkills.find(
+      (skill) => skill.name === loreSkillFullName
+    );
+
+    if (existingLoreSkill) {
+      // Update existing lore skill if new rank is higher
+      const currentRank = parseInt(existingLoreSkill.data?.rank || "0", 10);
+      if (rank > currentRank) {
+        existingLoreSkill.data.rank = rank.toString();
+      }
+      loreSkillsToSet.push(existingLoreSkill);
+      processedLoreSkills.add(loreSkillFullName);
+    } else {
+      // Create new lore skill entry
+      loreSkillsToSet.push({
+        _id: generateUuid(),
+        name: loreSkillFullName,
+        recordType: "records",
+        unidentifiedName: "Lore Skill",
+        data: {
+          rank: rank.toString(),
+        },
+        icon: "IconTools",
+      });
+      processedLoreSkills.add(loreSkillFullName);
+    }
+  }
+
+  // Preserve existing lore skills that weren't processed (user-added lore skills)
+  currentLoreSkills.forEach((loreSkill) => {
+    if (!processedLoreSkills.has(loreSkill.name)) {
+      loreSkillsToSet.push(loreSkill);
+    }
+  });
+
+  // Set the lore skills array (always set it to preserve existing lore skills)
+  valuesToSet["data.loreSkills"] = loreSkillsToSet;
+
+  // Process lore skills for modifiers
+  for (const loreSkill of loreSkillsToSet) {
+    const rank = parseInt(loreSkill.data?.rank || "0", 10);
+    const proficiencyBonus = calculateProficiencyBonus(record, rank);
+
+    // Check if lore skill has a custom ability score set
+    const customAbilityKey = loreSkill.data?.ability;
+    const effectiveAbilityKey = customAbilityKey || "int"; // Default to Intelligence for lore skills
+    const abilityMod = parseInt(record.data?.[effectiveAbilityKey] || "0", 10);
+
+    // Calculate and set the modifier
+    const totalMod = abilityMod + proficiencyBonus;
+    loreSkill.data.mod = totalMod;
   }
 
   // Set armor and weapon proficiencies

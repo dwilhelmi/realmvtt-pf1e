@@ -1,0 +1,66 @@
+<script>
+  function onAbilityChange(value) {
+    onAddEditFeature(record);
+  }
+
+  function onProficiencyChange(value) {
+    onAddEditFeature(record);
+  }
+
+  function rollCheck() {
+    // TODO
+    console.log("todo rollCheck");
+  }
+</script>
+
+<div style="display: flex; flex-direction: row; gap: 4px">
+  <div style="min-width: 100px; flex: 1">
+    <namefield
+      width="100%"
+      size="xs"
+      placeholder="Enter Skill Name..."
+      field="namefield"
+    ></namefield>
+  </div>
+
+  <dropdown
+    field="ability"
+    placeholder="Intelligence"
+    defaultvalue="int"
+    size="xs"
+    width="110px"
+    onchange="onAbilityChange(value);"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  >
+  </dropdown>
+
+  <dropdown
+    size="xs"
+    field="rank"
+    width="110px"
+    textalign="center"
+    placeholder="Untrained"
+    defaultvalue="0"
+    onchange="onProficiencyChange()"
+    options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+  ></dropdown>
+
+  <numberfield
+    size="xs"
+    width="60px"
+    textalign="center"
+    placeholder="+0"
+    field="mod"
+    showsign="true"
+    variant="tooltip"
+  ></numberfield>
+
+  <iconbutton
+    field="skillCheck"
+    size="md"
+    variant="light"
+    options='[{"icon": "d20", "label": "Roll Check", "value": "roll"}]'
+    onclick="rollCheck();"
+  >
+  </iconbutton>
+</div>

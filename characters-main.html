@@ -261,6 +261,10 @@
 
   function onXPChange(value) {
     console.log("TODO XP CHANGE");
+    // TODO show/hide level up button
+    // Level up button logic:
+    // -- update level and do the udate call
+    // -- send message in chat and include the benefits they get at this level
   }
 
   function updateStat(value, stat) {
@@ -612,16 +616,7 @@
 </div>
 
 <div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      text-align: center;
-      align-items: center;
-      width: 100%;
-    "
-  >
+  <div style="display: flex; flex-direction: column; gap: 2px; width: 100%">
     <label
       field="perceptionLabel"
       size="xs"

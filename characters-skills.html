@@ -1,0 +1,957 @@
+<script>
+  function rollSkillCheck(skill) {
+    // TODO
+    console.log("todo rollSkillCheck", skill);
+  }
+
+  function onSkillTrainingChange(value, skill) {
+    onAddEditFeature(record);
+  }
+
+  function onSkillAbilityChange() {
+    onAddEditFeature(record);
+  }
+</script>
+
+<label label="Skills" size="md" textalign="center" variant="bold"></label>
+<table style="margin-left: auto; margin-right: auto; border-spacing: 8px">
+  <tbody>
+    <tr>
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="acrobaticsLabel"
+            size="xs"
+            variant="bold"
+            label="Acrobatics"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="acrobaticsMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Acrobatics", "value": "roll"}]'
+              field="Roll Acrobatics"
+              onclick="rollSkillCheck('acrobatics')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="acrobaticsAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Dexterity"
+            defaultvalue="dex"
+            onchange="onSkillAbilityChange(value, 'acrobatics')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="acrobatics"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'acrobatics')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="arcanaLabel"
+            size="xs"
+            variant="bold"
+            label="Arcana"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="arcanaMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Arcana", "value": "roll"}]'
+              field="Roll Arcana"
+              onclick="rollSkillCheck('arcana')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="arcanaAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Intelligence"
+            defaultvalue="int"
+            onchange="onSkillAbilityChange(value, 'arcana')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="arcana"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'arcana')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="athleticsLabel"
+            size="xs"
+            variant="bold"
+            label="Athletics"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="athleticsMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Athletics", "value": "roll"}]'
+              field="Roll Athletics"
+              onclick="rollSkillCheck('athletics')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="athleticsAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Strength"
+            defaultvalue="str"
+            onchange="onSkillAbilityChange(value, 'athletics')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="athletics"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'athletics')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="craftingLabel"
+            size="xs"
+            variant="bold"
+            label="Crafting"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="craftingMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Crafting", "value": "roll"}]'
+              field="Roll Crafting"
+              onclick="rollSkillCheck('crafting')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="craftingAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Intelligence"
+            defaultvalue="int"
+            onchange="onSkillAbilityChange(value, 'crafting')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="crafting"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'crafting')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="deceptionLabel"
+            size="xs"
+            variant="bold"
+            label="Deception"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="deceptionMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Deception", "value": "roll"}]'
+              field="Roll Deception"
+              onclick="rollSkillCheck('deception')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="deceptionAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Charisma"
+            defaultvalue="cha"
+            onchange="onSkillAbilityChange(value, 'deception')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="deception"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'deception')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="diplomacyLabel"
+            size="xs"
+            variant="bold"
+            label="Diplomacy"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="diplomacyMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Diplomacy", "value": "roll"}]'
+              field="Roll Diplomacy"
+              onclick="rollSkillCheck('diplomacy')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="diplomacyAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Charisma"
+            defaultvalue="cha"
+            onchange="onSkillAbilityChange(value, 'diplomacy')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="diplomacy"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'diplomacy')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="intimidationLabel"
+            size="xs"
+            variant="bold"
+            label="Intimidation"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="intimidationMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Intimidation", "value": "roll"}]'
+              field="Roll Intimidation"
+              onclick="rollSkillCheck('intimidation')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="intimidationAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Charisma"
+            defaultvalue="cha"
+            onchange="onSkillAbilityChange(value, 'intimidation')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="intimidation"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'intimidation')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="medicineLabel"
+            size="xs"
+            variant="bold"
+            label="Medicine"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="medicineMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Medicine", "value": "roll"}]'
+              field="Roll Medicine"
+              onclick="rollSkillCheck('medicine')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="medicineAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Wisdom"
+            defaultvalue="wis"
+            onchange="onSkillAbilityChange(value, 'medicine')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="medicine"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'medicine')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="natureLabel"
+            size="xs"
+            variant="bold"
+            label="Nature"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="natureMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Nature", "value": "roll"}]'
+              field="Roll Nature"
+              onclick="rollSkillCheck('nature')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="natureAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Wisdom"
+            defaultvalue="wis"
+            onchange="onSkillAbilityChange(value, 'nature')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="nature"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'nature')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="occultismLabel"
+            size="xs"
+            variant="bold"
+            label="Occultism"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="occultismMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Occultism", "value": "roll"}]'
+              field="Roll Occultism"
+              onclick="rollSkillCheck('occultism')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="occultismAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Intelligence"
+            defaultvalue="int"
+            onchange="onSkillAbilityChange(value, 'occultism')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="occultism"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'occultism')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="performanceLabel"
+            size="xs"
+            variant="bold"
+            label="Performance"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="performanceMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Performance", "value": "roll"}]'
+              field="Roll Performance"
+              onclick="rollSkillCheck('performance')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="performanceAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Charisma"
+            defaultvalue="cha"
+            onchange="onSkillAbilityChange(value, 'performance')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="performance"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'performance')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="religionLabel"
+            size="xs"
+            variant="bold"
+            label="Religion"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="religionMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Religion", "value": "roll"}]'
+              field="Roll Religion"
+              onclick="rollSkillCheck('religion')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="religionAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Wisdom"
+            defaultvalue="wis"
+            onchange="onSkillAbilityChange(value, 'religion')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="religion"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'religion')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="societyLabel"
+            size="xs"
+            variant="bold"
+            label="Society"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="societyMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Society", "value": "roll"}]'
+              field="Roll Society"
+              onclick="rollSkillCheck('society')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="societyAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Intelligence"
+            defaultvalue="int"
+            onchange="onSkillAbilityChange(value, 'society')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="society"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'society')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="stealthLabel"
+            size="xs"
+            variant="bold"
+            label="Stealth"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="stealthMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Stealth", "value": "roll"}]'
+              field="Roll Stealth"
+              onclick="rollSkillCheck('stealth')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="stealthAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Dexterity"
+            defaultvalue="dex"
+            onchange="onSkillAbilityChange(value, 'stealth')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="stealth"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'stealth')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="survivalLabel"
+            size="xs"
+            variant="bold"
+            label="Survival"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="survivalMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Survival", "value": "roll"}]'
+              field="Roll Survival"
+              onclick="rollSkillCheck('survival')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="survivalAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Wisdom"
+            defaultvalue="wis"
+            onchange="onSkillAbilityChange(value, 'survival')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="survival"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'survival')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+
+      <td>
+        <div
+          style="display: flex; flex-direction: column; gap: 2px; width: 100%"
+        >
+          <label
+            field="thieveryLabel"
+            size="xs"
+            variant="bold"
+            label="Thievery"
+          ></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: flex-end;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              size="xs"
+              width="68px"
+              field="thieveryMod"
+              showsign="true"
+              textalign="center"
+            ></numberfield>
+            <iconbutton
+              size="md"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Thievery", "value": "roll"}]'
+              field="Roll Thievery"
+              onclick="rollSkillCheck('thievery')"
+            ></iconbutton>
+          </div>
+          <dropdown
+            size="xs"
+            field="thieveryAbility"
+            width="110px"
+            textalign="center"
+            placeholder="Dexterity"
+            defaultvalue="dex"
+            onchange="onSkillAbilityChange(value, 'thievery')"
+            options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+          ></dropdown>
+          <dropdown
+            size="xs"
+            field="thievery"
+            width="110px"
+            textalign="center"
+            placeholder="Untrained"
+            defaultvalue="0"
+            onchange="onSkillTrainingChange(value, 'thievery')"
+            options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+          ></dropdown>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top: 8px">
+  <label
+    label="Lore Skills"
+    size="md"
+    textalign="center"
+    variant="bold"
+  ></label>
+</div>
+
+<div style="width: 100%">
+  <list
+    listtype="lore_skills_list"
+    field="loreSkills"
+    allowadd=""
+    onchange="onAddEditFeature(record)"
+  ></list>
+</div>

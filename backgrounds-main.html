@@ -1,0 +1,150 @@
+<script>
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const backgroundsDataPath = getNearestParentDataPath(dataPath);
+    const backgrounds = backgroundsDataPath
+      ? api.getValue(backgroundsDataPath)
+      : record;
+    const dataPrefix = backgroundsDataPath
+      ? `${backgroundsDataPath}.data`
+      : "data";
+    const fieldsPath = backgroundsDataPath
+      ? `${backgroundsDataPath}.fields`
+      : "fields";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      backgrounds.data?.traits &&
+      backgrounds.data?.traits.length > 0 &&
+      !backgrounds.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of backgrounds.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Feature"
+    size="lg"
+    variant="bold"
+  ></label>
+</div>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <dropdown
+        field="boosts.0"
+        placeholder="Select possible choices..."
+        multiselect="6"
+        label="Ability Boost 1 Choices"
+        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+      >
+      </dropdown>
+      <dropdown
+        field="boosts.1"
+        placeholder="Select possible choices..."
+        multiselect="6"
+        label="Ability Boost 2 Choices"
+        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+      >
+      </dropdown>
+    </div>
+  </div>
+
+  <dropdown
+    size="sm"
+    field="trainedSkills"
+    placeholder="Select or enter skills..."
+    multiselect="2"
+    label="Trained Skills"
+    combo="true"
+    options='[{"label": "Acrobatics", "value": "acrobatics"}, {"label": "Animal Handling", "value": "animalHandling"}, {"label": "Arcana", "value": "arcana"}, {"label": "Athletics", "value": "athletics"}, {"label": "Deception", "value": "deception"}, {"label": "History", "value": "history"}, {"label": "Insight", "value": "insight"}, {"label": "Intimidation", "value": "intimidation"}, {"label": "Investigation", "value": "investigation"}, {"label": "Medicine", "value": "medicine"}, {"label": "Nature", "value": "nature"}, {"label": "Perception", "value": "perception"}, {"label": "Performance", "value": "performance"}, {"label": "Persuasion", "value": "persuasion"}, {"label": "Religion", "value": "religion"}, {"label": "Sleight of Hand", "value": "sleightOfHand"}, {"label": "Stealth", "value": "stealth"}, {"label": "Survival", "value": "survival"}]'
+  >
+  </dropdown>
+</div>
+
+<div style="margin-top: 8px; margin-bottom: 8px">
+  <divider label="Description"></divider>
+</div>
+
+<richtextfield
+  placeholder="Enter Background description..."
+  field="Description"
+  label="Description"
+></richtextfield>
