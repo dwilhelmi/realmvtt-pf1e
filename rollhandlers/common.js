@@ -1161,6 +1161,23 @@ function getDurationInSeconds(duration) {
   return 0;
 }
 
+function getLabelForAbility(ability) {
+  if (ability === "str") {
+    return "Strength";
+  } else if (ability === "dex") {
+    return "Dexterity";
+  } else if (ability === "con") {
+    return "Constitution";
+  } else if (ability === "wis") {
+    return "Wisdom";
+  } else if (ability === "int") {
+    return "Intelligence";
+  } else if (ability === "cha") {
+    return "Charisma";
+  }
+  return ability;
+}
+
 function getDamageType(rollString) {
   const regex = /(?:\d*d\d+|\+\d+)?(?:\s*\+?-?\s*\d+)?(?:\s+([\w-_]+))?/;
   const match = rollString.match(regex);
@@ -1621,23 +1638,44 @@ function getEffectsAndModifiersForToken(
  */
 function getPathfinderSkills() {
   return {
-    Acrobatics: "dex",
-    Arcana: "int",
-    Athletics: "str",
-    Crafting: "int",
-    Deception: "cha",
-    Diplomacy: "cha",
-    Intimidation: "cha",
-    Medicine: "wis",
-    Nature: "wis",
-    Occultism: "int",
-    Performance: "cha",
-    Religion: "wis",
-    Society: "int",
-    Stealth: "dex",
-    Survival: "wis",
-    Thievery: "dex",
+    acrobatics: "dex",
+    arcana: "int",
+    athletics: "str",
+    crafting: "int",
+    deception: "cha",
+    diplomacy: "cha",
+    intimidation: "cha",
+    medicine: "wis",
+    nature: "wis",
+    occultism: "int",
+    performance: "cha",
+    religion: "wis",
+    society: "int",
+    stealth: "dex",
+    survival: "wis",
+    thievery: "dex",
   };
+}
+
+function getAllSkillOptions() {
+  return [
+    { label: "Acrobatics", value: "acrobatics" },
+    { label: "Arcana", value: "arcana" },
+    { label: "Athletics", value: "athletics" },
+    { label: "Crafting", value: "crafting" },
+    { label: "Deception", value: "deception" },
+    { label: "Diplomacy", value: "diplomacy" },
+    { label: "Intimidation", value: "intimidation" },
+    { label: "Medicine", value: "medicine" },
+    { label: "Nature", value: "nature" },
+    { label: "Occultism", value: "occultism" },
+    { label: "Performance", value: "performance" },
+    { label: "Religion", value: "religion" },
+    { label: "Society", value: "society" },
+    { label: "Stealth", value: "stealth" },
+    { label: "Survival", value: "survival" },
+    { label: "Thievery", value: "thievery" },
+  ];
 }
 
 // Call this function after adding a talent/feature or equipping an item
@@ -1736,6 +1774,7 @@ function updateAttribute({
   // TODO GET BEST ARMOR
   // const bestArmor = getBestArmor(record);
   // PLACEHOLDER
+  // TODO ADD ARMOR PROFICIENCIES
   const bestArmor = {
     ac: 10,
     addDex: true,
@@ -1968,6 +2007,313 @@ function promptForChoices(record, choicesToMake, index) {
   );
 }
 
+// Helper function to calculate proficiency bonus
+function calculateProficiencyBonus(record, training) {
+  const characterLevel = parseInt(record.data?.level || "0", 10);
+  switch (parseInt(training, 10)) {
+    case 0:
+      return 0;
+    case 1:
+      return 2 + characterLevel;
+    case 2:
+      return 4 + characterLevel;
+    case 3:
+      return 6 + characterLevel;
+    case 4:
+      return 8 + characterLevel;
+    default:
+      return 0;
+  }
+}
+
+// Called by onAddEditFeature to update the proficiencies for the character based on class and all features
+function updateProficiencies(record, valuesToSet) {
+  // Collect all features from ancestries, heritages, and classes
+  const ancestries = record.data?.ancestries || [];
+  const heritages = record.data?.heritages || [];
+  const classes = record.data?.classes || [];
+  const classObj = classes?.[0];
+  const features = [];
+  for (const ancestry of ancestries) {
+    features.push(...(ancestry.data?.features || []));
+  }
+  for (const heritage of heritages) {
+    features.push(...(heritage.data?.features || []));
+  }
+  for (const classObj of classes) {
+    features.push(...(classObj.data?.features || []));
+  }
+
+  // First create a map of all proficiencies, 0=untrained, 1=trained, 2=expert, 3=master, 4=legendary
+  const proficiencies = {
+    // class dc is always trained by default
+    classDC: 1,
+    // saving throws
+    reflex: 0,
+    fortitude: 0,
+    will: 0,
+    // armor
+    unarmored: 0,
+    light: 0,
+    medium: 0,
+    heavy: 0,
+    // weapons
+    unarmed: 0,
+    simple: 0,
+    martial: 0,
+    advanced: 0,
+    // spellcasting
+    spellcasting: 0,
+    // perception
+    perception: 0,
+    // skills
+    acrobatics: 0,
+    arcana: 0,
+    athletics: 0,
+    crafting: 0,
+    deception: 0,
+    diplomacy: 0,
+    intimidation: 0,
+    medicine: 0,
+    nature: 0,
+    occultism: 0,
+    performance: 0,
+    religion: 0,
+    society: 0,
+    stealth: 0,
+    survival: 0,
+    thievery: 0,
+  };
+
+  const possibleSkills = [
+    "acrobatics",
+    "arcana",
+    "athletics",
+    "crafting",
+    "deception",
+    "diplomacy",
+    "intimidation",
+    "medicine",
+    "nature",
+    "occultism",
+    "performance",
+    "religion",
+    "society",
+    "stealth",
+    "survival",
+    "thievery",
+  ];
+
+  // First check Class
+  if (classObj?.data?.classDC) {
+    proficiencies.classDC = parseInt(classObj.data.classDC, 10);
+  }
+  if (classObj?.data?.savingThrows) {
+    proficiencies.reflex = parseInt(
+      classObj.data.savingThrows?.reflex || "0",
+      10
+    );
+    proficiencies.fortitude = parseInt(
+      classObj.data.savingThrows?.fortitude || "0",
+      10
+    );
+    proficiencies.will = parseInt(classObj.data.savingThrows?.will || "0", 10);
+  }
+  if (classObj?.data?.perception) {
+    proficiencies.perception = parseInt(classObj.data.perception || "0", 10);
+  }
+  if (classObj?.data?.armor) {
+    proficiencies.unarmored = parseInt(
+      classObj.data.armor?.unarmored || "0",
+      10
+    );
+    proficiencies.light = parseInt(classObj.data.armor?.light || "0", 10);
+    proficiencies.medium = parseInt(classObj.data.armor?.medium || "0", 10);
+    proficiencies.heavy = parseInt(classObj.data.armor?.heavy || "0", 10);
+  }
+  if (classObj?.data?.weapons) {
+    proficiencies.unarmed = parseInt(classObj.data.weapons?.unarmed || "0", 10);
+    proficiencies.simple = parseInt(classObj.data.weapons?.simple || "0", 10);
+    proficiencies.martial = parseInt(classObj.data.weapons?.martial || "0", 10);
+    proficiencies.advanced = parseInt(
+      classObj.data.weapons?.advanced || "0",
+      10
+    );
+  }
+  if (classObj?.data?.spellcasting) {
+    proficiencies.spellcasting = parseInt(
+      classObj.data.spellcasting || "0",
+      10
+    );
+  }
+  // Class skills
+  if (classObj?.data?.trainedSkills) {
+    const skills = classObj.data.trainedSkills || [];
+    for (const skill of skills) {
+      proficiencies[skill] = 1;
+    }
+  }
+
+  // Now add all proficiencies from features
+  // First sort features by level (assume 0 if level is not set)
+  features.sort((a, b) => {
+    const levelA = parseInt(a.data?.level || "0", 10);
+    const levelB = parseInt(b.data?.level || "0", 10);
+    return levelA - levelB;
+  });
+
+  // Go through each feature and update proficiencies if the new rank is higher
+  for (const feature of features) {
+    const featureProficiencies = feature.data?.proficiencies || [];
+    featureProficiencies.forEach((proficiency) => {
+      const name = (proficiency?.data?.name || "").toLowerCase();
+      const rank = parseInt(proficiency?.data?.rank || "0", 10);
+
+      if (name && rank > 0) {
+        // Check if it's a saving throw
+        if (name === "fortitude" || name === "reflex" || name === "will") {
+          if (rank > proficiencies[name]) {
+            proficiencies[name] = rank;
+          }
+        }
+        // Check if it's armor
+        else if (
+          name === "unarmored" ||
+          name === "light" ||
+          name === "medium" ||
+          name === "heavy"
+        ) {
+          if (rank > proficiencies[name]) {
+            proficiencies[name] = rank;
+          }
+        }
+        // Check if it's weapons
+        else if (
+          name === "unarmed" ||
+          name === "simple" ||
+          name === "martial" ||
+          name === "advanced"
+        ) {
+          if (rank > proficiencies[name]) {
+            proficiencies[name] = rank;
+          }
+        }
+        // Check if it's spellcasting
+        else if (name === "spellcasting") {
+          if (rank > proficiencies.spellcasting) {
+            proficiencies.spellcasting = rank;
+          }
+        }
+        // Check if it's perception
+        else if (name === "perception") {
+          if (rank > proficiencies.perception) {
+            proficiencies.perception = rank;
+          }
+        }
+        // Check if it's a skill
+        else if (possibleSkills.includes(name)) {
+          if (rank > proficiencies[name]) {
+            proficiencies[name] = rank;
+          }
+        }
+        // Otherwise assume it's a class DC
+        else {
+          if (rank > proficiencies.classDC) {
+            proficiencies.classDC = rank;
+          }
+        }
+      }
+    });
+  }
+
+  // Set Class DC
+  const keyAbility = record.data?.keyAbility;
+  let keyAbilityScore = 0;
+  if (
+    keyAbility &&
+    ["str", "dex", "con", "int", "wis", "cha"].includes(keyAbility)
+  ) {
+    keyAbilityScore = parseInt(record.data?.[keyAbility] || "0", 10);
+  }
+  const classDCProficiencyBonus = calculateProficiencyBonus(
+    record,
+    proficiencies.classDC
+  );
+  valuesToSet["data.classDC"] = classDCProficiencyBonus + keyAbilityScore + 1;
+
+  // Set saving throw modifiers
+  const dexMod = parseInt(record.data?.dex || "0", 10);
+  const conMod = parseInt(record.data?.con || "0", 10);
+  const wisMod = parseInt(record.data?.wis || "0", 10);
+
+  // Reflex (DEX + proficiency bonus)
+  const reflexProficiencyBonus = calculateProficiencyBonus(
+    record,
+    proficiencies.reflex
+  );
+  valuesToSet["data.reflexMod"] = dexMod + reflexProficiencyBonus;
+  valuesToSet["data.reflex"] = proficiencies.reflex.toString();
+
+  // Fortitude (CON + proficiency bonus)
+  const fortitudeProficiencyBonus = calculateProficiencyBonus(
+    record,
+    proficiencies.fortitude
+  );
+  valuesToSet["data.fortitudeMod"] = conMod + fortitudeProficiencyBonus;
+  valuesToSet["data.fortitude"] = proficiencies.fortitude.toString();
+
+  // Will (WIS + proficiency bonus)
+  const willProficiencyBonus = calculateProficiencyBonus(
+    record,
+    proficiencies.will
+  );
+  valuesToSet["data.willMod"] = wisMod + willProficiencyBonus;
+  valuesToSet["data.will"] = proficiencies.will.toString();
+
+  // Perception (WIS + proficiency bonus)
+  const perceptionProficiencyBonus = calculateProficiencyBonus(
+    record,
+    proficiencies.perception
+  );
+  valuesToSet["data.perceptionMod"] = wisMod + perceptionProficiencyBonus;
+  valuesToSet["data.perception"] = proficiencies.perception.toString();
+
+  // Set skill modifiers
+  const pathfinderSkills = getPathfinderSkills();
+  for (const [skillName, abilityKey] of Object.entries(pathfinderSkills)) {
+    const skillProficiency = proficiencies[skillName] || 0;
+    const skillProficiencyBonus = calculateProficiencyBonus(
+      record,
+      skillProficiency
+    );
+    const abilityMod = parseInt(record.data?.[abilityKey] || "0", 10);
+    // For skills, don't override the user's set value if it was already set and is
+    // higher than the proficiency bonus
+    const currentSkillMod = parseInt(
+      record.data?.[`${skillName}Mod`] || "0",
+      10
+    );
+    if (currentSkillMod < abilityMod + skillProficiencyBonus) {
+      valuesToSet[`data.${skillName}Mod`] = abilityMod + skillProficiencyBonus;
+      valuesToSet[`data.${skillName}`] = skillProficiency.toString();
+    }
+  }
+
+  // Set armor and weapon proficiencies
+  valuesToSet["data.defenses.unarmored"] = proficiencies.unarmored;
+  valuesToSet["data.defenses.light"] = proficiencies.light;
+  valuesToSet["data.defenses.medium"] = proficiencies.medium;
+  valuesToSet["data.defenses.heavy"] = proficiencies.heavy;
+
+  valuesToSet["data.attacks.unarmed"] = proficiencies.unarmed;
+  valuesToSet["data.attacks.simple"] = proficiencies.simple;
+  valuesToSet["data.attacks.martial"] = proficiencies.martial;
+  valuesToSet["data.attacks.advanced"] = proficiencies.advanced;
+
+  // Set spellcasting proficiency
+  valuesToSet["data.spellcasting"] = proficiencies.spellcasting;
+}
+
 // This function is called after adding/editing a talent/feature or equipping an item
 function onAddEditFeature(record, callback = undefined) {
   // Check for ability score bonuses
@@ -2080,6 +2426,10 @@ function onAddEditFeature(record, callback = undefined) {
   ) {
     valuesToSet[`data.immunities`] = immunities;
   }
+
+  // Determine the best proficiencies for class dcs / saving throws / armor / weapons
+  // And set them on the character
+  updateProficiencies(record, valuesToSet);
 
   if (Object.keys(valuesToSet).length > 0) {
     api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {

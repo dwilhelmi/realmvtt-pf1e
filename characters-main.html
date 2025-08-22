@@ -189,6 +189,10 @@
         "data.className": className,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
+        "data.keyAbility":
+          classObj.data?.keyAbility?.length > 0
+            ? classObj.data?.keyAbility[0]
+            : "none",
       },
       (updatedRecord) => {
         // Recalculate ability scores for bonuses and such
@@ -245,7 +249,19 @@
   }
 
   function updateStat(value, stat) {
-    updateAttribute({ record, attribute: stat, value });
+    const valuesToSet = {};
+    updateProficiencies(record, valuesToSet);
+    updateAttribute({
+      record,
+      attribute: stat,
+      value,
+      moreValuesToSet: valuesToSet,
+    });
+    api.setValues(valuesToSet);
+  }
+
+  function updateKeyAbility(value) {
+    console.log("TODO UPDATE KEY ABILITY", value);
   }
 
   function updateAbilityBoosts(value, field) {
@@ -292,11 +308,15 @@
   }
 
   function updateSaveProficiency(value, save) {
-    console.log("TODO UPDATE SAVE PROFICIENCY", value, save);
+    const valuesToSet = {};
+    updateProficiencies(record, valuesToSet);
+    api.setValues(valuesToSet);
   }
 
   function updatePerceptionProficiency(value) {
-    console.log("TODO UPDATE PERCEPTION PROFICIENCY", value);
+    const valuesToSet = {};
+    updateProficiencies(record, valuesToSet);
+    api.setValues(valuesToSet);
   }
 
   function rollSave(save) {
@@ -371,6 +391,39 @@
       { label: "Wisdom", value: "wis" },
       { label: "Charisma", value: "cha" },
     ];
+  }
+
+  function getKeyAbilityOptions() {
+    const results = [];
+
+    // Look at class
+    const classes = record.data?.classes || [];
+    for (const classObj of classes) {
+      const keyAbility = classObj.data?.keyAbility || [];
+      for (const ability of keyAbility) {
+        results.push({
+          label: getLabelForAbility(ability),
+          value: ability,
+        });
+      }
+      // Look for class features
+      const features = classObj.data?.features || [];
+      for (const feature of features) {
+        const keyAbility = feature.data?.keyOptions || [];
+        for (const ability of keyAbility) {
+          results.push({
+            label: getLabelForAbility(ability),
+            value: ability,
+          });
+        }
+      }
+    }
+
+    if (results.length === 0) {
+      return [{ label: "None (Add a Class First)", value: "none" }];
+    }
+
+    return results;
   }
 
   function getBackgroundBoostOptions(field) {
@@ -572,7 +625,7 @@
         placeholder="0"
         size="xs"
         width="68px"
-        field="perception"
+        field="perceptionMod"
         showsign="true"
         textalign="center"
       ></numberfield>
@@ -586,13 +639,13 @@
     </div>
     <dropdown
       size="xs"
-      field="perceptionProficiency"
+      field="perception"
       width="100px"
       textalign="center"
       placeholder="Trained"
-      defaultvalue="trained"
+      defaultvalue="1"
       onchange="updatePerceptionProficiency(value)"
-      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
     ></dropdown>
   </div>
 
@@ -920,6 +973,15 @@
     </popover.target>
     <popover.dropdown>
       <div style="display: flex; flex-direction: column; gap: 4px">
+        <label size="xs" variant="bold" label="Key Ability"></label>
+        <dropdown
+          size="xs"
+          field="keyAbility"
+          placeholder="Choose Ability"
+          icon="IconCirclePlus"
+          optionsfunction="return getKeyAbilityOptions();"
+          onchange="updateKeyAbility(value)"
+        ></dropdown>
         <label size="xs" variant="bold" label="Ancestry Boosts"></label>
         <label
           size="xs"
@@ -1050,7 +1112,7 @@
         placeholder="0"
         size="xs"
         width="68px"
-        field="fortitude"
+        field="fortitudeMod"
         showsign="true"
         textalign="center"
       ></numberfield>
@@ -1064,13 +1126,13 @@
     </div>
     <dropdown
       size="xs"
-      field="fortitudeProficiency"
+      field="fortitude"
       width="100px"
       textalign="center"
       placeholder="None"
       defaultvalue="none"
       onchange="updateSaveProficiency(value, 'fortitude')"
-      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
     ></dropdown>
   </div>
 
@@ -1090,7 +1152,7 @@
         placeholder="0"
         size="xs"
         width="68px"
-        field="reflex"
+        field="reflexMod"
         showsign="true"
         textalign="center"
       ></numberfield>
@@ -1104,13 +1166,13 @@
     </div>
     <dropdown
       size="xs"
-      field="reflexProficiency"
+      field="reflex"
       width="100px"
       textalign="center"
       placeholder="None"
       defaultvalue="none"
       onchange="updateSaveProficiency(value, 'reflex')"
-      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
     ></dropdown>
   </div>
 
@@ -1130,7 +1192,7 @@
         placeholder="0"
         size="xs"
         width="68px"
-        field="will"
+        field="willMod"
         showsign="true"
         textalign="center"
       ></numberfield>
@@ -1144,13 +1206,13 @@
     </div>
     <dropdown
       size="xs"
-      field="willProficiency"
+      field="will"
       width="100px"
       placeholder="None"
       textalign="center"
       defaultvalue="none"
       onchange="updateSaveProficiency(value, 'will')"
-      options='[{"label": "None", "value": "none"}, {"label": "Trained", "value": "trained"}, {"label": "Expert", "value": "expert"}, {"label": "Master", "value": "master"}, {"label": "Legendary", "value": "legendary"}]'
+      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
     ></dropdown>
   </div>
 </div>

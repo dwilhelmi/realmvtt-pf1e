@@ -1,0 +1,528 @@
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <label
+    size="md"
+    textalign="center"
+    variant="bold"
+    label="Class Rules"
+  ></label>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-primary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Initial Proficiencies" size="md" variant="bold"></label>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      padding: 0px 4px;
+      margin-top: 4px;
+    "
+  >
+    <label label="Perception" size="sm" variant="bold"></label>
+  </div>
+  <dropdown
+    field="perception"
+    label="Perception"
+    placeholder="Trained"
+    defaultvalue="1"
+    width="150px"
+    options='[{
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+  ></dropdown>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Saving Throws" size="sm" variant="bold"></label>
+  </div>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <dropdown
+      field="savingThrows.fortitude"
+      label="Fortitude"
+      placeholder="Untrained"
+      defaultvalue="0"
+      width="100%"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <dropdown
+      field="savingThrows.reflex"
+      label="Reflex"
+      placeholder="Untrained"
+      defaultvalue="0"
+      width="100%"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <dropdown
+      field="savingThrows.will"
+      label="Will"
+      placeholder="Untrained"
+      defaultvalue="0"
+      width="100%"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Skills" size="sm" variant="bold"></label>
+  </div>
+  <dropdown
+    field="trainedSkills"
+    label="Trained Skills"
+    placeholder="None"
+    multiselect="100"
+    width="100%"
+    optionsfunction="return getAllSkillOptions();"
+  ></dropdown>
+  <numberfield
+    field="trainedSkillsAdditional"
+    label="Additional Trained Skills"
+    description="Trained in a number of additional skills equal to the below plus your Intelligence modifier    "
+    placeholder="0"
+    defaultvalue="0"
+    width="100%"
+  ></numberfield>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Attacks" size="sm" variant="bold"></label>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      flex-wrap: wrap;
+    "
+  >
+    <dropdown
+      field="attacks.unarmed"
+      label="Unarmed Attacks"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <dropdown
+      field="attacks.simple"
+      label="Simple Weapons"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <dropdown
+      field="attacks.martial"
+      label="Martial Weapons"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <dropdown
+      field="attacks.advanced"
+      label="Advanced Weapons"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+    <stringfield
+      field="attacks.other.name"
+      label="Other Attacks (Name)"
+      width="150px"
+      placeholder="N/A"
+    ></stringfield>
+    <dropdown
+      field="attacks.other.rank"
+      label="Other Attacks (Rank)"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+      "label": "Untrained",
+      "value": "0"
+    }, {
+      "label": "Trained",
+      "value": "1"
+    }, {
+      "label": "Expert",
+      "value": "2"
+    }, {
+      "label": "Master",
+      "value": "3"
+    }, {
+      "label": "Legendary",
+      "value": "4"
+    }]'
+    ></dropdown>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Defenses" size="sm" variant="bold"></label>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      flex-wrap: wrap;
+    "
+  >
+    <dropdown
+      field="defenses.unarmored"
+      label="Unarmored Defense"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+        "label": "Untrained",
+        "value": "0"
+      }, {
+        "label": "Trained",
+        "value": "1"
+      }, {
+        "label": "Expert",
+        "value": "2"
+      }, {
+        "label": "Master",
+        "value": "3"
+      }, {
+        "label": "Legendary",
+        "value": "4"
+      }]'
+    ></dropdown>
+    <dropdown
+      field="defenses.light"
+      label="Light Armor"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+        "label": "Untrained",
+        "value": "0"
+      }, {
+        "label": "Trained",
+        "value": "1"
+      }, {
+        "label": "Expert",
+        "value": "2"
+      }, {
+        "label": "Master",
+        "value": "3"
+      }, {
+        "label": "Legendary",
+        "value": "4"
+      }]'
+    ></dropdown>
+    <dropdown
+      field="defenses.medium"
+      label="Medium Armor"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+        "label": "Untrained",
+        "value": "0"
+        }, {
+        "label": "Trained",
+        "value": "1"
+        }, {
+        "label": "Expert",
+        "value": "2"
+        }, {
+        "label": "Master",
+        "value": "3"
+        }, {
+        "label": "Legendary",
+        "value": "4"
+        }]'
+    ></dropdown>
+    <dropdown
+      field="defenses.heavy"
+      label="Heavy Armor"
+      placeholder="Untrained"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+        "label": "Untrained",
+        "value": "0"
+        }, {
+        "label": "Trained",
+        "value": "1"
+        }, {
+        "label": "Expert",
+        "value": "2"
+        }, {
+        "label": "Master",
+        "value": "3"
+        }, {
+        "label": "Legendary",
+        "value": "4"
+        }]'
+    ></dropdown>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Class DC" size="sm" variant="bold"></label>
+  </div>
+  <dropdown
+    field="classDC"
+    label="Class DC"
+    placeholder="Trained"
+    width="150px"
+    defaultvalue="1"
+    options='[{
+      "label": "Untrained",
+      "value": "0"
+      }, {
+      "label": "Trained",
+      "value": "1"
+      }, {
+      "label": "Expert",
+      "value": "2"
+      }, {
+      "label": "Master",
+      "value": "3"
+      }, {
+      "label": "Legendary",
+      "value": "4"
+      }]'
+  ></dropdown>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-secondary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-top: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Spells" size="sm" variant="bold"></label>
+  </div>
+  <dropdown
+    field="spellcasting"
+    label="Spell Attack Modifier and Spell DC"
+    placeholder="Untrained"
+    width="fit-content"
+    defaultvalue="0"
+    options='[{
+    "label": "Untrained",
+    "value": "0"
+    }, {
+    "label": "Trained",
+    "value": "1"
+    }, {
+    "label": "Expert",
+    "value": "2"
+    }, {
+    "label": "Master",
+    "value": "3"
+    }, {
+    "label": "Legendary",
+    "value": "4"
+    }]'
+  ></dropdown>
+</div>

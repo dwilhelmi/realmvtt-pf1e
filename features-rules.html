@@ -8,7 +8,7 @@
     textalign="right"
   ></checkbox>
 
-  <div style="display: flex; flex-direction: row; gap: 4px">
+  <div style="display: flex; flex-direction: row; gap: 4px; margin-top: 4px">
     <div style="display: flex; flex-direction: column; gap: 4px">
       <label
         label="Provides Attack"
@@ -27,7 +27,7 @@
     <list field="item" variant="outline" listtype="attached_item_list"></list>
   </div>
 
-  <div style="display: flex; flex-direction: column; gap: 4px">
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
     <label
       label="Provides Choices"
       size="sm"
@@ -37,6 +37,20 @@
     <list
       field="choices"
       listtype="feature_choice_list"
+      variant="striped"
+    ></list>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
+    <label
+      label="Proficiencies"
+      size="sm"
+      textalign="left"
+      variant="bold"
+    ></label>
+    <list
+      field="proficiencies"
+      listtype="feature_proficiency_list"
       variant="striped"
     ></list>
   </div>

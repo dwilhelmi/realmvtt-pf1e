@@ -34,6 +34,13 @@
       valuesToSet[`${fieldsPath}.actions.hidden`] = true;
     }
 
+    const showKeyOptions = feature.data?.subtype === "classfeature";
+    if (showKeyOptions && feature.fields?.keyOptions?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.keyOptions.hidden`] = false;
+    } else if (!showKeyOptions && feature.fields?.keyOptions?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.keyOptions.hidden`] = true;
+    }
+
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }
@@ -149,6 +156,7 @@
       <dropdown
         width="100%"
         field="subtype"
+        onchange="showHideFields();"
         combo="true"
         label="Subtype"
         placeholder="Select Subtype..."
@@ -169,6 +177,21 @@
     combo="true"
     multiselect="100"
     options="[]"
+  ></dropdown>
+
+  <dropdown
+    field="keyOptions"
+    label="Key Ability Options"
+    placeholder="None"
+    hidden="true"
+    multiselect="6"
+    options='[{"label": "None", "value": "none"},
+    {"label": "Strength", "value": "str"},
+    {"label": "Dexterity", "value": "dex"},
+    {"label": "Constitution", "value": "con"},
+    {"label": "Intelligence", "value": "int"},
+    {"label": "Wisdom", "value": "wis"},
+    {"label": "Charisma", "value": "charisma"}]'
   ></dropdown>
 
   <div style="margin-top: 8px; margin-bottom: 8px">
