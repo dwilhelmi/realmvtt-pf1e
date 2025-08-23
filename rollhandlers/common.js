@@ -2213,7 +2213,7 @@ function updateProficiencies(record, valuesToSet) {
   }
   // Class and background skills
   if (classObj?.data?.trainedSkills || backgroundObj?.data?.trainedSkills) {
-    const skills = classObj.data.trainedSkills || [];
+    const skills = classObj?.data?.trainedSkills || [];
     const backgroundSkills = backgroundObj?.data?.trainedSkills || [];
     const allSkills = [...skills, ...backgroundSkills];
     for (const skill of allSkills) {
