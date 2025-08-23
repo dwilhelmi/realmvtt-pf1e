@@ -159,19 +159,7 @@
   }
 
   function onDropFeat(recordLink) {
-    const feat = recordLink?.value;
-
-    // We add feats to the features list so that
-    // All modifiers and are parsed by the same functions
-    const featToAdd = {
-      ...feat,
-      data: {
-        ...feat?.data,
-        // Set a field called featureType to 'feat' so that
-        // So that we can show and filter the two features_list fields properly
-        featureType: "feat",
-      },
-    };
+    const featToAdd = recordLink?.value;
 
     api.addValue(`data.features`, featToAdd, (updatedRecord) => {
       // After adding the feat, we need to update abilities if one was attached to it
@@ -565,7 +553,7 @@
 </div>
 
 <div style="width: 100%">
-  <list listtype="feats_list" field="features"></list>
+  <list listtype="feats_list" field="feats"></list>
 </div>
 
 <div style="margin-top: 8px">

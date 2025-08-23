@@ -6,7 +6,7 @@
       onDropHeritage(recordLink);
     } else if (type === "class") {
       onDropClass(recordLink);
-    } else if (type === "background") {
+    } else if (type === "backgrounds") {
       onDropBackground(recordLink);
     }
   }
@@ -206,7 +206,60 @@
   }
 
   function onDropBackground(recordLink) {
-    console.log("TODO ON DROP BACKGROUND", recordLink);
+    // Check if already on Character
+    const backgrounds = record?.data?.backgrounds || [];
+    const backgroundName = recordLink.tooltip;
+    const backgroundObj = { ...recordLink.value };
+
+    // Add all non-rarity traits to the character
+    const traits = backgroundObj.data?.traits || [];
+    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+    backgroundObj.data.traits = nonRarityTraits;
+
+    // Set traits list
+    const traitsObjects = [];
+    for (const trait of nonRarityTraits) {
+      traitsObjects.push({
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      });
+    }
+
+    const curTraits = record.data?.traits || [];
+    // Ensure uniqueness by using a Set for better deduplication
+    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+
+    const curTraitsList = record.data?.traitsList || [];
+    // Ensure uniqueness by name, keeping the first occurrence of each trait name
+    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
+      (trait, index, self) =>
+        self.findIndex((t) => t.name === trait.name) === index
+    );
+
+    const providesFeats = backgroundObj.data?.feats || [];
+
+    api.setValues(
+      {
+        "data.backgrounds": [backgroundObj],
+        "data.backgroundName": backgroundName,
+        "data.traitsList": newTraitsList,
+        "data.traits": newTraits,
+      },
+      (updatedRecord) => {
+        // Recalculate ability scores for bonuses and such
+        // Add the feats to the character
+        addFeatsToCharacter(updatedRecord, providesFeats, () => {
+          // Then recalculate features
+          onAddEditFeature(updatedRecord, () => {
+            api.setHidden("backgrounds", false, () => {
+              api.setHidden("backgroundDetailsLabel", true);
+            });
+          });
+        });
+      }
+    );
   }
 
   function onDeleteAncestry() {
@@ -252,7 +305,17 @@
   }
 
   function onDeleteBackground() {
-    console.log("TODO ON DELETE BACKGROUND");
+    // Recalculate ability scores for bonuses and such
+    onAddEditFeature(
+      record,
+      () => {
+        api.setHidden("backgrounds", true, () => {
+          api.setHidden("backgroundDetailsLabel", false);
+        });
+      },
+      // Skip choice processing
+      true
+    );
   }
 
   function onLevelChange(value) {
@@ -1336,17 +1399,3 @@
     </popover>
   </div>
 </div>
-
-<!-- TODO 
-- Scripts to control all the above including:
--- Training levels in attacks, skills
--- Trainign levels to class DC, spell DC, spell attack (take highest from all sources)
--- Auto-calculating of class DC, Spell DC, skill DCs, etc
--- Auto-calculating of HP, armor, etc
-
--- Class, Ancestry, Heritage, Background
-
--- Popover for ability bonus options/settings
-
--- Speed, Size, Senses, Perception 
--->

@@ -1925,6 +1925,66 @@ function processChoices(record) {
   promptForChoices(record, choicesToMake, 0);
 }
 
+function addFeatsToCharacter(record, feats, callback = undefined) {
+  const curFeats = record.data?.feats || [];
+
+  // If there are no feats to add, call callback and return
+  if (feats.length === 0) {
+    if (callback) callback();
+    return;
+  }
+
+  // Helper function to collect feats recursively
+  function collectFeats(featIds, collectedFeats = []) {
+    if (featIds.length === 0) {
+      // All feats collected, now append them to the character's feats
+      const updatedFeats = [...curFeats, ...collectedFeats];
+      api.setValues({ "data.feats": updatedFeats }, callback);
+      return;
+    }
+
+    // Take the first feat from the array
+    const featToAdd = featIds[0];
+    const remainingFeats = featIds.slice(1);
+
+    // Parse the JSON string to get the feat ID
+    let featId;
+    try {
+      const featData = JSON.parse(featToAdd);
+      featId = featData._id;
+    } catch (error) {
+      console.error("Error parsing feat JSON:", featToAdd, error);
+      // Skip this feat and continue with the next one
+      collectFeats(remainingFeats, collectedFeats);
+      return;
+    }
+
+    // Check if this feat is already in the character's current feats
+    const featName = JSON.parse(featToAdd).name;
+    const alreadyHasFeat = curFeats.some(
+      (existingFeat) => existingFeat.name === featName
+    );
+
+    if (alreadyHasFeat) {
+      // Skip this feat and continue with the next one
+      collectFeats(remainingFeats, collectedFeats);
+      return;
+    }
+
+    // Query for the current feat using the parsed ID
+    api.getRecord("feats", featId, (featRecord) => {
+      // Add the retrieved feat to our collected feats
+      collectedFeats.push(featRecord);
+
+      // Recursively collect remaining feats
+      collectFeats(remainingFeats, collectedFeats);
+    });
+  }
+
+  // Start collecting feats
+  collectFeats(feats);
+}
+
 function promptForChoices(record, choicesToMake, index) {
   if (index >= choicesToMake.length) {
     // Only call onAddEditFeature if we actually processed choices
@@ -2035,6 +2095,8 @@ function updateProficiencies(record, valuesToSet) {
   const heritages = record.data?.heritages || [];
   const classes = record.data?.classes || [];
   const classObj = classes?.[0];
+  const backgrounds = record.data?.backgrounds || [];
+  const backgroundObj = backgrounds?.[0];
   const features = [];
   for (const ancestry of ancestries) {
     features.push(...(ancestry.data?.features || []));
@@ -2149,10 +2211,12 @@ function updateProficiencies(record, valuesToSet) {
       10
     );
   }
-  // Class skills
-  if (classObj?.data?.trainedSkills) {
+  // Class and background skills
+  if (classObj?.data?.trainedSkills || backgroundObj?.data?.trainedSkills) {
     const skills = classObj.data.trainedSkills || [];
-    for (const skill of skills) {
+    const backgroundSkills = backgroundObj?.data?.trainedSkills || [];
+    const allSkills = [...skills, ...backgroundSkills];
+    for (const skill of allSkills) {
       const skillName = skill.toLowerCase();
       // Check if it's a lore skill (ends with " lore")
       if (skillName.endsWith(" lore")) {
