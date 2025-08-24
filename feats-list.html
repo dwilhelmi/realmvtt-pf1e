@@ -1,0 +1,153 @@
+<script>
+  function onDrop(value, recordLink) {
+    const dataPathToFeat = getNearestParentDataPath(dataPath);
+    const featSlot = api.getValue(dataPathToFeat);
+    const feat = recordLink?.value;
+
+    console.log("onDrop", value, recordLink);
+
+    if (value === "feats") {
+      // If this is a feat slot, we set it
+      const valuesToSet = {};
+
+      // TODO make sure it matches the LEVEL of the slots and the featSlotType else
+      // notify error
+
+      if (featSlot.data?.type === "slot") {
+        valuesToSet[`${dataPathToFeat}`] = {
+          ...feat,
+          fields: {
+            ...(feat?.fields || {}),
+            featDetails: { hidden: false },
+            featSlot: { hidden: true },
+          },
+        };
+        api.setValues(valuesToSet);
+      }
+    }
+  }
+
+  function clearFeat() {
+    const dataPathToFeat = getNearestParentDataPath(dataPath);
+    const featSlot = api.getValue(dataPathToFeat);
+
+    if (featSlot.data?.type !== "slot") {
+      const valuesToSet = {};
+      valuesToSet[`${dataPathToFeat}`] = {
+        name: "Feat Slot",
+        unidentifiedName: "Feat Slot",
+        data: {
+          type: "slot",
+          level: featSlot?.data?.level,
+          featSlotType: featSlot?.data?.featSlotType,
+        },
+        fields: {
+          featDetails: { hidden: true },
+          featSlot: { hidden: false },
+        },
+      };
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function showFeatSlotOptions() {
+    console.log("showFeatSlotOptions");
+  }
+</script>
+
+<box field="featSlot" hidden="true">
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+      align-items: center;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--mantine-color-default-border);
+    "
+  >
+    <div style="display: flex; gap: 4px; width: 100%; align-items: center">
+      <div
+        style="
+          width: 30px;
+          height: 30px;
+          min-width: 30px;
+          min-height: 30px;
+          border: 1px solid var(--mantine-color-default-border);
+        "
+      >
+        <iconbutton
+          size="md"
+          variant="subtle"
+          color="default"
+          onclick="showFeatSlotOptions()"
+          options='[{"label": "Select Feat", "icon": "IconRosetteDiscountCheck", "value": "selectFeat"}]'
+        ></iconbutton>
+      </div>
+      <numberfield
+        size="xs"
+        width="35px"
+        editable="false"
+        hidecontrols="true"
+        textalign="center"
+        variant="tooltip"
+        field="level"
+        label="Level"
+        placeholder="1"
+      ></numberfield>
+      <label size="sm" variant="bold" label="Drag a Feat Here"></label>
+    </div>
+  </div>
+</box>
+<box field="featDetails" hidden="false">
+  <accordion size="xs" field="descriptionOpen">
+    <accordion.control>
+      <div style="display: flex; gap: 2px; width: 100%; align-items: center">
+        <div
+          style="width: 30px; height: 30px; min-width: 30px; min-height: 30px"
+        >
+          <portrait width="30px" height="30px" field="portrait"></portrait>
+        </div>
+        <numberfield
+          size="xs"
+          width="35px"
+          editable="false"
+          hidecontrols="true"
+          textalign="center"
+          variant="tooltip"
+          field="level"
+          label="Level"
+          placeholder="1"
+        ></numberfield>
+        <div style="min-width: 100px; flex-grow: 1">
+          <namefield
+            size="sm"
+            width="100%"
+            variant="unstyled"
+            bold="true"
+            field="namefield"
+            placeholder="Enter feat name..."
+          ></namefield>
+        </div>
+        <div style="margin-right: 4px">
+          <iconbutton
+            size="sm"
+            variant="default"
+            color="red"
+            onclick="clearFeat()"
+            options='[{"label": "Remove Feat", "icon": "IconTrash", "value": "removeFeat"}]'
+          ></iconbutton>
+        </div>
+      </div>
+    </accordion.control>
+    <div style="margin-top: 4px">
+      <richtextfield
+        disablecontrols="true"
+        field="description"
+        placeholder="Feat description..."
+      ></richtextfield>
+    </div>
+  </accordion>
+</box>
+<numberfield field="slotOrder" hidden="true"></numberfield>

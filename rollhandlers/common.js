@@ -2088,6 +2088,156 @@ function calculateProficiencyBonus(record, training) {
   }
 }
 
+// Called by onAddEditFeature to set the feat slots for the character based on their feats
+function setFeatSlots(record, valuesToSet) {
+  const classes = record.data?.classes || [];
+  const classObj = classes?.[0];
+  const ancestryFeatLevels = (classObj?.data?.ancestryFeatLevels || []).map(
+    (level) => parseInt(level, 10)
+  );
+  const classFeatLevels = (classObj?.data?.classFeatLevels || []).map((level) =>
+    parseInt(level, 10)
+  );
+  const generalFeatLevels = (classObj?.data?.generalFeatLevels || []).map(
+    (level) => parseInt(level, 10)
+  );
+  const skillFeatLevels = (classObj?.data?.skillFeatLevels || []).map((level) =>
+    parseInt(level, 10)
+  );
+
+  // Get current feats to check what slots already exist
+  const currentFeats = record.data?.feats || [];
+
+  // Get character's current level
+  const characterLevel = parseInt(record.data?.level || "1", 10);
+
+  // Create feat slots for each type
+  const featSlots = [];
+  let slotOrder = 0;
+
+  // Ancestry feat slots - only for levels up to current character level
+  ancestryFeatLevels.forEach((level) => {
+    if (level <= characterLevel) {
+      const existingSlot = currentFeats.find(
+        (feat) =>
+          feat.data?.featSlotType === "ancestry" && feat.data?.level === level
+      );
+
+      if (!existingSlot) {
+        featSlots.push({
+          _id: generateUuid(),
+          name: "Ancestry Feat Slot",
+          recordType: "feats",
+          unidentifiedName: "Ancestry Feat Slot",
+          data: {
+            type: "slot",
+            level: level,
+            featSlotType: "ancestry",
+            slotOrder: slotOrder++,
+          },
+          fields: {
+            featSlot: { hidden: false },
+            featDetails: { hidden: true },
+          },
+        });
+      }
+    }
+  });
+
+  // Class feat slots - only for levels up to current character level
+  classFeatLevels.forEach((level) => {
+    if (level <= characterLevel) {
+      const existingSlot = currentFeats.find(
+        (feat) =>
+          feat.data?.featSlotType === "class" && feat.data?.level === level
+      );
+
+      if (!existingSlot) {
+        featSlots.push({
+          _id: generateUuid(),
+          name: "Class Feat Slot",
+          recordType: "feats",
+          unidentifiedName: "Class Feat Slot",
+          data: {
+            type: "slot",
+            level: level,
+            featSlotType: "class",
+            slotOrder: slotOrder++,
+          },
+          fields: {
+            featSlot: { hidden: false },
+            featDetails: { hidden: true },
+          },
+        });
+      }
+    }
+  });
+
+  // General feat slots - only for levels up to current character level
+  generalFeatLevels.forEach((level) => {
+    if (level <= characterLevel) {
+      const existingSlot = currentFeats.find(
+        (feat) =>
+          feat.data?.featSlotType === "general" && feat.data?.level === level
+      );
+
+      if (!existingSlot) {
+        featSlots.push({
+          _id: generateUuid(),
+          name: "General Feat Slot",
+          recordType: "feats",
+          unidentifiedName: "General Feat Slot",
+          data: {
+            type: "slot",
+            level: level,
+            featSlotType: "general",
+            slotOrder: slotOrder++,
+          },
+          fields: {
+            featSlot: { hidden: false },
+            featDetails: { hidden: true },
+          },
+        });
+      }
+    }
+  });
+
+  // Skill feat slots - only for levels up to current character level
+  skillFeatLevels.forEach((level) => {
+    if (level <= characterLevel) {
+      const existingSlot = currentFeats.find(
+        (feat) =>
+          feat.data?.featSlotType === "skill" && feat.data?.level === level
+      );
+
+      if (!existingSlot) {
+        featSlots.push({
+          _id: generateUuid(),
+          name: "Skill Feat Slot",
+          recordType: "feats",
+          unidentifiedName: "Skill Feat Slot",
+          data: {
+            type: "slot",
+            level: level,
+            featSlotType: "skill",
+            slotOrder: slotOrder++,
+          },
+          fields: {
+            featSlot: { hidden: false },
+            featDetails: { hidden: true },
+          },
+        });
+      }
+    }
+  });
+
+  // Add new feat slots to existing feats
+  if (featSlots.length > 0) {
+    const updatedFeats = [...currentFeats, ...featSlots];
+    valuesToSet["data.feats"] = updatedFeats;
+  }
+}
+
 // Called by onAddEditFeature to update the proficiencies for the character based on class and all features
 function updateProficiencies(record, valuesToSet) {
   // Collect all features from ancestries, heritages, and classes
@@ -2693,6 +2843,10 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Determine the best proficiencies for class dcs / saving throws / armor / weapons
   // And set them on the character
   updateProficiencies(record, valuesToSet);
+
+  // Check for feats that the character gets at their current level, and add (or remove empty slots)
+  // to make sure it matches
+  setFeatSlots(record, valuesToSet);
 
   if (Object.keys(valuesToSet).length > 0) {
     api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {
