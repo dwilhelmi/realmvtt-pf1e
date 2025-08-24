@@ -1,0 +1,37 @@
+<accordion size="xs" field="descriptionOpen">
+  <accordion.control>
+    <div style="display: flex; gap: 2px; width: 100%; align-items: center">
+      <div style="width: 30px; height: 30px; min-width: 30px; min-height: 30px">
+        <portrait width="30px" height="30px" field="portrait"></portrait>
+      </div>
+      <numberfield
+        size="xs"
+        width="35px"
+        editable="false"
+        hidecontrols="true"
+        textalign="center"
+        variant="tooltip"
+        field="level"
+        label="Level"
+        placeholder="1"
+      ></numberfield>
+      <div style="min-width: 100px; flex-grow: 1">
+        <namefield
+          size="sm"
+          width="100%"
+          variant="unstyled"
+          bold="true"
+          field="namefield"
+          placeholder="Enter feat name..."
+        ></namefield>
+      </div>
+    </div>
+  </accordion.control>
+  <div style="margin-top: 4px">
+    <richtextfield
+      disablecontrols="true"
+      field="description"
+      placeholder="Feat description..."
+    ></richtextfield>
+  </div>
+</accordion>

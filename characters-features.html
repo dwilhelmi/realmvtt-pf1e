@@ -229,6 +229,10 @@
   function getSlotFilters(slotType) {
     return [{ field: "featSlotType", operator: "equals", value: slotType }];
   }
+
+  function onAddDeleteFeat() {
+    onAddEditFeature(record);
+  }
 </script>
 
 <div>
@@ -342,10 +346,9 @@
   </div>
 
   <list
-    listtype="feats_list"
-    field="feats"
-    emptylisttext="No Bonus Feats"
-    getfilters="return getSlotFilters('bonus');"
+    listtype="bonus_feats_list"
+    field="bonusFeats"
+    onchange="onAddDeleteFeat();"
   ></list>
 </div>
 
