@@ -291,16 +291,26 @@
   }
 
   function onDeleteClass() {
-    // Recalculate ability scores for bonuses and such
-    onAddEditFeature(
-      record,
-      () => {
-        api.setHidden("classes", true, () => {
-          api.setHidden("classDetailsLabel", false);
-        });
+    // Remove all unused feat slots
+    const feats = record.data?.feats || [];
+    const remainingFeats = feats.filter((feat) => feat.data?.type !== "slot");
+    api.setValues(
+      {
+        "data.feats": remainingFeats,
       },
-      // Skip choice processing
-      true
+      (updatedRecord) => {
+        // Recalculate ability scores for bonuses and such
+        onAddEditFeature(
+          updatedRecord,
+          () => {
+            api.setHidden("classes", true, () => {
+              api.setHidden("classDetailsLabel", false);
+            });
+          },
+          // Skip choice processing
+          true
+        );
+      }
     );
   }
 

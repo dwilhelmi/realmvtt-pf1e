@@ -1474,6 +1474,8 @@ function getEffectsAndModifiersForToken(
 
   // Now collect all modifiers from Features and Items
   const features = target?.data?.features || [];
+  const feats = target?.data?.feats || [];
+  features.push(...feats);
   // Ensure items is an array before filtering
   const items = Array.isArray(target?.data?.inventory)
     ? target?.data?.inventory
@@ -2775,7 +2777,32 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
 
   // Check for sense bonuses
   const senseBonus = getEffectsAndModifiersForToken(record, ["sense"]);
+  const lowLightDarkvisionBonus = getEffectsAndModifiersForToken(record, [
+    "lowLightDarkvision",
+  ]);
   const currentSenses = record.data?.senses || "";
+
+  // Handle low-light darkvision bonus
+  if (lowLightDarkvisionBonus.length > 0) {
+    let newSenses = currentSenses;
+
+    // Check if they already have Low-Light vision (various formats)
+    const hasLowLight = /low.?light|lowlight/i.test(currentSenses);
+
+    if (hasLowLight) {
+      // Replace Low-Light vision with Darkvision
+      newSenses = currentSenses.replace(/low.?light|lowlight/gi, "Darkvision");
+    } else {
+      // Add Low-Light vision if they don't have it
+      if (newSenses && !newSenses.includes("Low-Light")) {
+        newSenses = `${newSenses}, Low-Light`;
+      } else if (!newSenses) {
+        newSenses = "Low-Light";
+      }
+    }
+
+    valuesToSet[`data.senses`] = newSenses;
+  }
 
   senseBonus.forEach((modifier) => {
     const sense = modifier.value || modifier.field || "";

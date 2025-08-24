@@ -4,25 +4,87 @@
     const featSlot = api.getValue(dataPathToFeat);
     const feat = recordLink?.value;
 
-    console.log("onDrop", value, recordLink);
-
     if (value === "feats") {
       // If this is a feat slot, we set it
       const valuesToSet = {};
 
-      // TODO make sure it matches the LEVEL of the slots and the featSlotType else
+      // Make sure it matches the LEVEL of the slots and the featSlotType else
       // notify error
+      const featLevel = parseInt(feat?.data?.level || "0", 10);
+      const slotLevel = parseInt(featSlot?.data?.level || "0", 10);
+      const featSlotType = featSlot?.data?.featSlotType;
+      const featType = feat?.data?.type;
+
+      // Check if feat level is too high for the slot
+      if (featLevel > slotLevel) {
+        api.showNotification(
+          `This slot requires a level of ${slotLevel} or lower.`,
+          "red",
+          "Feat Level Mismatch"
+        );
+        return;
+      }
+
+      // Check if feat type matches slot type
+      if (featSlotType === "ancestry" && featType !== "ancestry") {
+        api.showNotification(
+          `This slot only accepts Ancestry feats.`,
+          "red",
+          "Feat Type Mismatch"
+        );
+        return;
+      }
+
+      if (featSlotType === "class" && featType !== "class") {
+        api.showNotification(
+          `This slot only accepts Class feats.`,
+          "red",
+          "Feat Type Mismatch"
+        );
+        return;
+      }
+
+      if (
+        featSlotType === "general" &&
+        featType !== "general" &&
+        featType !== "skill"
+      ) {
+        api.showNotification(
+          `This slot only accepts General or Skill feats.`,
+          "red",
+          "Feat Type Mismatch"
+        );
+        return;
+      }
+
+      if (featSlotType === "skill" && featType !== "skill") {
+        api.showNotification(
+          `This slot only accepts Skill feats.`,
+          "red",
+          "Feat Type Mismatch"
+        );
+        return;
+      }
 
       if (featSlot.data?.type === "slot") {
         valuesToSet[`${dataPathToFeat}`] = {
           ...feat,
+          _id: featSlot?._id,
+          data: {
+            ...feat?.data,
+            level: featSlot?.data?.level,
+            featSlotType: featSlot?.data?.featSlotType,
+            slotOrder: featSlot?.data?.slotOrder,
+          },
           fields: {
             ...(feat?.fields || {}),
             featDetails: { hidden: false },
             featSlot: { hidden: true },
           },
         };
-        api.setValues(valuesToSet);
+        api.setValues(valuesToSet, (updatedRecord) => {
+          onAddEditFeature(updatedRecord);
+        });
       }
     }
   }
@@ -34,24 +96,98 @@
     if (featSlot.data?.type !== "slot") {
       const valuesToSet = {};
       valuesToSet[`${dataPathToFeat}`] = {
-        name: "Feat Slot",
-        unidentifiedName: "Feat Slot",
+        name: capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
+        unidentifiedName:
+          capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
+        _id: featSlot?._id,
         data: {
           type: "slot",
           level: featSlot?.data?.level,
           featSlotType: featSlot?.data?.featSlotType,
+          slotOrder: featSlot?.data?.slotOrder,
+          modifiers: [],
         },
         fields: {
           featDetails: { hidden: true },
           featSlot: { hidden: false },
         },
       };
-      api.setValues(valuesToSet);
+      api.setValues(valuesToSet, (updatedRecord) => {
+        onAddEditFeature(updatedRecord);
+      });
     }
   }
 
   function showFeatSlotOptions() {
-    console.log("showFeatSlotOptions");
+    const dataPathToFeat = getNearestParentDataPath(dataPath);
+    const featSlot = api.getValue(dataPathToFeat);
+
+    const featSlotType = featSlot?.data?.featSlotType;
+    const featSlotLevel = parseInt(featSlot?.data?.level || "0", 10);
+
+    const classes = record?.data?.classes || [];
+    const className = classes?.[0]?.name || record?.data?.className || "";
+    const ancestries = record?.data?.ancestries || [];
+    const ancestryName =
+      ancestries?.[0]?.name || record?.data?.ancestryName || "";
+    const heritage = record?.data?.heritages || [];
+    const heritageName =
+      heritage?.[0]?.name || record?.data?.heritageName || "";
+
+    // TODO CHECK HERITAGE NAME TOO
+    // ALSO ADD SUPPORT FOR HERITAGE ADDING A TRAIT LIKE IN FOUNDRY:
+    // {
+    //             "add": [
+    //                 "elf"
+    //             ],
+    //             "key": "ActorTraits"
+    //         },
+    // AND CHECK FOR THOSE TRAITS IN THE QUERY
+
+    const options = [];
+
+    if (featSlotType === "ancestry") {
+      options.push({ label: "Ancestry Feat", value: "ancestry" });
+    }
+
+    const optionSelection = (values) => {
+      if (values.length > 0) {
+        const feat = values[0];
+        onDrop("feats", { value: feat, tooltip: feat.name });
+      }
+    };
+
+    const optionsQuery = {
+      type: "feats",
+      query: {
+        "data.level": { $lte: featSlotLevel },
+        ...(featSlotType === "general"
+          ? { "data.type": { $in: ["general", "skill"] } }
+          : { "data.type": featSlotType }),
+        ...(featSlotType === "class" && className
+          ? {
+              "data.traits": {
+                $elemMatch: { $regex: `^${className}$`, $options: "i" },
+              },
+            }
+          : featSlotType === "ancestry" && ancestryName
+          ? {
+              "data.traits": {
+                $elemMatch: { $regex: `^${ancestryName}$`, $options: "i" },
+              },
+            }
+          : {}),
+      },
+    };
+
+    api.showPrompt(
+      `Select a ${capitalize(featSlotType)} Feat for Level ${featSlotLevel}`,
+      "Select Feat",
+      `Select a Feat...`,
+      null,
+      optionsQuery,
+      optionSelection
+    );
   }
 </script>
 
@@ -96,7 +232,10 @@
         label="Level"
         placeholder="1"
       ></numberfield>
-      <label size="sm" variant="bold" label="Drag a Feat Here"></label>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <label size="sm" variant="bold" field="namefield"></label>
+        <label size="xs" color="dimmed" label="Drag a Feat Here"></label>
+      </div>
     </div>
   </div>
 </box>

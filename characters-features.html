@@ -225,14 +225,128 @@
       }
     );
   }
+
+  function getSlotFilters(slotType) {
+    return [{ field: "featSlotType", operator: "equals", value: slotType }];
+  }
 </script>
 
 <div>
   <label variant="bold" textalign="center" label="Feats"></label>
 </div>
 
-<div style="width: 100%">
-  <list listtype="feats_list" field="feats"></list>
+<div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(from var(--mantine-color-red-filled) r g b / 0.25);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Class Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    getfilters="return getSlotFilters('class');"
+    emptylisttext="No Class Feat Slots"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(from var(--mantine-color-blue-filled) r g b / 0.25);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="General Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    getfilters="return getSlotFilters('general');"
+    emptylisttext="No General Feat Slots"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(from var(--mantine-color-cyan-filled) r g b / 0.25);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Skill Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    emptylisttext="No Skill Feat Slots"
+    getfilters="return getSlotFilters('skill');"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(from var(--mantine-color-teal-filled) r g b / 0.25);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Ancestry Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    emptylisttext="No Ancestry Feat Slots"
+    getfilters="return getSlotFilters('ancestry');"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-green-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Bonus Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    emptylisttext="No Bonus Feats"
+    getfilters="return getSlotFilters('bonus');"
+  ></list>
 </div>
 
 <div style="margin-top: 8px">

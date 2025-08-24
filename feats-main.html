@@ -1,3 +1,60 @@
+<script>
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const featDataPath = getNearestParentDataPath(dataPath);
+    const feat = featDataPath ? api.getValue(featDataPath) : record;
+    const dataPrefix = featDataPath ? `${featDataPath}.data` : "data";
+    const fieldsPath = featDataPath ? `${featDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      feat.data?.traits &&
+      feat.data?.traits.length > 0 &&
+      !feat.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of feat.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Feature"
+    size="lg"
+    variant="bold"
+  ></label>
+</div>
+
 <div
   style="
     display: flex;
@@ -7,6 +64,29 @@
     margin-bottom: 4px;
   "
 >
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value);"
+    >
+    </dropdown>
+  </box>
+
   <div style="display: flex; gap: 4px">
     <div
       style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
