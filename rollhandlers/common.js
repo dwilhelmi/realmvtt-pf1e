@@ -2825,6 +2825,45 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     }
   });
 
+  // Check for trait bonuses
+  const traitBonus = getEffectsAndModifiersForToken(record, ["trait"]);
+  const currentTraits = record.data?.traits || [];
+  const currentTraitsList = record.data?.traitsList || [];
+  const newTraits = [...currentTraits];
+  const newTraitsList = [...currentTraitsList];
+
+  traitBonus.forEach((modifier) => {
+    const trait = modifier.value || modifier.field || "";
+    if (trait && typeof trait === "string") {
+      // Set traits list
+      const traitObject = {
+        _id: generateUuid(),
+        name: trait,
+        identified: true,
+        data: {},
+      };
+
+      // Add to traits array if not already present
+      if (!newTraits.includes(trait)) {
+        newTraits.push(trait);
+      }
+
+      // Add to traitsList if not already present
+      const existingTrait = newTraitsList.find((t) => t.name === trait);
+      if (!existingTrait) {
+        newTraitsList.push(traitObject);
+      }
+    }
+  });
+
+  // Only update if there are changes
+  if (JSON.stringify(newTraits) !== JSON.stringify(currentTraits)) {
+    valuesToSet[`data.traits`] = newTraits;
+  }
+  if (JSON.stringify(newTraitsList) !== JSON.stringify(currentTraitsList)) {
+    valuesToSet[`data.traitsList`] = newTraitsList;
+  }
+
   // Check for Resistence, Weakness, Immunity
   const resistanceBonus = getEffectsAndModifiersForToken(record, [
     "resistance",
