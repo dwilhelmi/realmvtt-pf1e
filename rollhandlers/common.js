@@ -2810,9 +2810,99 @@ function updateProficiencies(record, valuesToSet) {
   }
 }
 
+// Calculate Pathfinder 2e ability boosts
+function calculateAbilityBoosts(record) {
+  const boosts = {
+    ancestryBoost1: record.data?.ancestryBoost1,
+    ancestryBoost2: record.data?.ancestryBoost2,
+    backgroundBoost1: record.data?.backgroundBoost1,
+    backgroundBoost2: record.data?.backgroundBoost2,
+    classBoost: record.data?.keyAbility,
+    freeBoosts: record.data?.freeBoosts || [],
+    freeBoostsLevel5: record.data?.freeBoostsLevel5 || [],
+    freeBoostsLevel10: record.data?.freeBoostsLevel10 || [],
+    freeBoostsLevel15: record.data?.freeBoostsLevel15 || [],
+    freeBoostsLevel20: record.data?.freeBoostsLevel20 || [],
+  };
+
+  // Count boosts per ability
+  const boostCounts = {
+    str: 0,
+    dex: 0,
+    con: 0,
+    int: 0,
+    wis: 0,
+    cha: 0,
+  };
+
+  // Helper function to add a boost
+  const addBoost = (ability) => {
+    if (ability && boostCounts.hasOwnProperty(ability)) {
+      boostCounts[ability]++;
+    }
+  };
+
+  // Process all boost sources
+  Object.values(boosts).forEach((boost) => {
+    if (Array.isArray(boost)) {
+      boost.forEach(addBoost);
+    } else if (boost) {
+      addBoost(boost);
+    }
+  });
+
+  // Calculate final ability scores based on boost rules
+  const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+  const boostResults = {};
+
+  attributes.forEach((attribute) => {
+    const baseValue = record.data?.[`base${capitalize(attribute)}`] || 10;
+    const boostCount = boostCounts[attribute];
+
+    // Calculate modifier from boosts
+    let modifier = 0;
+    let partialBoost = false;
+
+    if (boostCount > 0) {
+      // Each boost adds +1 until +4
+      if (boostCount <= 4) {
+        modifier = boostCount;
+      } else {
+        // After +4, it takes 2 boosts for each +1
+        const extraBoosts = boostCount - 4;
+        modifier = 4 + Math.floor(extraBoosts / 2);
+
+        // Check if there's a partial boost (odd number of extra boosts)
+        if (extraBoosts % 2 === 1) {
+          partialBoost = true;
+        }
+      }
+    }
+
+    // Ensure we don't exceed +4 at 1st level
+    const characterLevel = record.data?.level || 1;
+    if (characterLevel === 1 && modifier > 4) {
+      modifier = 4;
+      partialBoost = false;
+    }
+
+    boostResults[attribute] = {
+      baseValue: baseValue,
+      boostCount: boostCount,
+      modifier: modifier,
+      partialBoost: partialBoost,
+    };
+  });
+
+  return boostResults;
+}
+
 // This function is called after adding/editing a talent/feature or equipping an item
 function onAddEditFeature(record, callback = undefined, skipChoices = false) {
-  // Check for ability score bonuses
+  // Calculate Pathfinder 2e ability boosts first
+  const boostResults = calculateAbilityBoosts(record);
+
+  // Check for ability score bonuses from other sources
   const abilityScoreBonus = getEffectsAndModifiersForToken(record, [
     "attributeBonus",
     "attributePenalty",
@@ -2828,7 +2918,23 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     valuesToSet[`data.total${capitalize(attribute)}Mod`] = 0;
   });
 
-  // Calculate the total modifier for each ability
+  // Apply boost-based modifiers first
+  attributes.forEach((attribute) => {
+    const boostResult = boostResults[attribute];
+    if (boostResult) {
+      valuesToSet[`data.total${capitalize(attribute)}Mod`] =
+        boostResult.modifier;
+
+      // Track partial boost if applicable
+      if (boostResult.partialBoost) {
+        valuesToSet[`data.partial${capitalize(attribute)}Boost`] = true;
+      } else {
+        valuesToSet[`data.partial${capitalize(attribute)}Boost`] = false;
+      }
+    }
+  });
+
+  // Calculate the total modifier for each ability from other sources
   abilityScoreBonus.forEach((modifier) => {
     const ability = modifier.field || "";
     if (ability && attributes.includes(ability)) {
@@ -2846,14 +2952,16 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     }
   });
 
+  // Calculate final ability scores with all modifiers
   attributes.forEach((attribute) => {
-    const baseValue =
-      record.data?.[`base${capitalize(attribute)}`] ||
-      record.data?.[attribute] ||
-      0;
-    const totalMod = valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
-    valuesToSet[`data.${attribute}`] =
-      parseInt(baseValue, 10) + parseInt(totalMod, 10);
+    const boostResult = boostResults[attribute];
+    if (boostResult) {
+      const baseValue = boostResult.baseValue;
+      const totalMod =
+        valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
+      valuesToSet[`data.${attribute}`] =
+        parseInt(baseValue, 10) + parseInt(totalMod, 10);
+    }
   });
 
   // Check for sense bonuses

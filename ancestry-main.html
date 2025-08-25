@@ -133,21 +133,37 @@
   </div>
 
   <dropdown
-    width="100%"
-    field="boosts"
-    label="Boosts"
-    placeholder="Select Attribute Boosts..."
+    field="boosts.0"
+    label="Boost 1"
+    placeholder="Select Boosts..."
     multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}, {"label": "Free", "value": "free"}]'
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
   >
   </dropdown>
 
   <dropdown
-    width="100%"
-    field="flaws"
+    field="boosts.1"
+    label="Boost 2"
+    placeholder="Select Boosts..."
+    multiselect="7"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  >
+  </dropdown>
+
+  <dropdown
+    field="boosts.2"
+    label="Boost 3"
+    placeholder="Select Boosts..."
+    multiselect="7"
+    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+  >
+  </dropdown>
+
+  <dropdown
+    field="flaws.0"
     label="Flaws"
-    placeholder="Select Attribute Flaws..."
-    multiselect="6"
+    placeholder="Select Flaws..."
+    multiselect="7"
     options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
   >
   </dropdown>

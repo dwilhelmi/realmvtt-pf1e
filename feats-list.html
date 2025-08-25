@@ -133,16 +133,7 @@
     const heritage = record?.data?.heritages || [];
     const heritageName =
       heritage?.[0]?.name || record?.data?.heritageName || "";
-
-    // TODO CHECK HERITAGE NAME TOO
-    // ALSO ADD SUPPORT FOR HERITAGE ADDING A TRAIT LIKE IN FOUNDRY:
-    // {
-    //             "add": [
-    //                 "elf"
-    //             ],
-    //             "key": "ActorTraits"
-    //         },
-    // AND CHECK FOR THOSE TRAITS IN THE QUERY
+    const ourTraits = record?.data?.traits || [];
 
     const options = [];
 
@@ -157,10 +148,33 @@
       }
     };
 
+    // Collect all traits for ancestry feats and remove duplicates (case insensitive)
+    const ancestryTraits = [];
+    if (ancestryName) ancestryTraits.push(ancestryName);
+    if (heritageName) ancestryTraits.push(heritageName);
+    ancestryTraits.push(...ourTraits);
+
+    // Remove duplicates case-insensitively
+    const seen = new Set();
+    const uniqueAncestryTraits = ancestryTraits
+      .filter((trait) => trait && trait.trim())
+      .filter((trait) => {
+        const lowerTrait = trait.toLowerCase();
+        if (seen.has(lowerTrait)) {
+          return false;
+        }
+        seen.add(lowerTrait);
+        return true;
+      });
+
     const optionsQuery = {
       type: "feats",
       query: {
-        "data.level": { $lte: featSlotLevel },
+        $or: [
+          { "data.level": { $lte: featSlotLevel } },
+          { "data.level": { $exists: false } },
+          { "data.level": null },
+        ],
         ...(featSlotType === "general"
           ? { "data.type": { $in: ["general", "skill"] } }
           : { "data.type": featSlotType }),
@@ -170,10 +184,13 @@
                 $elemMatch: { $regex: `^${className}$`, $options: "i" },
               },
             }
-          : featSlotType === "ancestry" && ancestryName
+          : featSlotType === "ancestry" && uniqueAncestryTraits.length > 0
           ? {
               "data.traits": {
-                $elemMatch: { $regex: `^${ancestryName}$`, $options: "i" },
+                $elemMatch: {
+                  $regex: `^(${uniqueAncestryTraits.join("|")})$`,
+                  $options: "i",
+                },
               },
             }
           : {}),
