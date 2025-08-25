@@ -1135,7 +1135,7 @@ function getDurationInSeconds(duration) {
   if (!duration) return 0;
 
   // Parse the string to get the number and unit
-  const match = cleanDuration.match(/(\d+)\s+(round|minute|hour|day|week)s?/i);
+  const match = duration.match(/(\d+)\s+(round|minute|hour|day|week)s?/i);
   if (match) {
     const timeAmount = parseInt(match[1], 10);
     if (isNaN(timeAmount)) {
@@ -1687,28 +1687,16 @@ function updateAllAttributes(record, callback = undefined) {
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];
   const valuesToSet = {};
 
-  // First recalculate the ability scores based on base values and total mods
+  // Use the existing ability scores to update derived values
   attributes.forEach((attribute) => {
-    // Get the base value and total modifier
-    const baseValue =
-      record.data?.[`base${capitalize(attribute)}`] ||
-      record.data?.[attribute] ||
-      0;
-    const totalMod = record.data?.[`total${capitalize(attribute)}Mod`] || 0;
+    // Get the current ability score (already calculated from boosts + mods)
+    const currentValue = parseInt(record.data?.[attribute] || 0, 10);
 
-    // Calculate the actual attribute value
-    const calculatedValue = parseInt(baseValue, 10) + parseInt(totalMod, 10);
-
-    // Update the attribute if it's different from the current value
-    if (calculatedValue !== parseInt(record.data?.[attribute] || 0, 10)) {
-      valuesToSet[`data.${attribute}`] = calculatedValue;
-    }
-
-    // Now calculate the modifiers and other derived values
+    // Calculate the modifiers and other derived values using the current score
     updateAttribute({
       record,
       attribute,
-      value: calculatedValue,
+      value: currentValue,
       moreValuesToSet: valuesToSet,
     });
   });
@@ -1731,17 +1719,9 @@ function updateAttribute({
     return;
   }
 
-  // Get the current total modifier for this attribute
-  const totalMod =
-    record.data?.[`total${capitalize(attribute)}Mod`] !== undefined
-      ? parseInt(record.data?.[`total${capitalize(attribute)}Mod`], 10)
-      : 0;
-
-  // Calculate the base value by subtracting the total modifier from the new value
-  const baseValue = val - parseInt(totalMod, 10);
-
-  // Store the base value
-  valuesToSet[`data.base${capitalize(attribute)}`] = baseValue;
+  // Since direct editing is disabled, the value passed in is already the final ability score
+  // Store it directly
+  valuesToSet[`data.${attribute}`] = val;
 
   // Get hitpoints max modifiers
   const hitpointsMaxMods = getEffectsAndModifiersForToken(record, [
@@ -2323,6 +2303,22 @@ function setFeatSlots(record, valuesToSet) {
 
 // Called by onAddEditFeature to update the proficiencies for the character based on class and all features
 function updateProficiencies(record, valuesToSet) {
+  // Helper function to get ability score value, checking valuesToSet first, then record
+  const getAbilityScore = (ability) => {
+    const valueFromSet = valuesToSet[`data.${ability}`];
+    if (valueFromSet !== undefined) {
+      return parseInt(valueFromSet, 10);
+    }
+    const recordValue = record.data?.[ability];
+    if (
+      recordValue !== undefined &&
+      recordValue !== null &&
+      recordValue !== ""
+    ) {
+      return parseInt(recordValue, 10);
+    }
+    return 0; // Only default to 0 if truly not set
+  };
   // Collect all features from ancestries, heritages, and classes
   const ancestries = record.data?.ancestries || [];
   const heritages = record.data?.heritages || [];
@@ -2557,7 +2553,7 @@ function updateProficiencies(record, valuesToSet) {
     keyAbility &&
     ["str", "dex", "con", "int", "wis", "cha"].includes(keyAbility)
   ) {
-    keyAbilityScore = parseInt(record.data?.[keyAbility] || "0", 10);
+    keyAbilityScore = getAbilityScore(keyAbility);
   }
   const currentClassDCProficiency = parseInt(
     record.data?.classDCProficiency || "0",
@@ -2588,9 +2584,9 @@ function updateProficiencies(record, valuesToSet) {
   }
 
   // Set saving throw modifiers
-  const dexMod = parseInt(record.data?.dex || "0", 10);
-  const conMod = parseInt(record.data?.con || "0", 10);
-  const wisMod = parseInt(record.data?.wis || "0", 10);
+  const dexMod = getAbilityScore("dex");
+  const conMod = getAbilityScore("con");
+  const wisMod = getAbilityScore("wis");
 
   // Reflex (DEX + proficiency bonus)
   const currentReflex = parseInt(record.data?.reflex || "0", 10);
@@ -2657,7 +2653,7 @@ function updateProficiencies(record, valuesToSet) {
     // Check if user has set a custom ability score for this skill
     const customAbilityKey = record.data?.[`${skillName}Ability`];
     const effectiveAbilityKey = customAbilityKey || abilityKey;
-    const abilityMod = parseInt(record.data?.[effectiveAbilityKey] || "0", 10);
+    const abilityMod = getAbilityScore(effectiveAbilityKey);
 
     // Get the current skill proficiency from the record
     const currentSkillProficiency = parseInt(
@@ -2743,7 +2739,7 @@ function updateProficiencies(record, valuesToSet) {
     // Check if lore skill has a custom ability score set
     const customAbilityKey = loreSkill.data?.ability;
     const effectiveAbilityKey = customAbilityKey || "int"; // Default to Intelligence for lore skills
-    const abilityMod = parseInt(record.data?.[effectiveAbilityKey] || "0", 10);
+    const abilityMod = getAbilityScore(effectiveAbilityKey);
 
     // Calculate and set the modifier
     const totalMod = abilityMod + proficiencyBonus;
@@ -2856,7 +2852,6 @@ function calculateAbilityBoosts(record) {
   const boostResults = {};
 
   attributes.forEach((attribute) => {
-    const baseValue = record.data?.[`base${capitalize(attribute)}`] || 10;
     const boostCount = boostCounts[attribute];
 
     // Calculate modifier from boosts
@@ -2864,7 +2859,7 @@ function calculateAbilityBoosts(record) {
     let partialBoost = false;
 
     if (boostCount > 0) {
-      // Each boost adds +1 until +4
+      // Each boost adds +1 until +4, then it takes 2 boosts for each additional +1
       if (boostCount <= 4) {
         modifier = boostCount;
       } else {
@@ -2879,15 +2874,7 @@ function calculateAbilityBoosts(record) {
       }
     }
 
-    // Ensure we don't exceed +4 at 1st level
-    const characterLevel = record.data?.level || 1;
-    if (characterLevel === 1 && modifier > 4) {
-      modifier = 4;
-      partialBoost = false;
-    }
-
     boostResults[attribute] = {
-      baseValue: baseValue,
       boostCount: boostCount,
       modifier: modifier,
       partialBoost: partialBoost,
@@ -2952,15 +2939,18 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     }
   });
 
-  // Calculate final ability scores with all modifiers
+  // Calculate final ability scores and modifiers
   attributes.forEach((attribute) => {
     const boostResult = boostResults[attribute];
     if (boostResult) {
-      const baseValue = boostResult.baseValue;
       const totalMod =
         valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
-      valuesToSet[`data.${attribute}`] =
-        parseInt(baseValue, 10) + parseInt(totalMod, 10);
+
+      // Store the total modifier for reference
+      valuesToSet[`data.${attribute}Mod`] = totalMod;
+
+      // The final ability score is just the total modifier (starts from 0 base)
+      valuesToSet[`data.${attribute}`] = totalMod;
     }
   });
 
@@ -3065,7 +3055,6 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   const immunities = [];
 
   resistanceBonus.forEach((modifier) => {
-    const field = modifier.field || "";
     const resistance = modifier.value || modifier.field || "";
     resistances.push(resistance);
   });

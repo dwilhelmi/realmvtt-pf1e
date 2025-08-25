@@ -343,18 +343,6 @@
     // -- send message in chat and include the benefits they get at this level
   }
 
-  function updateStat(value, stat) {
-    const valuesToSet = {};
-    updateProficiencies(record, valuesToSet);
-    updateAttribute({
-      record,
-      attribute: stat,
-      value,
-      moreValuesToSet: valuesToSet,
-    });
-    api.setValues(valuesToSet);
-  }
-
   function updateAbilityBoosts(value, field) {
     const boosts = {
       ancestryBoost1: record.data?.ancestryBoost1,
@@ -1058,7 +1046,8 @@
     field="str"
     showsign="true"
     label="STR"
-    onchange="updateStat(value, 'str')"
+    hidecontrols="true"
+    editable="false"
     textalign="center"
   ></numberfield>
 
@@ -1069,7 +1058,8 @@
     field="dex"
     label="DEX"
     showsign="true"
-    onchange="updateStat(value, 'dex')"
+    hidecontrols="true"
+    editable="false"
     textalign="center"
   ></numberfield>
 
@@ -1080,7 +1070,8 @@
     field="con"
     label="CON"
     showsign="true"
-    onchange="updateStat(value, 'con')"
+    hidecontrols="true"
+    editable="false"
     textalign="center"
   ></numberfield>
 
@@ -1090,8 +1081,9 @@
     width="70px"
     field="int"
     label="INT"
+    hidecontrols="true"
+    editable="false"
     showsign="true"
-    onchange="updateStat(value, 'int')"
     textalign="center"
   ></numberfield>
 
@@ -1101,8 +1093,9 @@
     width="70px"
     field="wis"
     label="WIS"
+    hidecontrols="true"
+    editable="false"
     showsign="true"
-    onchange="updateStat(value, 'wis')"
     textalign="center"
   ></numberfield>
 
@@ -1112,8 +1105,9 @@
     width="70px"
     field="cha"
     label="CHA"
+    hidecontrols="true"
+    editable="false"
     showsign="true"
-    onchange="updateStat(value, 'cha')"
     textalign="center"
   ></numberfield>
 
