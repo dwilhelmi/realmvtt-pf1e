@@ -9,14 +9,14 @@
       choice.data?.itemType === "feat" &&
       choice.fields?.filter?.hidden !== false
     ) {
-      valuesToSet[`${choiceDataPath}.data.filter.hidden`] = false;
-      valuesToSet[`${choiceDataPath}.data.choices.hidden`] = true;
+      valuesToSet[`${choiceDataPath}.fields.filter.hidden`] = false;
+      valuesToSet[`${choiceDataPath}.fields.choices.hidden`] = true;
     } else if (
       choice.data?.itemType === "feature" &&
       choice.fields?.choices?.hidden !== false
     ) {
-      valuesToSet[`${choiceDataPath}.data.choices.hidden`] = false;
-      valuesToSet[`${choiceDataPath}.data.filter.hidden`] = true;
+      valuesToSet[`${choiceDataPath}.fields.choices.hidden`] = false;
+      valuesToSet[`${choiceDataPath}.fields.filter.hidden`] = true;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -30,7 +30,6 @@
   <namefield
     field="name"
     label="Choice Name"
-    variant="bold"
     size="xs"
     placeholder="Enter Prompt Name..."
     width="100%"

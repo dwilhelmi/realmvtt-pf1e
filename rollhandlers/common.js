@@ -1907,13 +1907,22 @@ function processChoices(record) {
     }
   }
 
+  // Also check bonusFeats for choices
+  const bonusFeats = record.data?.bonusFeats || [];
+  for (const feat of bonusFeats) {
+    if (feat.data?.choiceFromId !== undefined) {
+      choicesToFeatures[feat.data?.choiceFromId] = feat;
+    }
+  }
+
   // Now check for choices that are not yet provided
   const choicesToMake = [];
 
   for (const group of groups) {
     for (const feature of group.features) {
       // If this feature is for our level or lower, check for choices
-      if (feature.data?.level && feature.data?.level <= characterLevel) {
+      const featureLevel = feature.data?.level || 0;
+      if (featureLevel <= characterLevel) {
         const choices = feature.data?.choices || [];
         for (const choice of choices) {
           if (choicesToFeatures[choice._id] === undefined) {
@@ -2010,51 +2019,106 @@ function promptForChoices(record, choicesToMake, index) {
   // Prompt the user for the choice
   const promptName = choiceObj.name;
   const promptDescription = choiceObj?.data?.description;
+  const itemType = choiceObj?.data?.itemType || "feature";
+  const filters = choiceObj?.data?.filter || [];
   const promptOptions = choiceObj?.data?.choices || [];
 
   // Prompt the user for the choice
   const callback = (choices) => {
     const choice = choices && choices.length > 0 ? choices[0] : null;
     if (choice) {
-      // We got the choice, so now we lookup the feature, and add it to the group's features
-      const dataPath = group.dataPath;
-      api.getRecord("features", choice, (featureRecord) => {
-        api.addValue(
-          dataPath,
-          {
-            ...featureRecord,
-            data: {
-              ...(featureRecord?.data || {}),
-              // Mark the id of the choice that provided this feature
-              level: featureRecord?.data?.level || feature?.data?.level || 1,
-              choiceFromId: choiceObj._id,
-            },
+      if (itemType === "feat") {
+        // For feats, add to the character's bonus feats
+        const currentFeats = record.data?.bonusFeats || [];
+        const newFeat = {
+          ...choice,
+          data: {
+            ...(choice?.data || {}),
+            choiceFromId: choiceObj._id,
           },
-          () => {
-            promptForChoices(record, choicesToMake, index + 1);
-          }
-        );
-      });
+        };
+        const updatedFeats = [...currentFeats, newFeat];
+        api.setValues({ "data.bonusFeats": updatedFeats }, () => {
+          promptForChoices(record, choicesToMake, index + 1);
+        });
+      } else {
+        // For features, add to the group's features
+        const dataPath = group.dataPath;
+        api.getRecord("features", choice, (featureRecord) => {
+          api.addValue(
+            dataPath,
+            {
+              ...featureRecord,
+              data: {
+                ...(featureRecord?.data || {}),
+                // Mark the id of the choice that provided this feature
+                level: featureRecord?.data?.level || feature?.data?.level || 1,
+                choiceFromId: choiceObj._id,
+              },
+            },
+            () => {
+              promptForChoices(record, choicesToMake, index + 1);
+            }
+          );
+        });
+      }
+    } else {
+      // No choice made, continue to next
+      promptForChoices(record, choicesToMake, index + 1);
     }
   };
 
-  // Parse options (JSON strigns) into array of value/id
-  const options = promptOptions
-    .map((option) => {
-      try {
-        const choiceOpt = JSON.parse(option);
-        return {
-          label: choiceOpt.name,
-          value: choiceOpt._id,
-        };
-      } catch (e) {
-        return null;
-      }
-    })
-    .filter((option) => option !== null);
+  // Build options based on item type
+  let options = null;
+  let optionsQuery = null;
 
-  if (options.length === 0) {
-    // No options, so we can just go to the next choice
+  if (itemType === "feat" && filters.length > 0) {
+    // For feats, build query based on filters
+    const query = {};
+
+    filters.forEach((filter) => {
+      const [category, field, value] = filter.split(":");
+
+      if (category === "item" && field === "trait") {
+        // Handle trait filters - use data.type for feat types
+        if (value === "general") {
+          query["data.type"] = { $in: ["general", "skill"] };
+        } else {
+          query["data.type"] = value;
+        }
+      } else if (category === "item" && field === "level") {
+        // Handle level filters
+        const level = parseInt(value, 10);
+        if (!query["data.level"]) {
+          query["data.level"] = {};
+        }
+        query["data.level"].$lte = level;
+      }
+    });
+
+    optionsQuery = {
+      type: "feats",
+      query: query,
+    };
+  } else {
+    // For features, parse the provided choices
+    options = promptOptions
+      .map((option) => {
+        try {
+          const choiceOpt = JSON.parse(option);
+          return {
+            label: choiceOpt.name,
+            value: choiceOpt._id,
+          };
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter((option) => option !== null);
+  }
+
+  if ((!options || options.length === 0) && !optionsQuery) {
+    // No options and no query, so we can just go to the next choice
     callback(null);
     return;
   }
@@ -2064,8 +2128,8 @@ function promptForChoices(record, choicesToMake, index) {
     promptName,
     promptDescription,
     "Select Option...",
-    options, // Use the options provided
-    null, // No query for options
+    options, // Use options for features, empty for feats
+    optionsQuery, // Use query for feats, null for features
     callback, // Callback when chosen
     "OK",
     "Cancel",
