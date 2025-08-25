@@ -2782,7 +2782,7 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   const lowLightDarkvisionBonus = getEffectsAndModifiersForToken(record, [
     "lowLightDarkvision",
   ]);
-  const currentSenses = record.data?.senses || "";
+  const currentSenses = String(record.data?.senses || "");
 
   // Handle low-light darkvision bonus
   if (lowLightDarkvisionBonus.length > 0) {
@@ -2808,8 +2808,8 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   }
 
   senseBonus.forEach((modifier) => {
-    const sense = modifier.value || modifier.field || "";
-    if (sense && !currentSenses.includes(sense)) {
+    const sense = String(modifier.value || modifier.field || "");
+    if (sense && sense.trim() && !currentSenses.includes(sense)) {
       let newSenses = currentSenses;
 
       // If the new sense is Darkvision, replace any existing Low-Light vision
