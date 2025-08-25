@@ -2831,6 +2831,35 @@ function calculateAbilityBoosts(record) {
     cha: 0,
   };
 
+  // Handle ancestry boosts and flaws if not using alternate ancestry boosts
+  const alternateAncestryBoosts = record.data?.alternateAncestryBoosts;
+  const ancestries = record.data?.ancestries || [];
+  if (!alternateAncestryBoosts && ancestries.length > 0) {
+    const ancestry = ancestries[0];
+    const ancestryBoosts = ancestry?.data?.boosts || {};
+    const ancestryFlaws = ancestry?.data?.flaws || {};
+    
+    // Process ancestry boosts (arrays of 1 are provided boosts)
+    for (const boost of Object.values(ancestryBoosts)) {
+      if (Array.isArray(boost) && boost.length === 1 && boost[0]) {
+        const ability = boost[0];
+        if (boostCounts.hasOwnProperty(ability)) {
+          boostCounts[ability]++;
+        }
+      }
+    }
+    
+    // Process ancestry flaws (always decrement by 1)
+    for (const flaw of Object.values(ancestryFlaws)) {
+      if (Array.isArray(flaw) && flaw.length === 1 && flaw[0]) {
+        const ability = flaw[0];
+        if (boostCounts.hasOwnProperty(ability)) {
+          boostCounts[ability]--;
+        }
+      }
+    }
+  }
+
   // Helper function to add a boost
   const addBoost = (ability) => {
     if (ability && boostCounts.hasOwnProperty(ability)) {
@@ -2858,19 +2887,24 @@ function calculateAbilityBoosts(record) {
     let modifier = 0;
     let partialBoost = false;
 
-    if (boostCount > 0) {
-      // Each boost adds +1 until +4, then it takes 2 boosts for each additional +1
-      if (boostCount <= 4) {
-        modifier = boostCount;
-      } else {
-        // After +4, it takes 2 boosts for each +1
-        const extraBoosts = boostCount - 4;
-        modifier = 4 + Math.floor(extraBoosts / 2);
+    if (boostCount !== 0) {
+      if (boostCount > 0) {
+        // Each boost adds +1 until +4, then it takes 2 boosts for each additional +1
+        if (boostCount <= 4) {
+          modifier = boostCount;
+        } else {
+          // After +4, it takes 2 boosts for each +1
+          const extraBoosts = boostCount - 4;
+          modifier = 4 + Math.floor(extraBoosts / 2);
 
-        // Check if there's a partial boost (odd number of extra boosts)
-        if (extraBoosts % 2 === 1) {
-          partialBoost = true;
+          // Check if there's a partial boost (odd number of extra boosts)
+          if (extraBoosts % 2 === 1) {
+            partialBoost = true;
+          }
         }
+      } else {
+        // Negative boostCount (from flaws) - each flaw reduces by 1
+        modifier = boostCount;
       }
     }
 

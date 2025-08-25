@@ -3,7 +3,7 @@
     if (type === "ancestry") {
       onDropAncestry(recordLink);
     } else if (type === "heritage") {
-      onDropHeritage(recordLink);
+      onDropHeritage(record, recordLink);
     } else if (type === "class") {
       onDropClass(recordLink);
     } else if (type === "backgrounds") {
@@ -53,6 +53,8 @@
         "data.speed": ancestryObj.data?.speed,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
+        // Default to false on add of ancestry
+        "data.alternateAncestryBoosts": false,
       },
       (updatedRecord) => {
         // Recalculate ability scores for bonuses and such
@@ -60,7 +62,7 @@
           api.setHidden("ancestries", false, () => {
             api.setHidden("ancestryDetailsLabel", true);
           });
-          promptForHeritage(ancestryName);
+          promptForHeritage(updatedRecord, ancestryName);
         });
       }
     );
@@ -70,7 +72,7 @@
     setLanguages(value);
   }
 
-  function promptForHeritage(ancestryName) {
+  function promptForHeritage(record, ancestryName) {
     const optionsPrompt = {
       type: "heritage",
       query: {
@@ -82,7 +84,7 @@
       const choice = choices && choices.length > 0 ? choices[0] : null;
       if (choice) {
         // Add the heritage to the character, then call the callback
-        onDropHeritage({
+        onDropHeritage(record, {
           tooltip: choice.name,
           value: choice,
         });
@@ -99,7 +101,7 @@
     );
   }
 
-  function onDropHeritage(recordLink) {
+  function onDropHeritage(record, recordLink) {
     // Check if already on Character
     const heritages = record?.data?.heritages || [];
     const heritageName = recordLink.tooltip;
@@ -132,16 +134,18 @@
         self.findIndex((t) => t.name === trait.name) === index
     );
 
-    api.setValues(
+    api.setValuesOnRecord(
+      record,
       {
         "data.heritages": [heritageObj],
         "data.heritageName": heritageName,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
       },
-      (updatedRecord) => {
+      (updatedRecord2) => {
         // Recalculate ability scores for bonuses and such
-        onAddEditFeature(updatedRecord, () => {
+        onAddEditFeature(updatedRecord2, () => {
+          console.log("Updating ability scores for heritage", updatedRecord2);
           api.setHidden("heritages", false, () => {
             api.setHidden("heritageDetailsLabel", true);
           });
@@ -421,10 +425,13 @@
   }
 
   function onAlternateAncestryBoostsChange(value) {
-    setAncestryBoostFields(value);
+    setAncestryBoostFields(value, true);
   }
 
-  function setAncestryBoostFields(overrideAlternateAncestryBoosts) {
+  function setAncestryBoostFields(
+    overrideAlternateAncestryBoosts,
+    updateStats = false
+  ) {
     // If alternateAncestryBoosts is true, or if we're human, we show ancestryBoost2
     let alternateAncestryBoosts =
       overrideAlternateAncestryBoosts || record.data?.alternateAncestryBoosts;
@@ -444,11 +451,16 @@
       }
     }
 
+    const valuesToSet = {};
+
     if (!showAlternateAncestryBoostOptions) {
       alternateAncestryBoosts = false;
     }
 
-    const valuesToSet = {};
+    if (!overrideAlternateAncestryBoosts && record.data?.ancestryBoost2) {
+      valuesToSet["data.ancestryBoost2"] = "";
+    }
+
     if (
       showAlternateAncestryBoostOptions &&
       record.fields?.alternateAncestryBoosts?.hidden !== false
@@ -522,7 +534,13 @@
     }
 
     if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet);
+      const callback = updateStats
+        ? () => {
+            onAddEditFeature(record, undefined, true);
+          }
+        : undefined;
+
+      api.setValues(valuesToSet, callback);
     }
   }
 
