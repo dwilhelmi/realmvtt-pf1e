@@ -2079,13 +2079,19 @@ function promptForChoices(record, choicesToMake, index) {
     filters.forEach((filter) => {
       const [category, field, value] = filter.split(":");
 
-      if (category === "item" && field === "trait") {
-        // Handle trait filters - use data.type for feat types
+      if (category === "item" && field === "category") {
+        // Handle category filters - use data.type for feat types
         if (value === "general") {
           query["data.type"] = { $in: ["general", "skill"] };
         } else {
           query["data.type"] = value;
         }
+      } else if (category === "item" && field === "trait") {
+        // Handle trait filters - search for feats with this trait
+        if (!query["data.traits"]) {
+          query["data.traits"] = [];
+        }
+        query["data.traits"].push({ $regex: `^${value}$`, $options: "i" });
       } else if (category === "item" && field === "level") {
         // Handle level filters
         const level = parseInt(value, 10);
@@ -2095,6 +2101,15 @@ function promptForChoices(record, choicesToMake, index) {
         query["data.level"].$lte = level;
       }
     });
+
+    // Convert trait array to $elemMatch if multiple traits
+    if (query["data.traits"] && query["data.traits"].length > 0) {
+      if (query["data.traits"].length === 1) {
+        query["data.traits"] = query["data.traits"][0];
+      } else {
+        query["data.traits"] = { $elemMatch: { $or: query["data.traits"] } };
+      }
+    }
 
     optionsQuery = {
       type: "feats",
