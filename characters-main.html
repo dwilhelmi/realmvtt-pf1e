@@ -145,7 +145,6 @@
       (updatedRecord2) => {
         // Recalculate ability scores for bonuses and such
         onAddEditFeature(updatedRecord2, () => {
-          console.log("Updating ability scores for heritage", updatedRecord2);
           api.setHidden("heritages", false, () => {
             api.setHidden("heritageDetailsLabel", true);
           });
@@ -189,6 +188,7 @@
 
     api.setValues(
       {
+        "data.level": record.data?.level || 1, // Set level to 1 if not set
         "data.classes": [classObj],
         "data.className": className,
         "data.traitsList": newTraitsList,
@@ -333,10 +333,39 @@
   }
 
   function onLevelChange(value) {
-    // TODO show hide / bosts at 5/10/15/20
-    // TODO recalculate all fields
+    const valuesToSet = {
+      "fields.freeBoostsLevel5.hidden": true,
+      "fields.freeBoostsLevel10.hidden": true,
+      "fields.freeBoostsLevel15.hidden": true,
+      "fields.freeBoostsLevel20.hidden": true,
+    };
 
-    console.log("TODO LEVEL CHANGE");
+    if (value >= 5) {
+      valuesToSet["fields.freeBoostsLevel5.hidden"] = false;
+    } else {
+      valuesToSet["data.freeBoostsLevel5"] = [];
+    }
+    if (value >= 10) {
+      valuesToSet["fields.freeBoostsLevel10.hidden"] = false;
+    } else {
+      valuesToSet["data.freeBoostsLevel10"] = [];
+    }
+    if (value >= 15) {
+      valuesToSet["fields.freeBoostsLevel15.hidden"] = false;
+    } else {
+      valuesToSet["data.freeBoostsLevel15"] = [];
+    }
+    if (value >= 20) {
+      valuesToSet["fields.freeBoostsLevel20.hidden"] = false;
+    } else {
+      valuesToSet["data.freeBoostsLevel20"] = [];
+    }
+
+    api.setValues(valuesToSet, (updatedRecord) => {
+      // Update everything using the new level, prompting for choices if
+      // needed
+      onAddEditFeature(updatedRecord);
+    });
   }
 
   function onXPChange(value) {

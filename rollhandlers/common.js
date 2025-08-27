@@ -1494,7 +1494,15 @@ function getEffectsAndModifiersForToken(
   }
   const classes = target?.data?.classes || [];
   for (const classObj of classes) {
-    features.push(...(classObj.data?.features || []));
+    // Only push class features that are <= our level
+    const level = classObj.data?.level || 0;
+    const classFeatures = classObj.data?.features || [];
+    classFeatures.forEach((feature) => {
+      const featureLevel = feature.data?.level || 0;
+      if (featureLevel <= level) {
+        features.push(feature);
+      }
+    });
   }
 
   // Filter items that are not equipped or that require attunement and not attuned
@@ -2169,10 +2177,20 @@ function setFeatSlots(record, valuesToSet) {
   );
 
   // Get current feats to check what slots already exist
-  const currentFeats = record.data?.feats || [];
+  const oldFeats = record.data?.feats || [];
+  let currentFeats = [...(record.data?.feats || [])];
 
   // Get character's current level
   const characterLevel = parseInt(record.data?.level || "1", 10);
+
+  // Filter out empty feat slots that we are not high enough to have,
+  // incase we set the level lower TODO FIX
+  currentFeats = currentFeats.filter((feat) => {
+    const featLevel = feat.data?.level || 0;
+    const isSlot = feat.data?.type === "slot";
+    const shouldKeep = featLevel <= characterLevel || !isSlot;
+    return shouldKeep;
+  });
 
   // Create feat slots for each type
   const featSlots = [];
@@ -2294,9 +2312,11 @@ function setFeatSlots(record, valuesToSet) {
     }
   });
 
-  // Add new feat slots to existing feats
-  if (featSlots.length > 0) {
-    const updatedFeats = [...currentFeats, ...featSlots];
+  // Update feats array with filtered feats and any new slots
+  const updatedFeats = [...currentFeats, ...featSlots];
+
+  // Always update if feats changed (either filtered out or new slots added)
+  if (updatedFeats.length !== oldFeats.length || featSlots.length > 0) {
     valuesToSet["data.feats"] = updatedFeats;
   }
 }
@@ -2838,7 +2858,7 @@ function calculateAbilityBoosts(record) {
     const ancestry = ancestries[0];
     const ancestryBoosts = ancestry?.data?.boosts || {};
     const ancestryFlaws = ancestry?.data?.flaws || {};
-    
+
     // Process ancestry boosts (arrays of 1 are provided boosts)
     for (const boost of Object.values(ancestryBoosts)) {
       if (Array.isArray(boost) && boost.length === 1 && boost[0]) {
@@ -2848,7 +2868,7 @@ function calculateAbilityBoosts(record) {
         }
       }
     }
-    
+
     // Process ancestry flaws (always decrement by 1)
     for (const flaw of Object.values(ancestryFlaws)) {
       if (Array.isArray(flaw) && flaw.length === 1 && flaw[0]) {
