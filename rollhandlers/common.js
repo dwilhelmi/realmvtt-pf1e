@@ -1766,7 +1766,8 @@ function updateAttribute({
   // TODO GET BEST ARMOR
   // const bestArmor = getBestArmor(record);
   // PLACEHOLDER
-  // TODO ADD ARMOR PROFICIENCIES
+  // TODO ADD ARMOR PROFICIENCIES AND CHECK IF PROFICIENCT IN CURRENT ARMOR (or UNARMORED if no armor)
+  // THEN ADD PROFICIENCY BONUS TO AC
   const bestArmor = {
     ac: 10,
     addDex: true,

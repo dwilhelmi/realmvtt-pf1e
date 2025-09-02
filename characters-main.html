@@ -332,6 +332,20 @@
     );
   }
 
+  function onLoadCharacter() {
+    // Check if we need to show/hide the level up button
+    // If we're not doing a change to boost fields, check if we need to show/hide the level up button
+    if (
+      record.data?.xp >= 1000 &&
+      record.data?.level < 20 &&
+      record.fields?.levelUpBtn?.hidden !== false
+    ) {
+      api.setHidden("levelUpBtn", false);
+    } else if (record.fields?.levelUpBtn?.hidden !== true) {
+      api.setHidden("levelUpBtn", true);
+    }
+  }
+
   function onLevelChange(value) {
     const valuesToSet = {
       "fields.freeBoostsLevel5.hidden": true,
@@ -369,11 +383,31 @@
   }
 
   function onXPChange(value) {
-    console.log("TODO XP CHANGE");
-    // TODO show/hide level up button
-    // Level up button logic:
-    // -- update level and do the udate call
-    // -- send message in chat and include the benefits they get at this level
+    if (value >= 1000 && record.data?.level < 20) {
+      api.setHidden("levelUpBtn", false);
+    } else {
+      api.setHidden("levelUpBtn", true);
+    }
+  }
+
+  function onLevelUp() {
+    // Increase level by 1, max 20
+    const newLevel = Math.min(20, record.data?.level + 1);
+    const newXp = Math.max(0, record.data?.xp - 1000);
+    const showLevelUpBtn = newXp >= 1000 && newLevel < 20;
+    api.setValues(
+      {
+        "data.level": newLevel,
+        // Decrease XP by 1000
+        "data.xp": newXp,
+        // Hide the level up button if XP needed
+        "fields.levelUpBtn.hidden": !showLevelUpBtn,
+      },
+      (recordUpdated) => {
+        // Recalculate features including any choices we need to now make
+        onAddEditFeature(recordUpdated);
+      }
+    );
   }
 
   function updateAbilityBoosts(value, field) {
@@ -699,20 +733,29 @@
         minvalue="0"
         defaultvalue="0"
         onchange="onLevelChange(value)"
+        onload="onLoadCharacter()"
       >
       </numberfield>
 
       <numberfield
         placeholder="0"
-        width="100px"
+        width="80px"
         size="xs"
         field="xp"
         label="XP"
-        maxvalue="1000"
         minvalue="0"
         onchange="onXPChange(value)"
       >
       </numberfield>
+
+      <button
+        size="xs"
+        hidden="true"
+        field="levelUpBtn"
+        onclick="onLevelUp()"
+        label="Level Up"
+        color="primary"
+      ></button>
 
       <div
         style="
