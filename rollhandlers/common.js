@@ -2080,7 +2080,19 @@ function promptForChoices(record, choicesToMake, index) {
         if (!query["data.traits"]) {
           query["data.traits"] = [];
         }
-        query["data.traits"].push({ $regex: `^${value}$`, $options: "i" });
+        if (value === "actor") {
+          // Add all the characters and class traits to the query
+          const actorTraits = record.data?.traits || [];
+          const classTraits = record.data?.classes?.[0]?.data?.traits || [];
+          for (const trait of actorTraits) {
+            query["data.traits"].push(trait);
+          }
+          for (const trait of classTraits) {
+            query["data.traits"].push(trait);
+          }
+        } else {
+          query["data.traits"].push(value);
+        }
       } else if (category === "item" && field === "level") {
         // Handle level filters
         const level = parseInt(value, 10);
@@ -2096,7 +2108,8 @@ function promptForChoices(record, choicesToMake, index) {
       if (query["data.traits"].length === 1) {
         query["data.traits"] = query["data.traits"][0];
       } else {
-        query["data.traits"] = { $elemMatch: { $or: query["data.traits"] } };
+        // Use $in for multiple trait values
+        query["data.traits"] = { $in: query["data.traits"] };
       }
     }
 
