@@ -3243,3 +3243,356 @@ function setTraits(traits) {
 
   api.setValues(valuesToSet);
 }
+
+// Roll a saving throw for PF2e
+function rollSave(record, type, dc = null, isSpell = false) {
+  if (!record || !type) {
+    console.error("rollSave: Invalid record or type");
+    return;
+  }
+
+  // Normalize the save type
+  const saveType = type.toLowerCase();
+  const validSaves = ["fortitude", "reflex", "will"];
+
+  if (!validSaves.includes(saveType)) {
+    console.error(`rollSave: Invalid save type '${type}'`);
+    return;
+  }
+
+  // Get the save modifier from the record
+  const saveMod = parseInt(record.data?.[`${saveType}Mod`] || "0", 10);
+
+  // Get the proficiency level for display purposes
+  const proficiencyLevel = parseInt(record.data?.[saveType] || "0", 10);
+  const proficiencyNames = [
+    "Untrained",
+    "Trained",
+    "Expert",
+    "Master",
+    "Legendary",
+  ];
+  const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+
+  // Capitalize the save type for display
+  const saveDisplay = saveType.charAt(0).toUpperCase() + saveType.slice(1);
+
+  // Build modifiers array for the roll
+  const modifiers = [];
+
+  // Add the total save modifier (includes ability + proficiency)
+  if (saveMod !== 0) {
+    modifiers.push({
+      name: `${saveDisplay} (${proficiencyName})`,
+      type: "",
+      value: saveMod,
+      active: true,
+    });
+  }
+
+  // Get any additional modifiers from effects
+  const additionalMods = getEffectsAndModifiersForToken(
+    record,
+    [`saveBonus`, `savePenalty`],
+    saveType
+  );
+
+  // If this is a spell, get the spell save modifiers
+  if (isSpell) {
+    const spellSaveMods = getEffectsAndModifiersForToken(
+      record,
+      [`saveBonus`, `savePenalty`],
+      "spell"
+    );
+    spellSaveMods.forEach((mod) => {
+      modifiers.push(mod);
+    });
+  }
+
+  // Determine the attribute for this save
+  let attribute = "con"; // Fortitude uses CON
+  if (saveType === "reflex") {
+    attribute = "dex";
+  } else if (saveType === "will") {
+    attribute = "wis";
+  }
+
+  // Get all bonuses/penalties that apply to the save's attribute
+  const allEffectMods = getEffectsAndModifiersForToken(
+    record,
+    [`allBonus`, `allPenalty`],
+    attribute
+  );
+
+  // Add save-specific modifiers
+  additionalMods.forEach((mod) => {
+    modifiers.push({
+      name: mod.name || "Save Modifier",
+      type: mod.type || "",
+      value: mod.value,
+      active: true,
+    });
+  });
+
+  // Add attribute-based all bonuses/penalties
+  allEffectMods.forEach((mod) => {
+    modifiers.push({
+      name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
+      type: mod.type || "",
+      value: mod.value,
+      active: true,
+    });
+  });
+
+  // Prepare metadata for the roll handler
+  const metadata = {
+    rollName: `${saveDisplay} Save`,
+    tooltip: `${saveDisplay} Saving Throw`,
+    saveType: saveType,
+  };
+
+  // Add DC if provided
+  if (dc !== null && dc !== undefined) {
+    metadata.dc = dc;
+  }
+
+  // Add isSpell flag if true
+  if (isSpell) {
+    metadata.isSpell = true;
+  }
+
+  // Use promptRoll to allow players to modify the roll
+  api.promptRoll(`${saveDisplay} Save`, "1d20", modifiers, metadata, "save");
+}
+
+// Generate a clickable save macro for PF2e
+function getSaveMacro(saveType, dc = null, isSpell = false, showDc = false) {
+  if (!saveType) {
+    console.error("getSaveMacro: Invalid saveType");
+    return "";
+  }
+
+  // Normalize the save type
+  const normalizedSaveType = saveType.toLowerCase();
+  const validSaves = ["fortitude", "reflex", "will"];
+
+  if (!validSaves.includes(normalizedSaveType)) {
+    console.error(`getSaveMacro: Invalid save type '${saveType}'`);
+    return "";
+  }
+
+  // Create snake_case name for the macro
+  const saveNameSnakeCase = `${capitalize(normalizedSaveType)}_Save`;
+
+  // Escape the save type for the macro
+  const escapedSaveType = normalizedSaveType.replace(/'/g, "\\'");
+
+  // Build the macro content that gets selected tokens and rolls for each
+  let macroContent = `const selectedTokens = api.getSelectedOrDroppedToken();
+selectedTokens.forEach(token => {
+  rollSave(token, '${escapedSaveType}'`;
+
+  // Add DC parameter
+  if (dc !== null && dc !== undefined) {
+    macroContent += `, ${dc}`;
+  } else {
+    macroContent += `, null`;
+  }
+
+  // Add isSpell parameter
+  macroContent += `, ${isSpell}`;
+
+  // Close the function call and forEach
+  macroContent += `);
+});`;
+
+  // Build the macro label
+  let macroLabel = `Roll_${saveNameSnakeCase}`;
+  if (dc !== null && dc !== undefined && showDc) {
+    macroLabel += `_DC${dc}`;
+  }
+
+  // Generate the macro
+  return `\`\`\`${macroLabel}
+${macroContent}
+\`\`\``;
+}
+
+// Roll a skill check for PF2e
+function rollSkill(
+  record,
+  skillName,
+  dc = null,
+  isLore = false,
+  loreSkillMod = 0,
+  loreSkillTraining = 1,
+  loreSkillStat = "int"
+) {
+  if (!record || !skillName) {
+    console.error("rollSkill: Invalid record or skillName");
+    return;
+  }
+
+  // Normalize the skill name
+  const skill = skillName.toLowerCase();
+
+  // Determine if this is Perception (special case)
+  const isPerception = skill === "perception";
+
+  // Get the skill modifier from the record
+  const skillMod = isLore
+    ? loreSkillMod
+    : parseInt(record.data?.[`${skill}Mod`] || "0", 10);
+
+  // Get the proficiency level for display purposes
+  const proficiencyLevel = isLore
+    ? loreSkillTraining
+    : parseInt(record.data?.[skill] || "0", 10);
+  const proficiencyNames = [
+    "Untrained",
+    "Trained",
+    "Expert",
+    "Master",
+    "Legendary",
+  ];
+  const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+
+  // Capitalize the skill name for display
+  const skillDisplay = skill.charAt(0).toUpperCase() + skill.slice(1);
+
+  // Build modifiers array
+  const modifiers = [];
+
+  // Add the total skill modifier (includes ability + proficiency)
+  if (skillMod !== 0) {
+    modifiers.push({
+      name: `${skillName} (${proficiencyName})`,
+      type: "",
+      value: skillMod,
+      active: true,
+    });
+  }
+
+  // Get skill-specific modifiers
+  let additionalMods;
+  if (isPerception) {
+    // Perception gets special treatment with perception-specific bonuses
+    additionalMods = getEffectsAndModifiersForToken(
+      record,
+      [`perceptionBonus`, `perceptionPenalty`, `skillBonus`, `skillPenalty`],
+      "perception"
+    );
+  } else {
+    // Regular skills get skill bonuses
+    additionalMods = getEffectsAndModifiersForToken(
+      record,
+      [`skillBonus`, `skillPenalty`],
+      skill
+    );
+  }
+
+  // Determine the attribute for this skill
+  let attribute = "";
+  if (isPerception) {
+    attribute = "wis";
+  } else if (isLore) {
+    attribute = loreSkillStat;
+  } else {
+    // Get attribute setting from record
+    attribute = record.data?.[`${skill}Ability`] || "int";
+  }
+
+  // Get all bonuses/penalties that apply to the skill's attribute
+  let allEffectMods = [];
+  if (attribute) {
+    allEffectMods = getEffectsAndModifiersForToken(
+      record,
+      [`allBonus`, `allPenalty`],
+      attribute
+    );
+  }
+
+  // Add skill-specific modifiers
+  additionalMods.forEach((mod) => {
+    modifiers.push({
+      name: mod.name || "Skill Modifier",
+      type: mod.type || "",
+      value: mod.value,
+      active: true,
+    });
+  });
+
+  // Add attribute-based all bonuses/penalties
+  allEffectMods.forEach((mod) => {
+    modifiers.push({
+      name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
+      type: mod.type || "",
+      value: mod.value,
+      active: true,
+    });
+  });
+
+  // Prepare metadata for the roll handler
+  const metadata = {
+    rollName: `${skillName}`,
+    tooltip: `${skillName} Skill Check`,
+    skillName: skill,
+  };
+
+  if (isPerception) {
+    metadata.tooltip = `Perception Check`;
+  }
+
+  // Add DC if provided
+  if (dc !== null && dc !== undefined) {
+    metadata.dc = dc;
+  }
+
+  // Use promptRoll to allow players to modify the roll
+  api.promptRoll(`${skillDisplay} Check`, "1d20", modifiers, metadata, "skill");
+}
+
+// Generate a clickable skill check macro for PF2e
+function getSkillCheckMacro(skillName, dc = null) {
+  if (!skillName) {
+    console.error("getSkillCheckMacro: Invalid skillName");
+    return "";
+  }
+
+  // Normalize the skill name
+  const skill = skillName.toLowerCase();
+
+  // Create snake_case name for the macro
+  const skillNameSnakeCase =
+    capitalize(skillName).replace(/\s+/g, "_") + "_Check";
+
+  // Escape the skill name for the macro
+  const escapedSkillName = skill.replace(/'/g, "\\'");
+
+  // Build the macro content that gets selected tokens and rolls for each
+  let macroContent = `const selectedTokens = api.getSelectedOrDroppedToken();
+selectedTokens.forEach(token => {
+  rollSkill(token, '${escapedSkillName}'`;
+
+  // Add DC parameter
+  if (dc !== null && dc !== undefined) {
+    macroContent += `, ${dc}`;
+  } else {
+    macroContent += `, null`;
+  }
+
+  // Close the function call and forEach
+  macroContent += `);
+});`;
+
+  // Build the macro label
+  let macroLabel = `Roll_${skillNameSnakeCase}`;
+  if (dc !== null && dc !== undefined) {
+    macroLabel += `_DC${dc}`;
+  }
+
+  // Generate the macro
+  return `\`\`\`${macroLabel}
+${macroContent}
+\`\`\``;
+}

@@ -467,12 +467,12 @@
     api.setValues(valuesToSet);
   }
 
-  function rollSave(save) {
-    console.log("TODO ROLL SAVE", save);
+  function performSaveRoll(save) {
+    rollSave(record, save);
   }
 
   function rollPerception() {
-    console.log("TODO ROLL PERCEPTION");
+    rollSkill(record, "perception");
   }
 
   function rollRecoveryCheck() {
@@ -1399,7 +1399,7 @@
         variant="light"
         options='[{"icon": "D20", "label": "Roll Fortitude Save", "value": "roll"}]'
         field="Roll Fortitude Save"
-        onclick="rollSave('fortitude')"
+        onclick="performSaveRoll('fortitude')"
       ></iconbutton>
     </div>
     <dropdown
@@ -1439,7 +1439,7 @@
         variant="light"
         options='[{"icon": "D20", "label": "Roll Reflex Save", "value": "roll"}]'
         field="Roll Reflex Save"
-        onclick="rollSave('reflex')"
+        onclick="performSaveRoll('reflex')"
       ></iconbutton>
     </div>
     <dropdown
@@ -1479,7 +1479,7 @@
         variant="light"
         options='[{"icon": "D20", "label": "Roll Will Save", "value": "roll"}]'
         field="Roll Will Save"
-        onclick="rollSave('will')"
+        onclick="performSaveRoll('will')"
       ></iconbutton>
     </div>
     <dropdown

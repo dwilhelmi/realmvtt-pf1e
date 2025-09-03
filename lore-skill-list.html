@@ -8,8 +8,13 @@
   }
 
   function rollCheck() {
-    // TODO
-    console.log("todo rollCheck");
+    const skillPath = getNearestParentDataPath(dataPath);
+    const loreSkill = api.getValue(skillPath);
+    const name = loreSkill.name;
+    const mod = parseInt(loreSkill.data?.mod || "0", 10);
+    const rank = parseInt(loreSkill.data?.rank || "0", 10);
+    const ability = loreSkill.data?.ability || "int";
+    rollSkill(record, name, null, true, mod, rank, ability);
   }
 </script>
 
