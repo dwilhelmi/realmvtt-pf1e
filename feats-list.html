@@ -102,10 +102,14 @@
         _id: featSlot?._id,
         data: {
           type: "slot",
+          description: "",
           level: featSlot?.data?.level,
           featSlotType: featSlot?.data?.featSlotType,
           slotOrder: featSlot?.data?.slotOrder,
           modifiers: [],
+          item: [],
+          choices: [],
+          proficiencies: [],
         },
         fields: {
           featDetails: { hidden: true },

@@ -1862,6 +1862,10 @@ function processChoices(record) {
     classFeatures.push(...(classObj.data?.features || []));
   }
 
+  // Collect all feats
+  const feats = record.data?.feats || [];
+  const bonusFeats = record.data?.bonusFeats || [];
+
   const groups = [
     {
       name: "Ancestry",
@@ -1881,9 +1885,19 @@ function processChoices(record) {
       dataPath: "data.classes.0.data.features",
       features: classFeatures,
     },
+    {
+      name: "Feats",
+      dataPath: "data.feats",
+      features: feats,
+    },
+    {
+      name: "Bonus Feats",
+      dataPath: "data.bonusFeats",
+      features: bonusFeats,
+    },
   ];
 
-  // Make a map of all features resulting from choices
+  // Make a map of all features / feats resulting from choices
   const choicesToFeatures = {};
 
   for (const group of groups) {
@@ -1896,8 +1910,7 @@ function processChoices(record) {
     }
   }
 
-  // Also check bonusFeats for choices
-  const bonusFeats = record.data?.bonusFeats || [];
+  // Also check bonusFeats for choices (Feats go here when from a choice)
   for (const feat of bonusFeats) {
     if (feat.data?.choiceFromId !== undefined) {
       choicesToFeatures[feat.data?.choiceFromId] = feat;
@@ -2084,6 +2097,10 @@ function promptForChoices(record, choicesToMake, index) {
           // Add all the characters and class traits to the query
           const actorTraits = record.data?.traits || [];
           const classTraits = record.data?.classes?.[0]?.data?.traits || [];
+          const className = record.data?.classes?.[0]?.name || "";
+          if (className) {
+            query["data.traits"].push(className);
+          }
           for (const trait of actorTraits) {
             query["data.traits"].push(trait);
           }
