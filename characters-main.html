@@ -476,14 +476,41 @@
   }
 
   function rollRecoveryCheck() {
-    console.log("TODO ROLL RECOVERY CHECK");
+    api.promptRoll("Recovery Check", "1d20", [], {}, "recovery");
   }
 
-  function raiseShield() {
-    console.log("TODO RAISE SHIELD");
+  function raiseShield(value) {
+    if (value === "raiseShield") {
+      const ourToken = api.getToken();
+      if (ourToken) {
+        api.floatText(ourToken, "Raising a Shield", "#0000ff");
+      }
+      api.sendMessage(
+        "**[center]Raising a Shield[/center]**",
+        undefined,
+        [],
+        [],
+        ourToken
+      );
+    }
+    if (value === "lowerShield") {
+      const ourToken = api.getToken();
+      if (ourToken) {
+        api.floatText(ourToken, "Lowering a Shield", "#0000ff");
+      }
+      api.sendMessage(
+        "**[center]Lowering a Shield[/center]**",
+        undefined,
+        [],
+        [],
+        ourToken
+      );
+    }
   }
 
   function rest() {
+    // Implemen when spells/other things that reset on rest are added
+    // Reset all things, and add HP per rules
     console.log("TODO REST");
   }
 
@@ -926,7 +953,7 @@
         variant="default"
         options='[{"icon": "IconShield", "label": "Raise Shield", "value": "raiseShield"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "lowerShield"}]'
         field="Raise Shield"
-        onclick="raiseShield()"
+        onclick="raiseShield(value)"
       ></iconbutton>
 
       <numberfield

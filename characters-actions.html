@@ -1,0 +1,97 @@
+<script>
+  function rollInitiative() {
+    // Roll initiative for the character
+
+    const roll = "1d20";
+
+    // Get modifiers for initiative, which is a dexterity check
+    const modifiers = [];
+
+    // Add dexterity modifier
+    const dexMod = parseInt(record.data?.dexterityMod || "0", 10);
+    modifiers.push({
+      name: "Dexterity",
+      value: dexMod,
+      active: true,
+    });
+
+    // Check effects for all initiative bonuses and penalties
+    const initiativeModifiers = getEffectsAndModifiers([
+      "initiativeBonus",
+      "initiativePenalty",
+    ]);
+    initiativeModifiers.forEach((modifier) => {
+      modifiers.push(modifier);
+    });
+
+    const dextertyCheckModifiers = getEffectsAndModifiers(
+      ["abilityBonus", "abilityPenalty"],
+      "dexterity"
+    );
+    dextertyCheckModifiers.forEach((modifier) => {
+      modifiers.push(modifier);
+    });
+
+    api.promptRoll(
+      "Initiative",
+      roll,
+      modifiers,
+      {
+        rollName: "Initiative",
+        tooltip: "Initiative Roll",
+        isCharacter: true,
+        dc: 0,
+      },
+      "initiative"
+    );
+  }
+</script>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+  <label
+    variant="bold"
+    field="attackListLabel"
+    label="Attacks"
+    size="md"
+    textalign="center"
+  ></label>
+
+  <div style="width: 100%; display: flex; justify-content: flex-end">
+    <button
+      field="rollInitBtn"
+      size="xs"
+      icon="D20"
+      label="Initiative"
+      variant="outline"
+      onclick="rollInitiative();"
+    ></button>
+  </div>
+
+  <list
+    hidden="true"
+    listtype="polymorph_actions_list"
+    variant="striped"
+    field="polymorphActions"
+  ></list>
+
+  <list listtype="attack_list" variant="striped" field="inventory"></list>
+</div>
+
+<div style="margin-top: 8px">
+  <label
+    variant="bold"
+    field="abilityGroupListLabel"
+    label="Abilities"
+    size="md"
+    textalign="center"
+  ></label>
+</div>
+
+<div style="width: 100%">
+  <list
+    listtype="ability_group_list"
+    field="abilityGroups"
+    variant="default"
+    allowadd=""
+  ></list>
+</div>
