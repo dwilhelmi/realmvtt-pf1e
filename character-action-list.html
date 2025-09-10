@@ -1,0 +1,105 @@
+<script>
+  function useAction() {
+    // Get the spell by path to ensure most up-to-date value
+    const actionDataPath = dataPath.replace(".data.useBtn", "");
+    const action = api.getValue(actionDataPath);
+
+    const actionName = action?.name || "Unknown Action";
+    const actions = action?.data?.actions || "";
+    const actionType = action?.data?.actionType || "";
+    let actionIconFallback = "";
+    if (
+      actions === "free" ||
+      (actions === undefined && actionType === "action")
+    ) {
+      actionIconFallback = "free-action";
+    } else if (actions === "oneAction") {
+      actionIconFallback = "one-action";
+    } else if (actions === "twoActions") {
+      actionIconFallback = "two-actions";
+    } else if (actions === "threeActions") {
+      actionIconFallback = "three-actions";
+    } else if (actions === "oneToTwoActions") {
+      actionIconFallback = "1-to-2";
+    } else if (actions === "oneToThreeActions") {
+      actionIconFallback = "1-to-3";
+    } else if (actions === "reaction") {
+      actionIconFallback = "reaction";
+    }
+
+    const actionDescription = api.richTextToMarkdown(
+      action?.data?.description || ""
+    );
+
+    const actionIcon = action?.portrait
+      ? `![${actionName}](${assetUrl}${encodeURI(
+          action?.portrait
+        )}?width=40&height=40) `
+      : "";
+
+    let iconToUse = actionIcon;
+    if (!actionIcon) {
+      iconToUse = `:${actionIconFallback}:&nbsp;`;
+    }
+
+    const message = `
+  #### ${iconToUse}${actionName}
+
+  ---
+  ${actionDescription}
+  `;
+
+    // Send the message
+    api.sendMessage(message, undefined, [], []);
+
+    // Play animation if needed
+    const ourToken = api.getToken();
+    const targets = api.getTargets();
+    const tokenId = ourToken?._id;
+    const targetId = targets.length > 0 ? targets[0]?.token?._id : null;
+    if (action?.data?.animation && tokenId) {
+      api.playAnimation(action?.data?.animation, tokenId, targetId);
+    }
+  }
+</script>
+
+<accordion
+  size="xs"
+  field="descriptionOpen"
+  label="Description"
+  chevronposition="left"
+>
+  <accordion.control>
+    <div style="display: column; gap: 2px; width: 100%">
+      <div style="display: flex; gap: 2px; width: 100%">
+        <div
+          style="width: 30px; height: 30px; min-width: 30px; min-height: 30px"
+        >
+          <portrait width="30px" height="30px" field="portrait"></portrait>
+        </div>
+        <namefield
+          size="xs"
+          width="100%"
+          variant="unstyled"
+          field="namefield"
+          placeholder="Ability Name..."
+        ></namefield>
+        <div style="margin-left: auto">
+          <button
+            size="xs"
+            radius="xs"
+            field="useBtn"
+            label="Use"
+            variant="light"
+            onclick="useAction();"
+          ></button>
+        </div>
+      </div>
+    </div>
+  </accordion.control>
+  <richtextfield
+    disablecontrols="true"
+    field="description"
+    placeholder="Enter description..."
+  ></richtextfield>
+</accordion>

@@ -1,6 +1,7 @@
 <script>
   function rollInitiative() {
     // Roll initiative for the character
+    // TODO Pf2e version - uses skill selection instead of dexterity
 
     const roll = "1d20";
 
@@ -80,8 +81,8 @@
 <div style="margin-top: 8px">
   <label
     variant="bold"
-    field="abilityGroupListLabel"
-    label="Abilities"
+    field="actionsLabel"
+    label="Actions"
     size="md"
     textalign="center"
   ></label>
@@ -89,9 +90,8 @@
 
 <div style="width: 100%">
   <list
-    listtype="ability_group_list"
-    field="abilityGroups"
-    variant="default"
-    allowadd=""
+    listtype="character_action_list"
+    field="actions"
+    variant="striped"
   ></list>
 </div>

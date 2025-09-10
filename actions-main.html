@@ -1,21 +1,21 @@
 <script>
   // Show or hide relevant values on load or change of type
   function showHideFields() {
-    const featDataPath = getNearestParentDataPath(dataPath);
-    const feat = featDataPath ? api.getValue(featDataPath) : record;
-    const dataPrefix = featDataPath ? `${featDataPath}.data` : "data";
-    const fieldsPath = featDataPath ? `${featDataPath}.fields` : "fields";
+    const actionDataPath = getNearestParentDataPath(dataPath);
+    const action = actionDataPath ? api.getValue(actionDataPath) : record;
+    const dataPrefix = actionDataPath ? `${actionDataPath}.data` : "data";
+    const fieldsPath = actionDataPath ? `${actionDataPath}.fields` : "fields";
 
     const valuesToSet = {};
 
     // Check if traits is set
     if (
-      feat.data?.traits &&
-      feat.data?.traits.length > 0 &&
-      !feat.data?.traitsList
+      action.data?.traits &&
+      action.data?.traits.length > 0 &&
+      !action.data?.traitsList
     ) {
       const traitsObjects = [];
-      for (const trait of feat.data.traits) {
+      for (const trait of action.data.traits) {
         traitsObjects.push({
           _id: generateUuid(),
           name: trait,
@@ -27,22 +27,11 @@
       valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
     }
 
-    const showActions = feat.data?.actionType === "action";
-    if (showActions && feat.fields?.actions?.hidden !== false) {
+    const showActions = action.data?.actionType === "action";
+    if (showActions && action.fields?.actions?.hidden !== false) {
       valuesToSet[`${fieldsPath}.actions.hidden`] = false;
-    } else if (!showActions && feat.fields?.actions?.hidden !== true) {
+    } else if (!showActions && action.fields?.actions?.hidden !== true) {
       valuesToSet[`${fieldsPath}.actions.hidden`] = true;
-    }
-
-    const levelLabel = feat.data?.level ? `Feat ${feat.data?.level}` : "";
-    if (levelLabel && feat.fields?.levelLabel?.hidden !== false) {
-      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = false;
-    } else if (!levelLabel && feat.fields?.levelLabel?.hidden !== true) {
-      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = true;
-    }
-
-    if (levelLabel && feat.data?.levelLabel !== levelLabel) {
-      valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -67,7 +56,7 @@
 >
   <label
     field="namefield"
-    placeholder="New Feat"
+    placeholder="New Action"
     size="lg"
     variant="bold"
   ></label>
@@ -80,12 +69,12 @@
     hidden="true"
     width="max-content"
     options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
-    {"label": "One Action", "value": "oneAction", "icon": "one-action"},
-    {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
-    {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
-    {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
-    {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
-    {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+  {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+  {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+  {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
+  {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
+  {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+  {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
   ></iconbutton>
   <div style="margin-left: auto">
     <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
@@ -140,26 +129,6 @@
       "
     >
       <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
-        <numberfield
-          field="level"
-          label="Level"
-          onchange="showHideFields();"
-          width="70px"
-          minvalue="1"
-          placeholder="1"
-        ></numberfield>
-        <div style="min-width: 70px; flex-grow: 1">
-          <dropdown
-            field="type"
-            placeholder="Select Feat Type"
-            width="100%"
-            label="Feat Type"
-            options='[{"label": "General Feat", "value": "general"}, {"label": "Skill Feat", "value": "skill"}, {"label": "Class Feat", "value": "class"}, {"label": "Ancestry Feat", "value": "ancestry"}]'
-          >
-          </dropdown>
-        </div>
-      </div>
-      <div style="display: flex; gap: 4px">
         <dropdown
           width="100%"
           field="actionType"
@@ -173,21 +142,14 @@
       </div>
     </div>
   </div>
+
+  <div style="margin-top: 8px; margin-bottom: 8px">
+    <divider label="Description"></divider>
+  </div>
+
+  <richtextfield
+    field="description"
+    label="Description"
+    placeholder="Enter Action description..."
+  ></richtextfield>
 </div>
-
-<stringfield
-  field="prerequisites"
-  multiline="true"
-  label="Prerequisites"
-  placeholder="None"
-></stringfield>
-
-<div style="margin-top: 8px; margin-bottom: 8px">
-  <divider label="Description"></divider>
-</div>
-
-<richtextfield
-  placeholder="Enter Feat description..."
-  field="description"
-  label="Description"
-></richtextfield>

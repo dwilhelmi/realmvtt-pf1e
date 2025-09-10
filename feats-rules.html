@@ -24,7 +24,22 @@
         variant="standard"
       ></label>
     </div>
-    <list field="item" variant="outline" listtype="attached_item_list"></list>
+    <list
+      field="providesAttacks"
+      variant="outline"
+      listtype="attached_item_list"
+    ></list>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
+    <dropdown
+      width="100%"
+      field="providesActions"
+      label="Provides Actions"
+      placeholder="Select Actions..."
+      multiselect="10"
+      optionsquery='{"type": "actions", "query": {}}'
+    ></dropdown>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">

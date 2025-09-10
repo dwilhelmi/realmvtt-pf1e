@@ -3596,3 +3596,21 @@ selectedTokens.forEach(token => {
 ${macroContent}
 \`\`\``;
 }
+
+// For a quick custom macro
+function rollSavingThrow(save, dc) {
+  const escapedSaveType = save.toLowerCase().replace(/'/g, "\\'");
+  const selectedTokens = api.getSelectedOrDroppedToken();
+  selectedTokens.forEach((token) => {
+    rollSave(token, escapedSaveType, dc);
+  });
+}
+
+// For a quick custo skill macro
+function rollSkillCheck(skill, dc) {
+  const escapedSkillName = skill.toLowerCase().replace(/'/g, "\\'");
+  const selectedTokens = api.getSelectedOrDroppedToken();
+  selectedTokens.forEach((token) => {
+    rollSkill(token, escapedSkillName, dc);
+  });
+}
