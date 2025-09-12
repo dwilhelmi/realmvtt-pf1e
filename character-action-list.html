@@ -38,8 +38,15 @@
       : "";
 
     let iconToUse = actionIcon;
-    if (!actionIcon) {
+    if (
+      !actionIcon ||
+      ((actionIcon.includes("Action") || actionIcon.includes("Reaction")) &&
+        actionIconFallback)
+    ) {
+      // If the portrait is not set or is a PF2e image icon, use the fallback icon if set
       iconToUse = `:${actionIconFallback}:&nbsp;`;
+    } else if (!actionIcon && !actionIconFallback) {
+      iconToUse = "";
     }
 
     const message = `

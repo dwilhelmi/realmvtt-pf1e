@@ -2969,6 +2969,88 @@ function calculateAbilityBoosts(record) {
   return boostResults;
 }
 
+// Sequentially query for and add actions
+function queryAndAddActions(actions, index, callback) {
+  // If we're done, call the callback
+  if (index >= actions.length) {
+    if (callback) {
+      callback();
+    }
+    return;
+  }
+
+  // Else, query for the action and add it to the character
+  const action = actions[index];
+  api.getRecord("actions", action, (actionObj) => {
+    api.addValue(
+      "data.actions",
+      {
+        ...actionObj,
+        data: { ...actionObj.data, fromId: action },
+      },
+      queryAndAddActions(actions, index + 1, callback)
+    );
+  });
+}
+
+// This function collects all `providesActions` from feats and features and adds them to the character
+function setProvidedActions(record, callback = undefined) {
+  const feats = record.data?.feats || [];
+  const bonusFeats = record.data?.bonusFeats || [];
+  const features = record.data?.features || [];
+  const ancestries = record.data?.ancestries || [];
+  const ancestryFeatures = ancestries
+    .map((ancestry) => ancestry.data?.features || [])
+    .flat();
+  const heritages = record.data?.heritages || [];
+  const heritageFeatures = heritages
+    .map((heritage) => heritage.data?.features || [])
+    .flat();
+  const classes = record.data?.classes || [];
+  const classFeatures = classes
+    .map((classObj) => classObj.data?.features || [])
+    .flat();
+  const actionsProvided = [];
+  for (const feature of [
+    ...feats,
+    ...bonusFeats,
+    ...ancestryFeatures,
+    ...heritageFeatures,
+    ...classFeatures,
+    ...features,
+  ]) {
+    if (
+      feature.data?.providesActions &&
+      feature.data?.providesActions.length > 0
+    ) {
+      actionsProvided.push(...feature.data?.providesActions);
+    }
+  }
+
+  const actions = record.data?.actions || [];
+  const actionsToAdd = [];
+  for (const action of actionsProvided) {
+    // Parse the JSON from the dropdown value and get the ID of the action
+    try {
+      const actionData = JSON.parse(action);
+      const actionId = actionData._id;
+      if (!actions.find((a) => a.data?.fromId === actionId)) {
+        actionsToAdd.push(actionId);
+      }
+    } catch (error) {
+      console.error("Error parsing action JSON:", action, error);
+    }
+  }
+
+  if (actionsToAdd.length > 0) {
+    queryAndAddActions(actionsToAdd, 0, callback);
+  } else {
+    if (callback) {
+      callback();
+    }
+  }
+}
+
 // This function is called after adding/editing a talent/feature or equipping an item
 function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Calculate Pathfinder 2e ability boosts first
@@ -3178,12 +3260,16 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // to make sure it matches
   setFeatSlots(record, valuesToSet);
 
+  const setActionsCallback = () => {
+    setProvidedActions(record, callback);
+  };
+
   if (Object.keys(valuesToSet).length > 0) {
     api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {
-      updateAllAttributes(recordUpdated, callback);
+      updateAllAttributes(recordUpdated, setActionsCallback);
     });
   } else {
-    updateAllAttributes(record, callback);
+    updateAllAttributes(record, setActionsCallback);
   }
 
   // Check for choices that the character needs to make and
