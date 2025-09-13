@@ -3620,8 +3620,8 @@ function rollSkill(
 
   // Prepare metadata for the roll handler
   const metadata = {
-    rollName: `${skillName}`,
-    tooltip: `${skillName} Skill Check`,
+    rollName: `${capitalize(skillName)}`,
+    tooltip: `${capitalize(skillName)} Skill Check`,
     skillName: skill,
   };
 
