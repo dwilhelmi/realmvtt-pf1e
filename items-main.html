@@ -205,7 +205,13 @@
     variant="bold"
   ></label>
   <div style="margin-left: auto">
-    <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
+    <label
+      hidden="true"
+      field="levelLabel"
+      size="lg"
+      variant="bold"
+      hidewhenidentified="false"
+    ></label>
   </div>
 </div>
 
@@ -242,14 +248,16 @@
     </div>
     <div style="display: flex; gap: 4px; flex-direction: column; width: 100%">
       <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
-        <numberfield
-          field="level"
-          label="Level"
-          onchange="showHideFields();"
-          width="70px"
-          minvalue="0"
-          placeholder="0"
-        ></numberfield>
+        <div style="min-width: 70px; width: 70px">
+          <numberfield
+            field="level"
+            label="Level"
+            onchange="showHideFields();"
+            width="100%"
+            minvalue="0"
+            placeholder="0"
+          ></numberfield>
+        </div>
         <dropdown
           multiselect="1"
           width="100%"
@@ -268,34 +276,52 @@
         >
         </dropdown>
       </div>
-      <!-- Weapon Category -->
-      <box field="weaponCategory" hidden="true" hidewhenidentified="false">
-        <dropdown
+      <div style="display: flex; gap: 4px; flex-direction: row; width: 100%">
+        <div style="min-width: 70px; width: 70px">
+          <numberfield
+            width="100%"
+            field="bulk"
+            label="Bulk"
+            placeholder="0"
+          ></numberfield>
+        </div>
+        <!-- Weapon Category -->
+        <box
+          field="weaponCategory"
+          hidden="true"
+          hidewhenidentified="false"
           width="100%"
-          field="itemCategory"
-          label="Weapon Category"
-          placeholder="Select Category..."
-          combo="true"
-          options='[
+        >
+          <dropdown
+            width="100%"
+            field="itemCategory"
+            label="Weapon Category"
+            placeholder="Select Category..."
+            combo="true"
+            options='[
             {"label": "Martial", "value": "Martial"},
             {"label": "Simple", "value": "Simple"},
-            {"label": "Ammo", "value": "Ammo"},
             {"label": "Advanced", "value": "Advanced"},
             {"label": "Unarmed", "value": "Unarmed"}
           ]'
-        >
-        </dropdown>
-      </box>
+          >
+          </dropdown>
+        </box>
 
-      <!-- Armor Category -->
-      <box field="armorCategory" hidden="true" hidewhenidentified="false">
-        <dropdown
+        <!-- Armor Category -->
+        <box
+          field="armorCategory"
+          hidden="true"
+          hidewhenidentified="false"
           width="100%"
-          field="itemCategory"
-          label="Armor Category"
-          placeholder="Select Category..."
-          combo="true"
-          options='[
+        >
+          <dropdown
+            width="100%"
+            field="itemCategory"
+            label="Armor Category"
+            placeholder="Select Category..."
+            combo="true"
+            options='[
             {"label": "Light", "value": "Light"},
             {"label": "Medium", "value": "Medium"},
             {"label": "Heavy", "value": "Heavy"},
@@ -303,70 +329,124 @@
             {"label": "Light Barding", "value": "Light-Barding"},
             {"label": "Heavy Barding", "value": "Heavy-Barding"}
           ]'
-        >
-        </dropdown>
-      </box>
+          >
+          </dropdown>
+        </box>
 
-      <!-- Consumable Category -->
-      <box field="consumableCategory" hidden="true" hidewhenidentified="false">
-        <dropdown
+        <!-- Consumable Category -->
+        <box
+          field="consumableCategory"
+          hidden="true"
+          hidewhenidentified="false"
           width="100%"
-          field="itemCategory"
-          label="Consumable Category"
-          placeholder="Select Category..."
-          combo="true"
-          options='[
+        >
+          <dropdown
+            width="100%"
+            field="itemCategory"
+            label="Consumable Category"
+            placeholder="Select Category..."
+            combo="true"
+            options='[
+            {"label": "Ammo", "value": "Ammo"},
+            {"label": "Fulu", "value": "Fulu"},
             {"label": "Potion", "value": "Potion"},
             {"label": "Elixir", "value": "Elixir"},
             {"label": "Poison", "value": "Poison"},
             {"label": "Oil", "value": "Oil"},
             {"label": "Mutagen", "value": "Mutagen"},
             {"label": "Drug", "value": "Drug"},
-            {"label": "Catalyst", "value": "Catalyst"}
-          ]'
-        >
-        </dropdown>
-      </box>
-
-      <!-- Equipment Category -->
-      <box field="equipmentCategory" hidden="true" hidewhenidentified="false">
-        <dropdown
-          width="100%"
-          field="itemCategory"
-          label="Equipment Category"
-          placeholder="Select Category..."
-          combo="true"
-          onchange="showHideFields();"
-          options='[
-            {"label": "Gadget", "value": "Gadget"},
-            {"label": "Snare", "value": "Snare"},
-            {"label": "Toolkit", "value": "Toolkit"},
-            {"label": "Talisman", "value": "Talisman"},
-            {"label": "Wand", "value": "Wand"},
-            {"label": "Fulu", "value": "Fulu"},
+            {"label": "Catalyst", "value": "Catalyst"},
             {"label": "Scroll", "value": "Scroll"},
+            {"label": "Snare", "value": "Snare"},
+            {"label": "Talisman", "value": "Talisman"}
+          ]'
+          >
+          </dropdown>
+        </box>
+
+        <!-- Equipment Category -->
+        <box
+          field="equipmentCategory"
+          hidden="true"
+          hidewhenidentified="false"
+          width="100%"
+        >
+          <dropdown
+            width="100%"
+            field="itemCategory"
+            label="Equipment Category"
+            placeholder="Select Category..."
+            combo="true"
+            onchange="showHideFields();"
+            options='[
+            {"label": "Gadget", "value": "Gadget"},
+            {"label": "Toolkit", "value": "Toolkit"},
+            {"label": "Wand", "value": "Wand"},
             {"label": "Other", "value": "Other"}
           ]'
-        >
-        </dropdown>
-      </box>
+          >
+          </dropdown>
+        </box>
+      </div>
     </div>
   </div>
 
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <stringfield
-      width="100%"
-      field="price"
-      label="Price"
-      placeholder="Enter cost..."
-      hidewhenidentified="false"
-    ></stringfield>
-    <numberfield
-      width="100%"
-      field="bulk"
-      label="Bulk"
-      placeholder="0"
-    ></numberfield>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 8px;
+      align-items: flex-end;
+    "
+  >
+    <div style="display: flex; flex-direction: column; width: 100%">
+      <box field="priceBox" hidewhenidentified="false" variant="card">
+        <label
+          label="Price"
+          variant="bold"
+          size="sm"
+          style="margin-bottom: 2px"
+        ></label>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: flex-end;
+          "
+        >
+          <numberfield
+            width="100%"
+            field="price.value.cp"
+            placeholder="0"
+            minvalue="0"
+          ></numberfield>
+          <label label="SP" variant="bold" size="sm"></label>
+          <numberfield
+            width="100%"
+            field="price.value.sp"
+            placeholder="0"
+            minvalue="0"
+          ></numberfield>
+          <label label="SP" variant="bold" size="sm"></label>
+          <numberfield
+            width="100%"
+            field="price.value.gp"
+            placeholder="0"
+            minvalue="0"
+          ></numberfield>
+          <label label="GP" variant="bold" size="sm"></label>
+          <numberfield
+            width="100%"
+            field="price.value.pp"
+            placeholder="0"
+            minvalue="0"
+          ></numberfield>
+          <label label="PP" variant="bold" size="sm"></label>
+        </div>
+      </box>
+    </div>
   </div>
 
   <!-- Other General Properties -->
@@ -492,6 +572,43 @@
         ]'
       >
       </dropdown>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100%"
+        field="acBonus"
+        label="AC Bonus"
+        placeholder="0"
+        showsign="true"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="dexCap"
+        label="Dex Cap"
+        placeholder="0"
+        showsign="true"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="checkPenalty"
+        label="Check Penalty"
+        placeholder="0"
+      ></numberfield>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100%"
+        field="speedPenalty"
+        label="Speed Penalty"
+        placeholder="—"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="strength"
+        label="Strength"
+        placeholder="0"
+        showsign="true"
+      ></numberfield>
     </div>
   </box>
 
