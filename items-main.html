@@ -27,216 +27,187 @@
       valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
     }
 
+    const levelLabel = item.data?.level ? `Item ${item.data?.level}` : "";
+    if (levelLabel && item.fields?.levelLabel?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = false;
+    } else if (!levelLabel && item.fields?.levelLabel?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = true;
+    }
+
+    if (levelLabel && item.data?.levelLabel !== levelLabel) {
+      valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;
+    }
+
+    // Show/hide kit properties when category is "kit"
+    if (
+      item.data?.type === "kit" &&
+      item.fields?.kitProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.kitProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "kit" &&
+      item.fields?.kitProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.kitProperties.hidden`] = true;
+    }
+
+    // Show/hide weapon properties based on item type
+    if (
+      item.data?.type === "weapon" &&
+      item.fields?.weaponProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.weaponProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "weapon" &&
+      item.fields?.weaponProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.weaponProperties.hidden`] = true;
+    }
+
+    // Show/hide armor properties based on item type
+    if (
+      item.data?.type === "armor" &&
+      item.fields?.armorProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.armorProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "armor" &&
+      item.fields?.armorProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.armorProperties.hidden`] = true;
+    }
+
+    // Show/hide other properties for weapons and armor
+    if (
+      (item.data?.type === "weapon" || item.data?.type === "armor") &&
+      item.fields?.otherProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.otherProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "weapon" &&
+      item.data?.type !== "armor" &&
+      item.fields?.otherProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.otherProperties.hidden`] = true;
+    }
+
+    // Show/hide weapon and consumable properties for weapons and consumables
+    if (
+      (item.data?.type === "weapon" || item.data?.type === "consumable") &&
+      item.fields?.weaponAndConsumableProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.weaponAndConsumableProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "weapon" &&
+      item.data?.type !== "consumable" &&
+      item.fields?.weaponAndConsumableProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.weaponAndConsumableProperties.hidden`] = true;
+    }
+
+    // Show/hide weapon category for weapons
+    if (
+      item.data?.type === "weapon" &&
+      item.fields?.weaponCategory?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.weaponCategory.hidden`] = false;
+    } else if (
+      item.data?.type !== "weapon" &&
+      item.fields?.weaponCategory?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.weaponCategory.hidden`] = true;
+    }
+
+    // Show/hide armor category for armor
+    if (
+      item.data?.type === "armor" &&
+      item.fields?.armorCategory?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.armorCategory.hidden`] = false;
+    } else if (
+      item.data?.type !== "armor" &&
+      item.fields?.armorCategory?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.armorCategory.hidden`] = true;
+    }
+
+    // Show/hide consumable category for consumables
+    if (
+      item.data?.type === "consumable" &&
+      item.fields?.consumableCategory?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.consumableCategory.hidden`] = false;
+    } else if (
+      item.data?.type !== "consumable" &&
+      item.fields?.consumableCategory?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.consumableCategory.hidden`] = true;
+    }
+
+    // Show/hide equipment category for equipment, kit, backpack, treasure, and shield
+    if (
+      (item.data?.type === "equipment" ||
+        item.data?.type === "kit" ||
+        item.data?.type === "backpack" ||
+        item.data?.type === "treasure" ||
+        item.data?.type === "shield") &&
+      item.fields?.equipmentCategory?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.equipmentCategory.hidden`] = false;
+    } else if (
+      item.data?.type !== "equipment" &&
+      item.data?.type !== "kit" &&
+      item.data?.type !== "backpack" &&
+      item.data?.type !== "treasure" &&
+      item.data?.type !== "shield" &&
+      item.fields?.equipmentCategory?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.equipmentCategory.hidden`] = true;
+    }
+
+    // Show/hide scroll properties when category is "scroll"
+    if (
+      item.data?.itemCategory === "Scroll" &&
+      item.fields?.scrollProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.scrollProperties.hidden`] = false;
+    } else if (
+      item.data?.itemCategory !== "Scroll" &&
+      item.fields?.scrollProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.scrollProperties.hidden`] = true;
+    }
+
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }
   }
-
-  // Show or hide relevant values based on the type of item
-  // gear, melee weapon, ranged weapon, armor, shield, tool, magic item, pack
-  // Subtypes are optional and are generally one of:
-  // Simple Melee Weapon, Martial Melee Weapon, Simple Ranged Weapon, Martial Ranged Weapon, Light Armor, Medium Armor, Heavy Armor, Ammunition, Treasure, Art Object, Scroll, Potion, Jewelry, Staff, Wand, Clothing
-  // Weapon Type is used for weapon masteries and is one of
-  // Club, Dagger, Greatclub, Handaxe, Javelin, Light Hammer, Mace, Quarterstaff, Sickle, Spear, Dart, Light Crossbow, Shortbow, Sling, Battleaxe, Flail, Glaive, Greataxe, Greatsword, Halberd, Lance, Longsword, Maul, Morningstar, Pike, Rapier, Scimitar, Shortsword, Trident, Warhammer, War Pick, Whip, Blowgun, Hand Crossbow, Heavy Crossbow, Longbow, Musket, Pistol
-  function showHideValues(typeStr) {
-    const valuesToHide = [];
-    const valuesToShow = [];
-    if (typeStr === "melee weapon" || typeStr === "ranged weapon") {
-      valuesToShow.push("damage");
-      valuesToShow.push("weaponType");
-      valuesToShow.push("weaponMastery");
-      valuesToShow.push("weaponProperties");
-    } else {
-      valuesToHide.push("damage");
-      valuesToHide.push("weaponType");
-      valuesToHide.push("weaponMastery");
-      valuesToHide.push("weaponProperties");
-    }
-
-    if (typeStr === "shield" || typeStr === "armor") {
-      valuesToShow.push("armorClass");
-    } else {
-      valuesToHide.push("armorClass");
-    }
-
-    if (typeStr === "armor") {
-      valuesToShow.push("armorCategory");
-      valuesToShow.push("addDex");
-      valuesToShow.push("maxDex");
-      valuesToShow.push("strength");
-      valuesToShow.push("stealth");
-    } else {
-      valuesToHide.push("armorCategory");
-      valuesToHide.push("addDex");
-      valuesToHide.push("maxDex");
-      valuesToHide.push("strength");
-      valuesToHide.push("stealth");
-    }
-
-    if (
-      typeStr === "armor" ||
-      typeStr === "shield" ||
-      typeStr === "melee weapon" ||
-      typeStr === "ranged weapon"
-    ) {
-      valuesToHide.push("consumable");
-    } else if (typeStr !== "pack") {
-      valuesToShow.push("consumable");
-    }
-
-    if (typeStr === "pack") {
-      valuesToShow.push("itemListLabel");
-      valuesToShow.push("items");
-      valuesToShow.push("cp");
-      valuesToShow.push("sp");
-      valuesToShow.push("ep");
-      valuesToShow.push("gp");
-      valuesToShow.push("pp");
-      valuesToHide.push("rarity");
-      valuesToHide.push("consumable");
-      valuesToHide.push("attunement");
-      valuesToHide.push("hasUseBtn");
-    } else {
-      valuesToHide.push("itemListLabel");
-      valuesToHide.push("items");
-      valuesToHide.push("cp");
-      valuesToHide.push("sp");
-      valuesToHide.push("ep");
-      valuesToHide.push("gp");
-      valuesToHide.push("pp");
-      valuesToShow.push("rarity");
-      valuesToShow.push("attunement");
-      valuesToShow.push("hasUseBtn");
-    }
-
-    if (valuesToHide.length > 0) {
-      api.setHidden(valuesToHide, true);
-    }
-    if (valuesToShow.length > 0) {
-      api.setHidden(valuesToShow, false);
-    }
-  }
-
-  function showHideValuesSubtype(subtype) {
-    const valuesToHide = [];
-    const valuesToShow = [];
-
-    if (subtype.toLowerCase().includes("scroll")) {
-      valuesToShow.push("spell");
-      valuesToShow.push("spellLevel");
-    } else {
-      valuesToHide.push("spell");
-      valuesToHide.push("spellLevel");
-    }
-
-    if (valuesToHide.length > 0) {
-      api.setHidden(valuesToHide, true);
-    }
-    if (valuesToShow.length > 0) {
-      api.setHidden(valuesToShow, false);
-    }
-  }
-
-  function showHideConsumableValues(isConsumable) {
-    const valuesToHide = [];
-    const valuesToShow = [];
-
-    const isUse = record.data?.hasUseBtn || false;
-
-    if (isConsumable || isUse) {
-      valuesToShow.push("effects");
-      valuesToShow.push("healing");
-      valuesToShow.push("useDamage");
-    } else {
-      valuesToHide.push("effects");
-      valuesToHide.push("healing");
-      valuesToHide.push("useDamage");
-    }
-
-    if (valuesToHide.length > 0) {
-      api.setHidden(valuesToHide, true);
-    }
-    if (valuesToShow.length > 0) {
-      api.setHidden(valuesToShow, false);
-    }
-  }
-
-  function showHideUseValues(isUse) {
-    const valuesToShow = [];
-    const valuesToHide = [];
-
-    const isConsumable = record.data?.consumable || false;
-
-    if (isConsumable || isUse) {
-      valuesToShow.push("effects");
-      valuesToShow.push("healing");
-      valuesToShow.push("useDamage");
-    } else {
-      valuesToHide.push("effects");
-      valuesToHide.push("healing");
-      valuesToHide.push("useDamage");
-    }
-
-    if (valuesToHide.length > 0) {
-      api.setHidden(valuesToHide, true);
-    }
-    if (valuesToShow.length > 0) {
-      api.setHidden(valuesToShow, false);
-    }
-  }
-
-  function showHideWeaponValues(values) {
-    const valuesToHide = [];
-    const valuesToShow = [];
-    if (values.includes("Ammunition")) {
-      valuesToShow.push("ammoType");
-      valuesToShow.push("normalRange");
-      valuesToShow.push("maxRange");
-      valuesToShow.push("rangeLabel");
-    }
-
-    if (values.includes("Range")) {
-      valuesToShow.push("normalRange");
-      valuesToShow.push("maxRange");
-      valuesToShow.push("rangeLabel");
-    }
-
-    if (values.includes("Thrown")) {
-      valuesToShow.push("normalRange");
-      valuesToShow.push("maxRange");
-      valuesToShow.push("rangeLabel");
-    }
-
-    if (values.includes("Versatile")) {
-      valuesToShow.push("versatileDamage");
-    }
-
-    if (
-      !values.includes("Range") &&
-      !values.includes("Thrown") &&
-      !values.includes("Ammunition")
-    ) {
-      valuesToHide.push("normalRange");
-      valuesToHide.push("maxRange");
-      valuesToHide.push("rangeLabel");
-    }
-
-    if (!values.includes("Ammunition")) {
-      valuesToHide.push("ammoType");
-    }
-
-    if (!values.includes("Versatile")) {
-      valuesToHide.push("versatileDamage");
-    }
-
-    if (valuesToHide.length > 0) {
-      api.setHidden(valuesToHide, true);
-    }
-    if (valuesToShow.length > 0) {
-      api.setHidden(valuesToShow, false);
-    }
-  }
 </script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Item"
+    size="lg"
+    variant="bold"
+  ></label>
+  <div style="margin-left: auto">
+    <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
+  </div>
+</div>
 
 <div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
   <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
@@ -262,6 +233,7 @@
     </dropdown>
   </box>
 
+  <!-- TYPE AND SUBTYPE - TODO - Refer to Foundry's method -->
   <div style="display: flex; gap: 4px">
     <div
       style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
@@ -269,389 +241,324 @@
       <portrait width="125px" height="125px" field="portrait"></portrait>
     </div>
     <div style="display: flex; gap: 4px; flex-direction: column; width: 100%">
-      <dropdown
-        multiselect="1"
-        placeholder="Select Type"
-        onchange="showHideValues(value);"
-        field="type"
-        label="Type"
-        options='[{"label": "Adventuring Gear", "value": "gear"}, {"label": "Melee Weapon", "value": "melee weapon"},
-        {"label": "Ranged Weapon", "value": "ranged weapon"}, {"label": "Armor", "value": "armor"}, {"label": "Shield", "value": "shield"},
-        {"label": "Tool", "value": "tool"}, {"label": "Magic Item", "value": "magic item"}, {"label": "Item Pack", "value": "pack"}]'
-      >
-      </dropdown>
-      <stringfield
-        width="100%"
-        field="subtype"
-        label="Subtype"
-        onchange="showHideValuesSubtype(value);"
-        placeholder="Enter Subtype..."
-      ></stringfield>
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <numberfield
+          field="level"
+          label="Level"
+          onchange="showHideFields();"
+          width="70px"
+          minvalue="0"
+          placeholder="0"
+        ></numberfield>
+        <dropdown
+          multiselect="1"
+          width="100%"
+          placeholder="Select Type"
+          onchange="showHideFields();"
+          field="type"
+          label="Type"
+          options='[{"label": "Armor", "value": "armor"}, {
+            "label": "Backpack", "value": "backpack"},
+            {"label": "Consumable", "value": "consumable"},
+            {"label": "Equipment", "value": "equipment"},
+            {"label": "Kit", "value": "kit"},
+            {"label": "Shield", "value": "shield"},
+            {"label": "Treasure", "value": "treasure"},
+            {"label": "Weapon", "value": "weapon"}]'
+        >
+        </dropdown>
+      </div>
+      <!-- Weapon Category -->
+      <box field="weaponCategory" hidden="true" hidewhenidentified="false">
+        <dropdown
+          width="100%"
+          field="itemCategory"
+          label="Weapon Category"
+          placeholder="Select Category..."
+          combo="true"
+          options='[
+            {"label": "Martial", "value": "Martial"},
+            {"label": "Simple", "value": "Simple"},
+            {"label": "Ammo", "value": "Ammo"},
+            {"label": "Advanced", "value": "Advanced"},
+            {"label": "Unarmed", "value": "Unarmed"}
+          ]'
+        >
+        </dropdown>
+      </box>
+
+      <!-- Armor Category -->
+      <box field="armorCategory" hidden="true" hidewhenidentified="false">
+        <dropdown
+          width="100%"
+          field="itemCategory"
+          label="Armor Category"
+          placeholder="Select Category..."
+          combo="true"
+          options='[
+            {"label": "Light", "value": "Light"},
+            {"label": "Medium", "value": "Medium"},
+            {"label": "Heavy", "value": "Heavy"},
+            {"label": "Unarmored", "value": "Unarmored"},
+            {"label": "Light Barding", "value": "Light-Barding"},
+            {"label": "Heavy Barding", "value": "Heavy-Barding"}
+          ]'
+        >
+        </dropdown>
+      </box>
+
+      <!-- Consumable Category -->
+      <box field="consumableCategory" hidden="true" hidewhenidentified="false">
+        <dropdown
+          width="100%"
+          field="itemCategory"
+          label="Consumable Category"
+          placeholder="Select Category..."
+          combo="true"
+          options='[
+            {"label": "Potion", "value": "Potion"},
+            {"label": "Elixir", "value": "Elixir"},
+            {"label": "Poison", "value": "Poison"},
+            {"label": "Oil", "value": "Oil"},
+            {"label": "Mutagen", "value": "Mutagen"},
+            {"label": "Drug", "value": "Drug"},
+            {"label": "Catalyst", "value": "Catalyst"}
+          ]'
+        >
+        </dropdown>
+      </box>
+
+      <!-- Equipment Category -->
+      <box field="equipmentCategory" hidden="true" hidewhenidentified="false">
+        <dropdown
+          width="100%"
+          field="itemCategory"
+          label="Equipment Category"
+          placeholder="Select Category..."
+          combo="true"
+          onchange="showHideFields();"
+          options='[
+            {"label": "Gadget", "value": "Gadget"},
+            {"label": "Snare", "value": "Snare"},
+            {"label": "Toolkit", "value": "Toolkit"},
+            {"label": "Talisman", "value": "Talisman"},
+            {"label": "Wand", "value": "Wand"},
+            {"label": "Fulu", "value": "Fulu"},
+            {"label": "Scroll", "value": "Scroll"},
+            {"label": "Other", "value": "Other"}
+          ]'
+        >
+        </dropdown>
+      </box>
     </div>
   </div>
 
   <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
     <stringfield
       width="100%"
-      field="cost"
-      label="Cost"
+      field="price"
+      label="Price"
       placeholder="Enter cost..."
       hidewhenidentified="false"
     ></stringfield>
     <numberfield
       width="100%"
-      field="weight"
-      label="Weight"
+      field="bulk"
+      label="Bulk"
       placeholder="0"
     ></numberfield>
-    <dropdown
-      width="100%"
-      field="rarity"
-      label="Rarity"
-      placeholder="--"
-      hidewhenidentified="false"
-      options='[{"label": "Common", "value": "common"}, {"label": "Uncommon", "value": "uncommon"}, {"label": "Rare", "value": "rare"}, {"label": "Very Rare", "value": "very rare"}, {"label": "Legendary", "value": "legendary"}, {"label": "Artifact", "value": "artifact"}]'
-    >
-    </dropdown>
   </div>
 
   <!-- Other General Properties -->
-
-  <div style="display: flex; flex-direction: row; gap: 16px">
-    <checkbox
-      field="attunement"
-      label="Requires Attunement"
-      textalign="left"
-      size="sm"
-      hidewhenidentified="false"
-    >
-    </checkbox>
-    <checkbox
-      hidden="false"
-      field="hasUseBtn"
-      label="Has Use"
-      textalign="left"
-      size="sm"
-      hidewhenidentified="false"
-      onchange="showHideUseValues(value);"
-    ></checkbox>
-    <checkbox
-      hidden="true"
-      field="consumable"
-      label="Consumable"
-      textalign="left"
-      size="sm"
-      hidewhenidentified="false"
-      onchange="showHideConsumableValues(value);"
-    ></checkbox>
-  </div>
+  <!-- TODO -->
 
   <!-- Weapon Properties -->
-
-  <stringfield
-    width="100%"
-    hidden="true"
-    field="damage"
-    label="Damage"
-    placeholder="Enter Damage for attacks..."
-  ></stringfield>
-
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <dropdown
-      width="50%"
-      hidden="true"
-      field="weaponType"
-      label="Weapon Type"
-      placeholder="Select Weapon Type"
-      searchable="true"
-      options='[{"label": "Club", "value": "Club"}, {"label": "Dagger", "value": "Dagger"}, 
-      {"label": "Greatclub", "value": "Greatclub"}, {"label": "Handaxe", "value": "Handaxe"}, 
-      {"label": "Javelin", "value": "Javelin"}, {"label": "Light Hammer", "value": "Light Hammer"}, 
-      {"label": "Mace", "value": "Mace"}, {"label": "Quarterstaff", "value": "Quarterstaff"},
-      {"label": "Sickle", "value": "Sickle"}, {"label": "Spear", "value": "Spear"},
-      {"label": "Dart", "value": "Dart"}, {"label": "Light Crossbow", "value": "Light Crossbow"}, 
-      {"label": "Shortbow", "value": "Shortbow"},
-      {"label": "Sling", "value": "Sling"}, {"label": "Battleaxe", "value": "Battleaxe"}, 
-      {"label": "Flail", "value": "Flail"}, {"label": "Glaive", "value": "Glaive"}, 
-      {"label": "Greataxe", "value": "Greataxe"}, {"label": "Greatsword", "value": "Greatsword"},
-      {"label": "Halberd", "value": "Halberd"}, {"label": "Lance", "value": "Lance"},
-      {"label": "Longsword", "value": "Longsword"}, {"label": "Maul", "value": "Maul"},
-      {"label": "Morningstar", "value": "Morningstar"}, {"label": "Pike", "value": "Pike"},
-      {"label": "Rapier", "value": "Rapier"}, {"label": "Scimitar", "value": "Scimitar"},
-      {"label": "Shortsword", "value": "Shortsword"}, {"label": "Trident", "value": "Trident"},
-      {"label": "Warhammer", "value": "Warhammer"}, {"label": "War Pick", "value": "War Pick"},
-      {"label": "Whip", "value": "Whip"}, {"label": "Blowgun", "value": "Blowgun"},
-      {"label": "Hand Crossbow", "value": "Hand Crossbow"}, {"label": "Heavy Crossbow", "value": "Heavy Crossbow"},
-      {"label": "Longbow", "value": "Longbow"}, {"label": "Musket", "value": "Musket"},
-      {"label": "Pistol", "value": "Pistol"}]'
-    >
-    </dropdown>
-    <dropdown
-      width="50%"
-      hidden="true"
-      field="weaponMastery"
-      label="Mastery"
-      placeholder="Select Mastery Property"
-      searchable="true"
-      options='[{"label": "Cleave", "value": "Cleave"}, {"label": "Graze", "value": "Graze"}, 
-      {"label": "Nick", "value": "Nick"}, {"label": "Push", "value": "Push"}, 
-      {"label": "Sap", "value": "Sap"}, {"label": "Slow", "value": "Slow"}, 
-      {"label": "Topple", "value": "Topple"}, {"label": "Vex", "value": "Vex"}]'
-    >
-    </dropdown>
-  </div>
-
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <dropdown
-      width="100%"
-      hidden="true"
-      field="weaponProperties"
-      label="Weapon Properties"
-      onchange="showHideWeaponValues(value);"
-      multiselect="10"
-      placeholder="Select Weapon Properties"
-      searchable="true"
-      options='[{"label": "Ammunition", "value": "Ammunition"}, {"label": "Finesse", "value": "Finesse"}, 
-      {"label": "Heavy", "value": "Heavy"}, {"label": "Light", "value": "Light"}, 
-      {"label": "Loading", "value": "Loading"}, {"label": "Range", "value": "Range"}, 
-      {"label": "Reach", "value": "Reach"}, {"label": "Thrown", "value": "Thrown"},
-      {"label": "Two-Handed", "value": "Two-Handed"}, {"label": "Versatile", "value": "Versatile"}]'
-    >
-    </dropdown>
-  </div>
-
-  <div
-    style="
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      gap: 8px;
-      align-items: flex-end;
-    "
-  >
-    <numberfield
-      width="100%"
-      hidden="true"
-      field="normalRange"
-      label="Normal Range"
-      placeholder="Enter Range..."
-    >
-    </numberfield>
-    <label hidden="true" field="rangeLabel" label="/" variable="bold"></label>
-    <numberfield
-      width="100%"
-      hidden="true"
-      field="maxRange"
-      label="Max Range"
-      placeholder="Enter Max Range..."
-    >
-    </numberfield>
-    <stringfield
-      width="100%"
-      hidden="true"
-      field="ammoType"
-      label="Ammo Type"
-      placeholder="Enter Ammo Type..."
-    >
-    </stringfield>
-  </div>
-
-  <stringfield
-    width="100%"
-    hidden="true"
-    field="versatileDamage"
-    label="Versatile Damage"
-    placeholder="Enter damage for two-handed attacks..."
-  ></stringfield>
+  <box field="weaponProperties" hidden="true" hidewhenidentified="false">
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="110px"
+        field="damage.dice"
+        label="Dice"
+        placeholder="1"
+        minvalue="1"
+      ></numberfield>
+      <dropdown
+        width="110px"
+        field="damage.die"
+        label="Die"
+        placeholder="Select Die..."
+        options='[
+          {"label": "d4", "value": "d4"},
+          {"label": "d6", "value": "d6"},
+          {"label": "d8", "value": "d8"},
+          {"label": "d10", "value": "d10"},
+          {"label": "d12", "value": "d12"},
+          {"label": "d20", "value": "d20"}
+        ]'
+      >
+      </dropdown>
+      <dropdown
+        width="100%"
+        field="damage.damageType"
+        label="Damage Type"
+        placeholder="Select Damage Type..."
+        options='[
+        {"label": "Bludgeoning", "value": "bludgeoning"},
+        {"label": "Piercing", "value": "piercing"},
+        {"label": "Slashing", "value": "slashing"},
+        {"label": "Acid", "value": "acid"},
+        {"label": "Cold", "value": "cold"},
+        {"label": "Electricity", "value": "electricity"},
+        {"label": "Fire", "value": "fire"},
+        {"label": "Force", "value": "force"},
+        {"label": "Mental", "value": "mental"},
+        {"label": "Poison", "value": "poison"},
+        {"label": "Sonic", "value": "sonic"},
+        {"label": "Spirit", "value": "spirit"},
+        {"label": "Vitality", "value": "vitality"},
+        {"label": "Void", "value": "void"}
+      ]'
+      >
+      </dropdown>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <dropdown
+        width="100%"
+        field="group"
+        label="Group"
+        placeholder="Select Group..."
+        combo="true"
+        options='[
+          {"label": "Axe", "value": "Axe"},
+          {"label": "Bomb", "value": "Bomb"},
+          {"label": "Bow", "value": "Bow"},
+          {"label": "Brawling", "value": "Brawling"},
+          {"label": "Club", "value": "Club"},
+          {"label": "Composite", "value": "Composite"},
+          {"label": "Crossbow", "value": "Crossbow"},
+          {"label": "Dart", "value": "Dart"},
+          {"label": "Firearm", "value": "Firearm"},
+          {"label": "Flail", "value": "Flail"},
+          {"label": "Hammer", "value": "Hammer"},
+          {"label": "Knife", "value": "Knife"},
+          {"label": "Pick", "value": "Pick"},
+          {"label": "Polearm", "value": "Polearm"},
+          {"label": "Shield", "value": "Shield"},
+          {"label": "Sling", "value": "Sling"},
+          {"label": "Spear", "value": "Spear"},
+          {"label": "Sword", "value": "Sword"}
+        ]'
+      >
+      </dropdown>
+      <numberfield
+        width="100%"
+        field="range"
+        label="Range"
+        placeholder="N/A"
+        minvalue="0"
+      ></numberfield>
+      <stringfield
+        width="100%"
+        field="reload"
+        label="Reload"
+        placeholder="-"
+      ></stringfield>
+      <numberfield
+        width="100%"
+        field="expend"
+        label="Expend"
+        placeholder="N/A"
+        minvalue="0"
+      ></numberfield>
+    </div>
+  </box>
 
   <!-- Armor Properties -->
+  <box field="armorProperties" hidden="true" hidewhenidentified="false">
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <dropdown
+        width="100%"
+        field="group"
+        label="Group"
+        placeholder="Select Group..."
+        combo="true"
+        options='[
+          {"label": "Chain", "value": "Chain"},
+          {"label": "Cloth", "value": "Cloth"},
+          {"label": "Leather", "value": "Leather"},
+          {"label": "Plate", "value": "Plate"},
+          {"label": "Skeletal", "value": "Skeletal"},
+          {"label": "Wood", "value": "Wood"}
+        ]'
+      >
+      </dropdown>
+    </div>
+  </box>
 
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <numberfield
-      width="100%"
-      hidden="true"
-      field="armorClass"
-      label="AC (Armor Class)"
-      placeholder="Enter AC..."
-    >
-    </numberfield>
-    <dropdown
-      width="100%"
-      hidden="true"
-      field="armorCategory"
-      label="Armor Category"
-      placeholder="Select Armor Category"
-      searchable="true"
-      options='[{"label": "Light", "value": "Light"}, {"label": "Medium", "value": "Medium"}, {"label": "Heavy", "value": "Heavy"}]'
-    >
-    </dropdown>
-  </div>
-
-  <div
-    style="
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      gap: 8px;
-      align-items: center;
-    "
-  >
-    <checkbox
-      hidden="true"
-      width="170px"
-      field="addDex"
-      label="Add Dex Mod"
-      textalign="left"
-      size="sm"
-    ></checkbox>
-    <numberfield
-      hidden="true"
-      width="100%"
-      field="maxDex"
-      label="Max Dex Mod"
-      placeholder="Enter Max Dex Mod..."
-    >
-    </numberfield>
-  </div>
-
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <numberfield
-      width="100%"
-      hidden="true"
-      field="strength"
-      label="Strength"
-      placeholder="--"
-    >
-    </numberfield>
-    <dropdown
-      width="100%"
-      hidden="true"
-      field="stealth"
-      label="Stealth"
-      placeholder="--"
-      options='[{"label": "No Disadvantage", "value": "none"}, {"label": "Disadvantage", "value": "disadvantage"}]'
-    >
-    </dropdown>
-  </div>
-
-  <!-- Properties for Consumable Items -->
-  <dropdown
-    width="100%"
+  <!-- Weapon and Consumable Properties -->
+  <box
+    field="weaponAndConsumableProperties"
     hidden="true"
-    field="effects"
-    label="Effects"
-    description="Effects that can be applied when used"
-    placeholder="Select Effects if Applicable..."
-    multiselect="10"
-    optionsquery='{"type": "effects", "query": {}}'
     hidewhenidentified="false"
   >
-  </dropdown>
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <stringfield
-      width="50%"
-      hidden="true"
-      field="healing"
-      label="Healing"
-      description="Healing roll when used"
-      placeholder="Enter Healing if Applicable..."
-      hidewhenidentified="false"
-    ></stringfield>
-    <stringfield
-      width="50%"
-      hidden="true"
-      field="useDamage"
-      label="Damage"
-      description="Damage roll when used"
-      placeholder="Enter Damage when used if Applicable..."
-      hidewhenidentified="false"
-    ></stringfield>
-  </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100px"
+        field="splashDamage"
+        label="Splash Damage"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
+    </div>
+  </box>
 
   <!-- Magic Item (Scroll) Properties -->
-
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-    <dropdown
-      width="100%"
-      hidden="true"
-      field="spell"
-      label="Spell"
-      placeholder="Select Spell..."
-      optionsquery='{"type": "spells", "query": {}}'
-      hidewhenidentified="false"
-    >
-    </dropdown>
-    <numberfield
-      width="100%"
-      hidden="true"
-      field="spellLevel"
-      label="Level"
-      placeholder="Enter Level..."
-      hidewhenidentified="false"
-    ></numberfield>
-  </div>
+  <box field="scrollProperties" hidden="true" hidewhenidentified="false">
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <dropdown
+        width="100%"
+        field="spell"
+        label="Spell"
+        placeholder="Select Spell..."
+        optionsquery='{"type": "spells", "query": {}}'
+      >
+      </dropdown>
+      <numberfield
+        width="100%"
+        field="spellLevel"
+        label="Level"
+        placeholder="Enter Level..."
+      ></numberfield>
+    </div>
+  </box>
 
   <!-- Pack Properties -->
+  <box field="kitProperties" hidden="true" hidewhenidentified="false">
+    <div>
+      <label
+        field="itemListLabel"
+        label="Items"
+        size="sm"
+        variant="bold"
+      ></label>
+    </div>
 
-  <div>
-    <label
-      hidden="true"
-      field="itemListLabel"
-      label="Items in Pack"
-      size="sm"
-      variant="bold"
-      hidewhenidentified="false"
-    ></label>
-  </div>
+    <div>
+      <list
+        listtype="item_list"
+        field="items"
+        variant="striped"
+        allowadd=""
+      ></list>
+    </div>
 
-  <div>
-    <list
-      hidden="true"
-      listtype="item_list"
-      field="items"
-      variant="striped"
-      allowadd=""
-      hidewhenidentified="false"
-    ></list>
-  </div>
-
-  <div style="display: flex; flex-direction: row; gap: 4px">
-    <numberfield
-      placeholder="0"
-      field="cp"
-      label="CP"
-      hidden="true"
-      hidewhenidentified="false"
-    ></numberfield>
-    <numberfield
-      placeholder="0"
-      field="sp"
-      label="SP"
-      hidden="true"
-      hidewhenidentified="false"
-    ></numberfield>
-    <numberfield
-      placeholder="0"
-      field="ep"
-      label="EP"
-      hidden="true"
-      hidewhenidentified="false"
-    ></numberfield>
-    <numberfield
-      placeholder="0"
-      field="gp"
-      label="GP"
-      hidden="true"
-      hidewhenidentified="false"
-    ></numberfield>
-    <numberfield
-      placeholder="0"
-      field="pp"
-      label="PP"
-      hidden="true"
-      hidewhenidentified="false"
-    ></numberfield>
-  </div>
+    <div style="display: flex; flex-direction: row; gap: 4px">
+      <numberfield placeholder="0" field="cp" label="CP"></numberfield>
+      <numberfield placeholder="0" field="sp" label="SP"></numberfield>
+      <numberfield placeholder="0" field="gp" label="GP"></numberfield>
+      <numberfield placeholder="0" field="pp" label="PP"></numberfield>
+    </div>
+  </box>
 
   <!-- Description -->
 

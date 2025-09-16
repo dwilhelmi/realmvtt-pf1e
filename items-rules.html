@@ -1,0 +1,428 @@
+<script>
+  function onChangeModifiers() {
+    // Set itemOnly field visible on all modifiers
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = itemDataPath ? api.getValue(itemDataPath) : record;
+    const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+
+    const valuesToSet = {};
+
+    modifiers.forEach((modifier, index) => {
+      valuesToSet[
+        `${itemDataPath}.modifiers.${index}.fields.itemOnly.hidden`
+      ] = false;
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<!-- Rules Section -->
+<div>
+  <label label="Rules" size="md" variant="bold" textalign="center"></label>
+</div>
+
+<!-- Weapon Runes -->
+<box field="weaponProperties" hidden="true" hidewhenidentified="false">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <dropdown
+      width="100%"
+      field="runes.potency"
+      label="Potency"
+      placeholder="Select..."
+      options='[
+        {"label": "Weapon Potency +1", "value": "1"},
+        {"label": "Weapon Potency +2", "value": "2"},
+        {"label": "Weapon Potency +3", "value": "3"}
+      ]'
+    ></dropdown>
+    <dropdown
+      width="100%"
+      field="runes.striking"
+      label="Striking"
+      placeholder="Select..."
+      options='[
+        {"label": "Striking", "value": "1"},
+        {"label": "Greater Striking", "value": "2"},
+        {"label": "Major Striking", "value": "3"}
+      ]'
+    ></dropdown>
+  </div>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <dropdown
+      width="100%"
+      field="runes.property"
+      label="Property Runes"
+      placeholder="Select Property Runes..."
+      multiselect="4"
+      searchable="true"
+      options='[
+        {"label": "Ancestral Echoing", "value": "ancestralEchoing"},
+        {"label": "Anchoring", "value": "anchoring"},
+        {"label": "Ashen", "value": "ashen"},
+        {"label": "Astral", "value": "astral"},
+        {"label": "Authorized", "value": "authorized"},
+        {"label": "Bane", "value": "bane"},
+        {"label": "Bloodbane", "value": "bloodbane"},
+        {"label": "Bloodthirsty", "value": "bloodthirsty"},
+        {"label": "Bolkas Blessing", "value": "bolkasBlessing"},
+        {"label": "Brilliant", "value": "brilliant"},
+        {"label": "Called", "value": "called"},
+        {"label": "Coating", "value": "coating"},
+        {"label": "Conducting", "value": "conducting"},
+        {"label": "Corrosive", "value": "corrosive"},
+        {"label": "Crushing", "value": "crushing"},
+        {"label": "Cunning", "value": "cunning"},
+        {"label": "Dancing", "value": "dancing"},
+        {"label": "Decaying", "value": "decaying"},
+        {"label": "Deathdrinking", "value": "deathdrinking"},
+        {"label": "Demolishing", "value": "demolishing"},
+        {"label": "Disrupting", "value": "disrupting"},
+        {"label": "Earthbinding", "value": "earthbinding"},
+        {"label": "Energizing", "value": "energizing"},
+        {"label": "Extending", "value": "extending"},
+        {"label": "Fanged", "value": "fanged"},
+        {"label": "Fearsome", "value": "fearsome"},
+        {"label": "Flaming", "value": "flaming"},
+        {"label": "Flickering", "value": "flickering"},
+        {"label": "Flurrying", "value": "flurrying"},
+        {"label": "Frost", "value": "frost"},
+        {"label": "Ghost Touch", "value": "ghostTouch"},
+        {"label": "Giant Killing", "value": "giantKilling"},
+        {"label": "Greater Anchoring", "value": "greaterAnchoring"},
+        {"label": "Greater Ashen", "value": "greaterAshen"},
+        {"label": "Greater Astral", "value": "greaterAstral"},
+        {"label": "Greater Bloodbane", "value": "greaterBloodbane"},
+        {"label": "Greater Bolkas Blessing", "value": "greaterBolkasBlessing"},
+        {"label": "Greater Brilliant", "value": "greaterBrilliant"},
+        {"label": "Greater Corrosive", "value": "greaterCorrosive"},
+        {"label": "Greater Crushing", "value": "greaterCrushing"},
+        {"label": "Greater Decaying", "value": "greaterDecaying"},
+        {"label": "Greater Disrupting", "value": "greaterDisrupting"},
+        {"label": "Greater Extending", "value": "greaterExtending"},
+        {"label": "Greater Fanged", "value": "greaterFanged"},
+        {"label": "Greater Fearsome", "value": "greaterFearsome"},
+        {"label": "Greater Flaming", "value": "greaterFlaming"},
+        {"label": "Greater Frost", "value": "greaterFrost"},
+        {"label": "Greater Giant Killing", "value": "greaterGiantKilling"},
+        {"label": "Greater Hauling", "value": "greaterHauling"},
+        {"label": "Greater Impactful", "value": "greaterImpactful"},
+        {"label": "Greater Kolss Oath", "value": "greaterKolssOath"},
+        {"label": "Greater Rooting", "value": "greaterRooting"},
+        {"label": "Greater Shock", "value": "greaterShock"},
+        {"label": "Greater Thundering", "value": "greaterThundering"},
+        {"label": "Greater Trudds Strength", "value": "greaterTruddsStrength"},
+        {"label": "Grievous", "value": "grievous"},
+        {"label": "Hauling", "value": "hauling"},
+        {"label": "Holy", "value": "holy"},
+        {"label": "Hopeful", "value": "hopeful"},
+        {"label": "Hooked", "value": "hooked"},
+        {"label": "Impactful", "value": "impactful"},
+        {"label": "Impossible", "value": "impossible"},
+        {"label": "Keen", "value": "keen"},
+        {"label": "Kin Warding", "value": "kinWarding"},
+        {"label": "Kolss Oath", "value": "kolssOath"},
+        {"label": "Major Fanged", "value": "majorFanged"},
+        {"label": "Major Rooting", "value": "majorRooting"},
+        {"label": "Merciful", "value": "merciful"},
+        {"label": "Nightmare", "value": "nightmare"},
+        {"label": "Pacifying", "value": "pacifying"},
+        {"label": "Returning", "value": "returning"},
+        {"label": "Rooting", "value": "rooting"},
+        {"label": "Serrating", "value": "serrating"},
+        {"label": "Shifting", "value": "shifting"},
+        {"label": "Shock", "value": "shock"},
+        {"label": "Shockwave", "value": "shockwave"},
+        {"label": "Speed", "value": "speed"},
+        {"label": "Spell Storing", "value": "spellStoring"},
+        {"label": "Swarming", "value": "swarming"},
+        {"label": "Thundering", "value": "thundering"},
+        {"label": "Trudds Strength", "value": "truddsStrength"},
+        {"label": "True Rooting", "value": "trueRooting"},
+        {"label": "Underwater", "value": "underwater"},
+        {"label": "Unholy", "value": "unholy"},
+        {"label": "Vorpal", "value": "vorpal"},
+        {"label": "Wounding", "value": "wounding"}
+      ]'
+    >
+    </dropdown>
+  </div>
+</box>
+
+<!-- Armor Runes -->
+<box field="armorProperties" hidden="true" hidewhenidentified="false">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <dropdown
+      width="100%"
+      field="runes.potency"
+      label="Potency"
+      placeholder="Select..."
+      options='[
+        {"label": "Armor Potency +1", "value": "1"},
+        {"label": "Armor Potency +2", "value": "2"},
+        {"label": "Armor Potency +3", "value": "3"}
+      ]'
+    ></dropdown>
+    <dropdown
+      width="100%"
+      field="runes.resilient"
+      label="Resilient"
+      placeholder="Select..."
+      options='[
+        {"label": "Resilient", "value": "1"},
+        {"label": "Greater Resilient", "value": "2"},
+        {"label": "Major Resilient", "value": "3"}
+      ]'
+    ></dropdown>
+  </div>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <dropdown
+      width="100%"
+      field="runes.property"
+      label="Property Runes"
+      placeholder="Select Property Runes..."
+      searchable="true"
+      multiselect="4"
+      options='[
+        {"label": "Acid Resistant", "value": "acidResistant"},
+        {"label": "Advancing", "value": "advancing"},
+        {"label": "Aim Aiding", "value": "aimAiding"},
+        {"label": "Antimagic", "value": "antimagic"},
+        {"label": "Assisting", "value": "assisting"},
+        {"label": "Bitter", "value": "bitter"},
+        {"label": "Cold Resistant", "value": "coldResistant"},
+        {"label": "Deathless", "value": "deathless"},
+        {"label": "Electricity Resistant", "value": "electricityResistant"},
+        {"label": "Energy Adaptive", "value": "energyAdaptive"},
+        {"label": "Ethereal", "value": "ethereal"},
+        {"label": "Fire Resistant", "value": "fireResistant"},
+        {"label": "Fortification", "value": "fortification"},
+        {"label": "Glamered", "value": "glamered"},
+        {"label": "Gliding", "value": "gliding"},
+        {"label": "Greater Acid Resistant", "value": "greaterAcidResistant"},
+        {"label": "Greater Advancing", "value": "greaterAdvancing"},
+        {"label": "Greater Cold Resistant", "value": "greaterColdResistant"},
+        {"label": "Greater Dread", "value": "greaterDread"},
+        {"label": "Greater Electricity Resistant", "value": "greaterElectricityResistant"},
+        {"label": "Greater Fire Resistant", "value": "greaterFireResistant"},
+        {"label": "Greater Fortification", "value": "greaterFortification"},
+        {"label": "Greater Invisibility", "value": "greaterInvisibility"},
+        {"label": "Greater Ready", "value": "greaterReady"},
+        {"label": "Greater Shadow", "value": "greaterShadow"},
+        {"label": "Greater Slick", "value": "greaterSlick"},
+        {"label": "Greater Stanching", "value": "greaterStanching"},
+        {"label": "Greater Quenching", "value": "greaterQuenching"},
+        {"label": "Greater Swallow Spike", "value": "greaterSwallowSpike"},
+        {"label": "Greater Winged", "value": "greaterWinged"},
+        {"label": "Immovable", "value": "immovable"},
+        {"label": "Implacable", "value": "implacable"},
+        {"label": "Invisibility", "value": "invisibility"},
+        {"label": "Lesser Dread", "value": "lesserDread"},
+        {"label": "Magnetizing", "value": "magnetizing"},
+        {"label": "Major Quenching", "value": "majorQuenching"},
+        {"label": "Major Shadow", "value": "majorShadow"},
+        {"label": "Major Slick", "value": "majorSlick"},
+        {"label": "Major Stanching", "value": "majorStanching"},
+        {"label": "Major Swallow Spike", "value": "majorSwallowSpike"},
+        {"label": "Malleable", "value": "malleable"},
+        {"label": "Misleading", "value": "misleading"},
+        {"label": "Moderate Dread", "value": "moderateDread"},
+        {"label": "Portable", "value": "portable"},
+        {"label": "Quenching", "value": "quenching"},
+        {"label": "Raiment", "value": "raiment"},
+        {"label": "Ready", "value": "ready"},
+        {"label": "Rock Braced", "value": "rockBraced"},
+        {"label": "Shadow", "value": "shadow"},
+        {"label": "Sinister Knight", "value": "sinisterKnight"},
+        {"label": "Size Changing", "value": "sizeChanging"},
+        {"label": "Slick", "value": "slick"},
+        {"label": "Soaring", "value": "soaring"},
+        {"label": "Spellwatch", "value": "spellwatch"},
+        {"label": "Stanching", "value": "stanching"},
+        {"label": "Swallow Spike", "value": "swallowSpike"},
+        {"label": "True Quenching", "value": "trueQuenching"},
+        {"label": "True Stanching", "value": "trueStanching"},
+        {"label": "Winged", "value": "winged"}
+      ]'
+    >
+    </dropdown>
+  </div>
+</box>
+
+<box field="otherProperties" hidden="true" hidewhenidentified="false">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <numberfield
+      width="100%"
+      field="hardness"
+      label="Hardness"
+      placeholder="0"
+      minvalue="0"
+    ></numberfield>
+    <numberfield
+      width="100%"
+      field="hp.value"
+      label="HP (Current)"
+      placeholder="0"
+      minvalue="0"
+    ></numberfield>
+    <numberfield
+      width="100%"
+      field="hp.max"
+      label="HP (Max)"
+      placeholder="0"
+      minvalue="0"
+    ></numberfield>
+  </div>
+
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <dropdown
+      width="100%"
+      field="material.type"
+      label="Material Type"
+      placeholder="Select Material..."
+      combo="true"
+      options='[
+        {"label": "Silver", "value": "Silver"},
+        {"label": "Adamantine", "value": "Adamantine"},
+        {"label": "Cold-Iron", "value": "Cold-Iron"},
+        {"label": "Dawnsilver", "value": "Dawnsilver"},
+        {"label": "Duskwood", "value": "Duskwood"},
+        {"label": "Siccatite", "value": "Siccatite"},
+        {"label": "Orichalcum", "value": "Orichalcum"},
+        {"label": "Dragonhide", "value": "Dragonhide"},
+        {"label": "Inubrix", "value": "Inubrix"},
+        {"label": "Peachwood", "value": "Peachwood"}
+      ]'
+    >
+    </dropdown>
+    <dropdown
+      width="100%"
+      field="material.grade"
+      label="Material Grade"
+      placeholder="Select Grade..."
+      combo="true"
+      options='[
+        {"label": "Low", "value": "Low"},
+        {"label": "Standard", "value": "Standard"},
+        {"label": "High", "value": "High"}
+      ]'
+    >
+    </dropdown>
+  </div>
+</box>
+
+<!-- Usage -->
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 8px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  "
+>
+  <checkbox field="usage.canBeAmmo" size="md" label="Can Be Ammo"></checkbox>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 4px;
+  "
+>
+  <dropdown
+    width="100%"
+    field="usage"
+    label="Usage"
+    placeholder="Select Usage..."
+    searchable="true"
+    options='[
+      {"label": "Held in One Hand", "value": "held-in-one-hand"},
+      {"label": "Held in Two Hands", "value": "held-in-two-hands"},
+      {"label": "Worn", "value": "worn"},
+      {"label": "Other", "value": "other"},
+      {"label": "Tattooed on the Body", "value": "tattooed-on-the-body"},
+      {"label": "Affixed to Armor", "value": "affixed-to-armor"},
+      {"label": "Affixed to Armor or Weapon", "value": "affixed-to-armor-or-a-weapon"},
+      {"label": "Worn as Cloak", "value": "worncloak"},
+      {"label": "Worn as Mask", "value": "wornmask"},
+      {"label": "Carried", "value": "carried"},
+      {"label": "Etched onto Weapon", "value": "etched-onto-a-weapon"},
+      {"label": "Affixed or Held in One Hand", "value": "affixed-or-held-in-one-hand"},
+      {"label": "Affixed to Weapon", "value": "affixed-to-weapon"},
+      {"label": "Held in One Plus Hands", "value": "held-in-one-plus-hands"},
+      {"label": "Etched onto Melee Weapon", "value": "etched-onto-melee-weapon"},
+      {"label": "Affixed to Ranged Weapon", "value": "affixed-to-a-ranged-weapon"},
+      {"label": "Affixed to Two-Handed Firearm or Crossbow", "value": "affixed-to-a-two-handed-firearm-or-crossbow"},
+      {"label": "Etched onto Clan Dagger", "value": "etched-onto-clan-dagger"},
+      {"label": "Affixed to Metal Weapon", "value": "affixed-to-a-metal-weapon"},
+      {"label": "Affixed to Firearm", "value": "affixed-to-firearm"},
+      {"label": "Etched onto Armor", "value": "etched-onto-armor"},
+      {"label": "Affixed to Shield", "value": "affixed-to-a-shield"},
+      {"label": "Applied to Shield", "value": "applied-to-shield"},
+      {"label": "Etched onto Shield", "value": "etched-onto-a-shield"},
+      {"label": "Etched onto Medium/Heavy Armor", "value": "etched-onto-med-heavy-armor"},
+      {"label": "Etched onto Light Armor", "value": "etched-onto-light-armor"},
+      {"label": "Etched onto Heavy Armor", "value": "etched-onto-heavy-armor"},
+      {"label": "Worn as Headwear", "value": "wornheadwear"},
+      {"label": "Worn as Eyepiece", "value": "worneyepiece"},
+      {"label": "Worn as Shoes", "value": "wornshoes"},
+      {"label": "Worn as Garment", "value": "worngarment"},
+      {"label": "Worn as Gloves", "value": "worngloves"},
+      {"label": "Worn as Belt", "value": "wornbelt"},
+      {"label": "Worn as Bracers", "value": "wornbracers"},
+      {"label": "Worn as Clothing", "value": "wornclothing"},
+      {"label": "Worn as Necklace", "value": "wornnecklace"},
+      {"label": "Worn as Collar", "value": "worncollar"},
+      {"label": "Worn as Backpack", "value": "wornbackpack"}
+    ]'
+  >
+  </dropdown>
+</div>
+
+<dropdown
+  width="100%"
+  field="equipEffect"
+  textalign="center"
+  size="md"
+  label="Effect"
+  description="Effect applied when equipped"
+  placeholder="Select Effect if Applicable..."
+  optionsquery='{"type": "effects", "query": {}}'
+  hidewhenidentified="false"
+>
+</dropdown>
+
+<div style="margin-top: 4px">
+  <label label="Modifiers" size="md" variant="bold" textalign="center"></label>
+  <label
+    label="Modifiers applied when equipped"
+    size="sm"
+    textalign="center"
+    color="dark.2"
+  ></label>
+</div>
+
+<label
+  hidewhenidentified="true"
+  label="Item Unidentified"
+  size="sm"
+  textalign="center"
+></label>
+
+<div style="width: 100%">
+  <list
+    hidewhenidentified="false"
+    listtype="modifier_list"
+    field="modifiers"
+    variant="striped"
+    allowadd=""
+    onchange="onChangeModifiers();"
+  ></list>
+</div>
