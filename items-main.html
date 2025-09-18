@@ -160,6 +160,19 @@
       valuesToSet[`${fieldsPath}.consumableCategory.hidden`] = true;
     }
 
+    // Show/hide backpack properties for backpack type
+    if (
+      item.data?.type === "backpack" &&
+      item.fields?.backpackProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.backpackProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "backpack" &&
+      item.fields?.backpackProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.backpackProperties.hidden`] = true;
+    }
+
     // Show/hide equipment category for equipment, kit, backpack, treasure, and shield
     if (
       (item.data?.type === "equipment" ||
@@ -296,7 +309,7 @@
         <div style="min-width: 70px; width: 70px">
           <numberfield
             width="100%"
-            field="bulk"
+            field="bulk.value"
             label="Bulk"
             placeholder="0"
           ></numberfield>
@@ -819,6 +832,33 @@
         ]'
       >
       </dropdown>
+    </div>
+  </box>
+
+  <!-- Backpack Properties -->
+  <box field="backpackProperties" hidden="true" hidewhenidentified="false">
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100%"
+        field="bulk.capacity"
+        label="Bulk Capacity"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="bulk.ignored"
+        label="Bulk Ignored"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="bulk.heldOrStowed"
+        label="Held/Stowed"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
     </div>
   </box>
 
