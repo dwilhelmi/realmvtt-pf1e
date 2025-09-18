@@ -1,6 +1,13 @@
 <script>
+  function onTraitsChange(traits) {
+    setTraits(traits, (recordUpdated) => {
+      showHideFields(recordUpdated);
+    });
+  }
+
   // Show or hide relevant values on load or change of type
-  function showHideFields() {
+  function showHideFields(recordOverride = undefined) {
+    record = recordOverride || record;
     const itemDataPath = getNearestParentDataPath(dataPath);
     const item = itemDataPath ? api.getValue(itemDataPath) : record;
     const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
@@ -91,18 +98,27 @@
       valuesToSet[`${fieldsPath}.otherProperties.hidden`] = true;
     }
 
-    // Show/hide weapon and consumable properties for weapons and consumables
+    // Show/hide consumable properties for consumable type items or items
+    // that have the consumable trait (but NOT weapons)
+    const hasConsumableTrait =
+      item.data?.traits &&
+      Array.isArray(item.data.traits) &&
+      item.data.traits.some(
+        (trait) => trait && trait.toString().toLowerCase() === "consumable"
+      );
+    const isWeapon = item.data?.type === "weapon";
+
     if (
-      (item.data?.type === "weapon" || item.data?.type === "consumable") &&
-      item.fields?.weaponAndConsumableProperties?.hidden !== false
+      (item.data?.type === "consumable" || (!isWeapon && hasConsumableTrait)) &&
+      item.fields?.consumableProperties?.hidden !== false
     ) {
-      valuesToSet[`${fieldsPath}.weaponAndConsumableProperties.hidden`] = false;
+      valuesToSet[`${fieldsPath}.consumableProperties.hidden`] = false;
     } else if (
-      item.data?.type !== "weapon" &&
       item.data?.type !== "consumable" &&
-      item.fields?.weaponAndConsumableProperties?.hidden !== true
+      (isWeapon || !hasConsumableTrait) &&
+      item.fields?.consumableProperties?.hidden !== true
     ) {
-      valuesToSet[`${fieldsPath}.weaponAndConsumableProperties.hidden`] = true;
+      valuesToSet[`${fieldsPath}.consumableProperties.hidden`] = true;
     }
 
     // Show/hide weapon category for weapons
@@ -234,7 +250,7 @@
       label="Traits"
       optionsfunction="return getTraitOptions();"
       hidewhenidentified="false"
-      onchange="setTraits(value);"
+      onchange="onTraitsChange(value);"
     >
     </dropdown>
   </box>
@@ -377,7 +393,6 @@
             label="Equipment Category"
             placeholder="Select Category..."
             combo="true"
-            onchange="showHideFields();"
             options='[
             {"label": "Gadget", "value": "Gadget"},
             {"label": "Toolkit", "value": "Toolkit"},
@@ -401,13 +416,15 @@
     "
   >
     <div style="display: flex; flex-direction: column; width: 100%">
-      <box field="priceBox" hidewhenidentified="false" variant="card">
-        <label
-          label="Price"
-          variant="bold"
-          size="sm"
-          style="margin-bottom: 2px"
-        ></label>
+      <box field="priceBox" hidewhenidentified="false" variant="card" size="xs">
+        <div style="margin-bottom: 2px">
+          <label
+            label="Price"
+            variant="bold"
+            textalign="center"
+            size="sm"
+          ></label>
+        </div>
         <div
           style="
             display: flex;
@@ -456,14 +473,14 @@
   <box field="weaponProperties" hidden="true" hidewhenidentified="false">
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <numberfield
-        width="110px"
+        width="120px"
         field="damage.dice"
         label="Dice"
         placeholder="1"
         minvalue="1"
       ></numberfield>
       <dropdown
-        width="110px"
+        width="120px"
         field="damage.die"
         label="Die"
         placeholder="Select Die..."
@@ -500,6 +517,13 @@
       ]'
       >
       </dropdown>
+      <numberfield
+        width="120px"
+        field="splashDamage"
+        label="Splash"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
     </div>
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <dropdown
@@ -550,6 +574,57 @@
         placeholder="N/A"
         minvalue="0"
       ></numberfield>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <div style="min-width: 120px">
+        <numberfield
+          width="100%"
+          field="damage.persistent.number"
+          label="Persistent Dice"
+          placeholder="0"
+          minvalue="0"
+        ></numberfield>
+      </div>
+      <div style="min-width: 120px">
+        <dropdown
+          width="100%"
+          field="damage.persistent.faces"
+          label="Die Type"
+          placeholder="Select..."
+          options='[
+          {"label": "d4", "value": "4"},
+          {"label": "d6", "value": "6"},
+          {"label": "d8", "value": "8"},
+          {"label": "d10", "value": "10"},
+          {"label": "d12", "value": "12"},
+          {"label": "d20", "value": "20"}
+        ]'
+        >
+        </dropdown>
+      </div>
+      <dropdown
+        width="100%"
+        field="damage.persistent.type"
+        label="Persistent Type"
+        placeholder="Select Type..."
+        options='[
+          {"label": "Acid", "value": "acid"},
+          {"label": "Bludgeoning", "value": "bludgeoning"},
+          {"label": "Cold", "value": "cold"},
+          {"label": "Electricity", "value": "electricity"},
+          {"label": "Fire", "value": "fire"},
+          {"label": "Force", "value": "force"},
+          {"label": "Mental", "value": "mental"},
+          {"label": "Piercing", "value": "piercing"},
+          {"label": "Poison", "value": "poison"},
+          {"label": "Slashing", "value": "slashing"},
+          {"label": "Sonic", "value": "sonic"},
+          {"label": "Spirit", "value": "spirit"},
+          {"label": "Vitality", "value": "vitality"},
+          {"label": "Void", "value": "void"}
+        ]'
+      >
+      </dropdown>
     </div>
   </box>
 
@@ -612,13 +687,74 @@
     </div>
   </box>
 
-  <!-- Weapon and Consumable Properties -->
-  <box
-    field="weaponAndConsumableProperties"
-    hidden="true"
-    hidewhenidentified="false"
-  >
+  <!-- Consumable Properties -->
+  <box field="consumableProperties" hidden="true" hidewhenidentified="false">
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <stringfield
+        width="100%"
+        field="damage.formula"
+        label="Roll Damage"
+        placeholder="Enter Roll..."
+      ></stringfield>
+      <dropdown
+        width="100%"
+        field="damage.kind"
+        label="Damage Kind"
+        placeholder="Select Kind..."
+        options='[
+          {"label": "Damage", "value": "damage"},
+          {"label": "Healing", "value": "healing"}
+        ]'
+      >
+      </dropdown>
+      <dropdown
+        width="100%"
+        field="damage.type"
+        label="Damage Type"
+        placeholder="Select Type..."
+        options='[
+          {"label": "Bludgeoning", "value": "bludgeoning"},
+          {"label": "Piercing", "value": "piercing"},
+          {"label": "Slashing", "value": "slashing"},
+          {"label": "Acid", "value": "acid"},
+          {"label": "Bleed", "value": "bleed"},
+          {"label": "Cold", "value": "cold"},
+          {"label": "Electricity", "value": "electricity"},
+          {"label": "Fire", "value": "fire"},
+          {"label": "Force", "value": "force"},
+          {"label": "Mental", "value": "mental"},
+          {"label": "Poison", "value": "poison"},
+          {"label": "Sonic", "value": "sonic"},
+          {"label": "Spirit", "value": "spirit"},
+          {"label": "Vitality", "value": "vitality"},
+          {"label": "Void", "value": "void"}
+        ]'
+      >
+      </dropdown>
+    </div>
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 8px;
+        align-items: flex-end;
+      "
+    >
+      <numberfield
+        width="100px"
+        field="uses.max"
+        label="Max Uses"
+        placeholder="1"
+        minvalue="0"
+      ></numberfield>
+      <numberfield
+        width="100px"
+        field="uses.value"
+        label="Uses"
+        placeholder="1"
+        minvalue="0"
+      ></numberfield>
       <numberfield
         width="100px"
         field="splashDamage"
@@ -626,6 +762,63 @@
         placeholder="0"
         minvalue="0"
       ></numberfield>
+      <checkbox
+        size="sm"
+        field="uses.autoDestroy"
+        label="Auto Destroy"
+      ></checkbox>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <div style="min-width: 120px">
+        <numberfield
+          width="100%"
+          field="damage.persistent.number"
+          label="Persistent Dice"
+          placeholder="0"
+          minvalue="0"
+        ></numberfield>
+      </div>
+      <div style="min-width: 120px">
+        <dropdown
+          width="100%"
+          field="damage.persistent.faces"
+          label="Die Type"
+          placeholder="Select..."
+          options='[
+          {"label": "d4", "value": "4"},
+          {"label": "d6", "value": "6"},
+          {"label": "d8", "value": "8"},
+          {"label": "d10", "value": "10"},
+          {"label": "d12", "value": "12"},
+          {"label": "d20", "value": "20"}
+        ]'
+        >
+        </dropdown>
+      </div>
+      <dropdown
+        width="100%"
+        field="damage.persistent.type"
+        label="Persistent Type"
+        placeholder="Select Type..."
+        options='[
+          {"label": "Bludgeoning", "value": "bludgeoning"},
+          {"label": "Piercing", "value": "piercing"},
+          {"label": "Slashing", "value": "slashing"},
+          {"label": "Acid", "value": "acid"},
+          {"label": "Bleed", "value": "bleed"},
+          {"label": "Cold", "value": "cold"},
+          {"label": "Electricity", "value": "electricity"},
+          {"label": "Fire", "value": "fire"},
+          {"label": "Force", "value": "force"},
+          {"label": "Mental", "value": "mental"},
+          {"label": "Poison", "value": "poison"},
+          {"label": "Sonic", "value": "sonic"},
+          {"label": "Spirit", "value": "spirit"},
+          {"label": "Vitality", "value": "vitality"},
+          {"label": "Void", "value": "void"}
+        ]'
+      >
+      </dropdown>
     </div>
   </box>
 

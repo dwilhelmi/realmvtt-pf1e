@@ -3308,7 +3308,7 @@ function setLanguages(languages) {
 }
 
 // Sets the traits for the record
-function setTraits(traits) {
+function setTraits(traits, callback = undefined) {
   const recordDataPath = getNearestParentDataPath(dataPath);
 
   // Set the traits list to the values within traitsList
@@ -3327,7 +3327,11 @@ function setTraits(traits) {
       traitsObjects,
   };
 
-  api.setValues(valuesToSet);
+  api.setValues(valuesToSet, (recordUpdated) => {
+    if (callback) {
+      callback(recordUpdated);
+    }
+  });
 }
 
 // Roll a saving throw for PF2e
