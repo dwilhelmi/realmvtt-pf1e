@@ -4,6 +4,8 @@
   }
 </script>
 
+<!-- TODO: Bulk of backpack tracking -->
+
 <div
   style="
     height: 30px;
@@ -57,17 +59,5 @@
       onclick="useItem();"
       label="Use"
     ></button>
-  </div>
-  <div style="width: 95px; min-width: 95px">
-    <dropdown
-      size="xs"
-      field="carried"
-      variant="default"
-      width="100%"
-      defaultvalue="carried"
-      disablediflocked="false"
-      options='[{"label": "Carried", "value": "carried"}, {"label": "Equipped", "value": "equipped"}, {"label": "Dropped", "value": "dropped"}]'
-      onchange="onItemEquipped();"
-    ></dropdown>
   </div>
 </div>

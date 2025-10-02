@@ -1714,6 +1714,396 @@ function updateAllAttributes(record, callback = undefined) {
   }
 }
 
+function useItem() {
+  // Deduct count by 1, delete item if count is 0,
+  // and output the description to Chat
+  // If it is a scoll with a spell set, output a link to the spell
+  const itemDataPath = dataPath.replace(".data.useBtn", "");
+  const itemName = api.getValue(`${itemDataPath}.name`);
+  const itemCount = api.getValue(`${itemDataPath}.data.count`);
+  const indexValue = parseInt(itemDataPath.split(".").pop());
+  const isConsumable = api.getValue(`${itemDataPath}.data.consumable`) || false;
+
+  // Output the description to Chat
+  const description = api.getValue(`${itemDataPath}.data.description`) || "";
+  const effects = api.getValue(`${itemDataPath}.data.effects`) || [];
+  const healing = api.getValue(`${itemDataPath}.data.healing`);
+  const damage = api.getValue(`${itemDataPath}.data.useDamage`);
+  const portrait = encodeURI(api.getValue(`${itemDataPath}.portrait`));
+  const itemIcon = portrait
+    ? `![${itemName}](${assetUrl}${portrait}?width=40&height=40) `
+    : "";
+  const itemDescription = api.richTextToMarkdown(description || "");
+  let markdownDescription = `
+#### ${itemIcon}${itemName}
+
+---
+${itemDescription}
+`;
+
+  let recordLinks;
+  const spell = api.getValue(`${itemDataPath}.data.spell`);
+  if (spell) {
+    const spellName = JSON.parse(spell)?.name || "";
+    const spellId = JSON.parse(spell)?._id || "";
+    if (spellId) {
+      recordLinks = [
+        {
+          tooltip: spellName,
+          type: "records",
+          value: {
+            _id: spellId,
+            recordType: "spells",
+          },
+        },
+      ];
+    }
+  }
+
+  // If we're using a potion with an effect or healing, add the buttons
+  if (effects) {
+    // Create macros for all effects that this action can apply
+    let effectButtons = getEffectMacrosFor(effects);
+
+    markdownDescription += `\n${effectButtons}`;
+  }
+
+  if (healing) {
+    const escapedName = itemName.replace(/'/g, "\\'");
+    const escapedHealing = healing.replace(/'/g, "\\'");
+    const healingButton = `\`\`\`Roll_Healing
+api.promptRoll('${escapedName} Healing', '${escapedHealing}', [], {}, 'healing')
+\`\`\``;
+    markdownDescription += `\n${healingButton}`;
+  }
+
+  if (damage) {
+    const escapedName = itemName.replace(/'/g, "\\'");
+    const escapedDamage = damage.replace(/'/g, "\\'");
+    const damageButton = `\`\`\`Roll_Damage
+api.promptRoll('${escapedName} Damage', '${escapedDamage}', [], {}, 'damage')
+\`\`\``;
+    markdownDescription += `\n${damageButton}`;
+  }
+
+  api.sendMessage(markdownDescription, undefined, recordLinks);
+
+  // If consumable, deduct count by 1, delete item if count is 0
+  if (isConsumable) {
+    const count = parseFloat(itemCount || "0");
+    if (count - 1 > 0) {
+      api.setValue(`${itemDataPath}.data.count`, count - 1);
+    } else if (!isNaN(indexValue)) {
+      api.removeValue(`data.inventory`, indexValue);
+    }
+  }
+}
+
+function onItemInvested() {
+  const itemDataPath = dataPath.replace(".data.invested", "");
+  const item = api.getValue(itemDataPath);
+  const valuesToSet = {};
+
+  // TODO UPDATE FOR PF2E
+  // updateAttributes(item, valuesToSet);
+
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValues(valuesToSet);
+  }
+}
+
+// Returns the proper fields object for the given item
+function getItemFields(item) {
+  const traits = item.data?.traits || [];
+  const hasInvestedTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("invested");
+  const hasConsumableTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("consumable");
+  const isConsumable = item.data?.type === "consumable" || hasConsumableTrait;
+  const hasUseBtn = item.data?.hasUseBtn || false;
+  const isTwoHanded = item.data?.usage === "held-in-two-hands";
+  const isThrown = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("thrown"); // Only thrown weapons can be toggled melee/range
+  const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
+  const hasVersatilePiercingProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile p");
+  const hasVersatileBludgeoningProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile b");
+  const hasVersatileSlashingProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile s");
+
+  return {
+    fields: {
+      invested: { hidden: !hasInvestedTrait },
+      useBtn: { hidden: !isConsumable && !hasUseBtn },
+      handBtn: { hidden: isTwoHanded },
+      rangeToggleBtn: { hidden: !(isMelee && isThrown) },
+      rangeToggleBtnDisabled: { hidden: isMelee },
+      meleeToggleBtnDisabled: { hidden: !isMelee || (isMelee && isThrown) },
+      ammo: { hidden: isMelee && !isThrown },
+      versatilePiercing: { hidden: !hasVersatilePiercingProperty },
+      versatileBludgeoning: { hidden: !hasVersatileBludgeoningProperty },
+      versatileSlashing: { hidden: !hasVersatileSlashingProperty },
+    },
+  };
+}
+
+// On the given, item, and valuesToSet, set the items fields as needed
+function setItemFields(item, itemDataPath, valuesToSet) {
+  const itemFields = item.fields || {};
+  const traits = item.data?.traits || [];
+  const hasInvestedTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("invested");
+  const hasConsumableTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("consumable");
+  const isConsumable = item.data?.type === "consumable" || hasConsumableTrait;
+  const hasUseBtn = item.data?.hasUseBtn || false;
+  const isTwoHanded = item.data?.usage === "held-in-two-hands";
+  const isThrown = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("thrown"); // Only thrown weapons can be toggled melee/range
+  const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
+  const hasVersatilePiercingProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile p");
+  const hasVersatileBludgeoningProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile b");
+  const hasVersatileSlashingProperty = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("versatile s");
+
+  // Set properties - only set hidden to false when needed (to unhide)
+  if (hasInvestedTrait && itemFields?.invested?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.invested.hidden`] = false;
+  }
+  if ((isConsumable || hasUseBtn) && itemFields?.useBtn?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.useBtn.hidden`] = false;
+  }
+  if (!isTwoHanded && itemFields?.handBtn?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.handBtn.hidden`] = false;
+  }
+  // Show toggle button only for melee throwing weapons
+  if (isMelee && isThrown && itemFields?.rangeToggleBtn?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.rangeToggleBtn.hidden`] = false;
+  }
+  // Hide disabled range button for melee weapons or when toggle is showing
+  if (!isMelee && itemFields?.rangeToggleBtnDisabled?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.rangeToggleBtnDisabled.hidden`] = false;
+  }
+  // Hide disabled melee button for ranged weapons or thrown melee weapons
+  if (
+    isMelee &&
+    !isThrown &&
+    itemFields?.meleeToggleBtnDisabled?.hidden !== false
+  ) {
+    valuesToSet[`${itemDataPath}.fields.meleeToggleBtnDisabled.hidden`] = false;
+  }
+  if ((!isMelee || isThrown) && itemFields?.ammo?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.ammo.hidden`] = false;
+  }
+  if (
+    hasVersatilePiercingProperty &&
+    itemFields?.versatilePiercing?.hidden !== false
+  ) {
+    valuesToSet[`${itemDataPath}.fields.versatilePiercing.hidden`] = false;
+  }
+  if (
+    hasVersatileBludgeoningProperty &&
+    itemFields?.versatileBludgeoning?.hidden !== false
+  ) {
+    valuesToSet[`${itemDataPath}.fields.versatileBludgeoning.hidden`] = false;
+  }
+  if (
+    hasVersatileSlashingProperty &&
+    itemFields?.versatileSlashing?.hidden !== false
+  ) {
+    valuesToSet[`${itemDataPath}.fields.versatileSlashing.hidden`] = false;
+  }
+}
+
+// Then update AC calculation in character-main.html and getArmorClassForToken
+function onItemEquipped() {
+  const itemDataPath = dataPath.replace(".data.carried", "");
+  const item = api.getValue(itemDataPath);
+
+  const traits = api.getValue(`${itemDataPath}.data.traits`) || [];
+  const hasInvestedTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("invested");
+
+  const itemFields = api.getValue(`${itemDataPath}.fields`) || {};
+  const itemType = api.getValue(`${itemDataPath}.data.type`);
+  const weaponProperties =
+    api.getValue(`${itemDataPath}.data.weaponProperties`) || [];
+
+  const isConsumable = api.getValue(`${itemDataPath}.data.consumable`) || false;
+  const hasUseBtn = api.getValue(`${itemDataPath}.data.hasUseBtn`) || false;
+  const isTwoHanded = weaponProperties.includes("Two-Handed");
+  const isThrown = weaponProperties.includes("Thrown"); // Only thrown weapons can be toggled melee/range
+  const isMelee = (itemType || "").toLowerCase().includes("melee"); // Melee shown only melee icon
+
+  // Some items add/remove effects when equipped
+  const equipEffect = api.getValue(`${itemDataPath}.data.equipEffect`);
+  const isEquipEffect = value === "equipped";
+
+  if (equipEffect) {
+    const effect = JSON.parse(equipEffect);
+    const effectId = effect?._id || "";
+    const ourToken = api.getToken();
+    if (effectId && isEquipEffect && ourToken) {
+      api.addEffectById(effectId, ourToken);
+    } else if (effectId && !isEquipEffect && ourToken) {
+      api.removeEffectById(effectId, ourToken);
+    }
+  }
+
+  // If an item's equipped status changes, we need to recalculate the total bulk
+  // and update any bonuses such as AC if it's a piece of armor
+  const valuesToSet = {};
+  const totalBulk = updateTotalBulk(record, false);
+  if (totalBulk !== record?.data?.totalBulk) {
+    valuesToSet["data.totalBulk"] = totalBulk;
+  }
+
+  // Update attributes as per modifiers
+  // TODO UPDATE FOR PF2E
+  // updateAttributes(item, valuesToSet);
+
+  // Get the current ac due to armor and set it on the
+  // record
+  const bestEquippedArmor = getBestEquippedArmor();
+
+  if (
+    JSON.stringify(record?.data?.armor || "{}") !==
+    JSON.stringify(bestEquippedArmor)
+  ) {
+    valuesToSet["data.armor"] = bestEquippedArmor;
+  }
+
+  const totalAc = getArmorClass(bestEquippedArmor);
+  if (record?.data?.ac !== totalAc) {
+    valuesToSet["data.ac"] = totalAc;
+  }
+
+  // Update the fields to show/hide the correct buttons on attack list
+  // based on type incase it changed
+  setItemFields(item, itemDataPath, valuesToSet);
+
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValues(valuesToSet);
+  }
+}
+
+// TODO UPDATE FOR PF2E
+// Gets the best equipped armor for the context of the current PC
+function getBestEquippedArmor() {
+  // Get the current ac due to armor
+  let bestEquippedArmor = {
+    ac: 0,
+    maxDex: 0,
+    shieldAc: 0,
+    stealthPenalty: false,
+  };
+
+  const items = record.data?.inventory || [];
+  items.forEach((item) => {
+    if (item.data?.carried === "equipped" && item.data?.type === "armor") {
+      const ac = item?.data?.armorClass || 0;
+      const maxDex = item?.data?.addDex ? item?.data?.maxDex || 99 : 0;
+      if (ac > bestEquippedArmor.ac) {
+        bestEquippedArmor.ac = ac;
+        bestEquippedArmor.maxDex = maxDex;
+        bestEquippedArmor.stealthPenalty =
+          item?.data?.stealth === "disadvantage";
+      }
+    } else if (
+      item.data?.carried === "equipped" &&
+      item.data?.type === "shield"
+    ) {
+      const ac = item?.data?.armorClass || 0;
+      if (ac > bestEquippedArmor.shieldAc) {
+        bestEquippedArmor.shieldAc = ac;
+      }
+    }
+  });
+
+  return bestEquippedArmor;
+}
+
+// TODO UPDATE FOR PF2E
+// Used when calculating new AC for equipment changes
+function getArmorClass(bestEquippedArmor) {
+  // If we are shapeshifted, we use whatever our AC is currently set to
+  if (record?.data?.wildShapeNpc || record?.data?.polymorphNpc) {
+    return parseInt(record?.data?.ac || "0", 10);
+  }
+
+  const acCalculationMods = getEffectsAndModifiersForToken(record, [
+    "armorClassCalculation",
+  ]);
+
+  // If this is a character, we use their dexterity modifier
+  const dexMod = parseInt(record?.data?.dexterityMod || "0", 10);
+  let armorClass = 10 + dexMod;
+  // Else, we use the armor class value
+  if (record?.recordType === "npcs") {
+    armorClass = parseInt(record?.data?.ac || "0", 10);
+  } else if (bestEquippedArmor && bestEquippedArmor.ac > 0) {
+    // PC's base class is the best equipped armor if provided
+    // Add the dex bonus to the ac, using max dex as the max.
+    // If maxDex is not set, we assume it is 0
+    armorClass =
+      bestEquippedArmor.ac +
+      (bestEquippedArmor.maxDex
+        ? Math.min(dexMod, bestEquippedArmor.maxDex)
+        : 0);
+  }
+
+  let calcBonus = 0;
+  // Only add acCalculationMods if we are unarmored
+  if (bestEquippedArmor?.ac === 0 || !bestEquippedArmor) {
+    acCalculationMods.forEach((mod) => {
+      // We only benefit from the highest AC calculation modifier
+      if (mod.field && mod.field !== "dexterity") {
+        const acBonus = parseInt(record?.data?.[`${mod.field}Mod`] || "0", 10);
+        if (acBonus > calcBonus) {
+          calcBonus = acBonus;
+        }
+      }
+    });
+  }
+  // Get general AC bonuses
+  const acBonuses = getEffectsAndModifiersForToken(record, [
+    "armorClassBonus",
+    "armorClassPenalty",
+  ]);
+  acBonuses.forEach((mod) => {
+    if (mod.value) {
+      const acBonus = parseInt(mod.value || "0", 10);
+      if (!isNaN(acBonus)) {
+        calcBonus += acBonus;
+      }
+    }
+  });
+  // Add shield if it is equipped
+  if (bestEquippedArmor?.shieldAc) {
+    armorClass += bestEquippedArmor.shieldAc;
+  }
+  // Add the bonuses
+  armorClass += calcBonus;
+
+  return armorClass;
+}
+
 function updateAttribute({
   record,
   attribute,
@@ -1764,7 +2154,7 @@ function updateAttribute({
 
   // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
   // TODO GET BEST ARMOR
-  // const bestArmor = getBestArmor(record);
+  // const bestArmor = getBestEquippedArmor(record);
   // PLACEHOLDER
   // TODO ADD ARMOR PROFICIENCIES AND CHECK IF PROFICIENCT IN CURRENT ARMOR (or UNARMORED if no armor)
   // THEN ADD PROFICIENCY BONUS TO AC

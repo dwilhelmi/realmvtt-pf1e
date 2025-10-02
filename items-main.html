@@ -213,17 +213,17 @@
       item.data?.traits
         .map((trait) => trait.toLowerCase())
         .includes("invested") &&
-      item.fields?.investedProperties?.hidden !== false
+      item.fields?.invested?.hidden !== false
     ) {
-      valuesToSet[`${fieldsPath}.investedProperties.hidden`] = false;
+      valuesToSet[`${fieldsPath}.invested.hidden`] = false;
     } else if (
       item.data?.traits &&
       item.data?.traits
         .map((trait) => trait.toLowerCase())
         .includes("invested") &&
-      item.fields?.investedProperties?.hidden !== true
+      item.fields?.invested?.hidden !== true
     ) {
-      valuesToSet[`${fieldsPath}.investedProperties.hidden`] = true;
+      valuesToSet[`${fieldsPath}.invested.hidden`] = true;
     }
 
     if (Object.keys(valuesToSet).length > 0) {

@@ -1,0 +1,32 @@
+<accordion size="xs" field="backpackAccordion">
+  <accordion.control>
+    <div
+      style="
+        height: 30px;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        width: 100%;
+      "
+    >
+      <div style="width: 30px; min-width: 30px">
+        <portrait width="30px" height="30px" name="portrait"></portrait>
+      </div>
+      <div style="min-width: 50px; flex-grow: 1">
+        <namefield
+          size="xs"
+          variant="standard"
+          width="100%"
+          placeholder="Backpack"
+          field="namefield"
+          updateonblur="true"
+        />
+      </div>
+    </div>
+  </accordion.control>
+  <list
+    listtype="inventory_backpack_list"
+    field="items"
+    variant="striped-outline"
+  ></list>
+</accordion>
