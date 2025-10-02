@@ -3704,3 +3704,40 @@ function rollSkillCheck(skill, dc) {
     rollSkill(token, escapedSkillName, dc);
   });
 }
+
+function updateTotalBulk(record, setValue = true) {
+  // Update total weight
+  const items = record?.data?.inventory || [];
+  let totalBulk = 0;
+  items.forEach((item) => {
+    if (item.data?.carried !== "dropped") {
+      let weight = parseFloat(item.data?.bulk?.value || "0");
+      let count = parseFloat(item.data?.count || "0");
+      if (count === undefined || isNaN(count)) {
+        count = 0;
+      }
+      if (weight !== undefined && !isNaN(weight)) {
+        totalBulk += weight * count;
+      }
+    }
+  });
+
+  // Include coinage if set
+  const includeCoinage = api.getSetting("coinWeight") === "yes";
+  if (includeCoinage) {
+    const totalCoins =
+      (record?.data?.cp || 0) +
+      (record?.data?.sp || 0) +
+      (record?.data?.gp || 0) +
+      (record?.data?.pp || 0);
+    totalBulk += Math.floor(totalCoins / 1000);
+  }
+
+  totalBulk = Math.round(totalBulk * 100) / 100;
+
+  if (setValue) {
+    api.setValuesOnRecord(record, { "data.totalBulk": totalBulk });
+  } else {
+    return totalBulk;
+  }
+}

@@ -1,0 +1,302 @@
+<script>
+  function setTotalBulk(setValues = true) {
+    updateTotalBulk(record, setValues);
+  }
+
+  function useItem() {
+    // Deduct count by 1, delete item if count is 0,
+    // and output the description to Chat
+    // If it is a scoll with a spell set, output a link to the spell
+    const itemDataPath = dataPath.replace(".data.useBtn", "");
+    const itemName = api.getValue(`${itemDataPath}.name`);
+    const itemCount = api.getValue(`${itemDataPath}.data.count`);
+    const indexValue = parseInt(itemDataPath.split(".").pop());
+    const isConsumable =
+      api.getValue(`${itemDataPath}.data.consumable`) || false;
+
+    // Output the description to Chat
+    const description = api.getValue(`${itemDataPath}.data.description`) || "";
+    const effects = api.getValue(`${itemDataPath}.data.effects`) || [];
+    const healing = api.getValue(`${itemDataPath}.data.healing`);
+    const damage = api.getValue(`${itemDataPath}.data.useDamage`);
+    const portrait = encodeURI(api.getValue(`${itemDataPath}.portrait`));
+    const itemIcon = portrait
+      ? `![${itemName}](${assetUrl}${portrait}?width=40&height=40) `
+      : "";
+    const itemDescription = api.richTextToMarkdown(description || "");
+    let markdownDescription = `
+  #### ${itemIcon}${itemName}
+  
+  ---
+  ${itemDescription}
+  `;
+
+    let recordLinks;
+    const spell = api.getValue(`${itemDataPath}.data.spell`);
+    if (spell) {
+      const spellName = JSON.parse(spell)?.name || "";
+      const spellId = JSON.parse(spell)?._id || "";
+      if (spellId) {
+        recordLinks = [
+          {
+            tooltip: spellName,
+            type: "records",
+            value: {
+              _id: spellId,
+              recordType: "spells",
+            },
+          },
+        ];
+      }
+    }
+
+    // If we're using a potion with an effect or healing, add the buttons
+    if (effects) {
+      // Create macros for all effects that this action can apply
+      let effectButtons = getEffectMacrosFor(effects);
+
+      markdownDescription += `\n${effectButtons}`;
+    }
+
+    if (healing) {
+      const escapedName = itemName.replace(/'/g, "\\'");
+      const escapedHealing = healing.replace(/'/g, "\\'");
+      const healingButton = `\`\`\`Roll_Healing
+  api.promptRoll('${escapedName} Healing', '${escapedHealing}', [], {}, 'healing')
+  \`\`\``;
+      markdownDescription += `\n${healingButton}`;
+    }
+
+    if (damage) {
+      const escapedName = itemName.replace(/'/g, "\\'");
+      const escapedDamage = damage.replace(/'/g, "\\'");
+      const damageButton = `\`\`\`Roll_Damage
+  api.promptRoll('${escapedName} Damage', '${escapedDamage}', [], {}, 'damage')
+  \`\`\``;
+      markdownDescription += `\n${damageButton}`;
+    }
+
+    api.sendMessage(markdownDescription, undefined, recordLinks);
+
+    // If consumable, deduct count by 1, delete item if count is 0
+    if (isConsumable) {
+      const count = parseFloat(itemCount || "0");
+      if (count - 1 > 0) {
+        api.setValue(`${itemDataPath}.data.count`, count - 1);
+      } else if (!isNaN(indexValue)) {
+        api.removeValue(`data.inventory`, indexValue);
+      }
+    }
+  }
+
+  // Update attributes if needed
+  function updateAttributes(item, valuesToSet) {
+    const attuned = item.data.attuned === "true";
+    const equipped = item.data.carried === "equipped";
+    const requiresAttunement = item.data.attunement;
+
+    // We can return early if there are no modifiers that require this update
+    const hasModifiers =
+      (item.data.modifiers || []).filter(
+        (modifier) =>
+          modifier.data.type === "hitpoints" ||
+          modifier.data.type === "armorClassBonus" ||
+          modifier.data.type === "armorClassPenalty"
+      ).length > 0;
+
+    if (!hasModifiers) {
+      return;
+    }
+
+    [
+      "strength",
+      "dexterity",
+      "constitution",
+      "intelligence",
+      "wisdom",
+      "charisma",
+    ].forEach((attribute) => {
+      const value = record?.data?.[attribute] || 0;
+      setModifier(value, attribute, {}, valuesToSet);
+    });
+  }
+
+  function onItemAttuned() {
+    const itemDataPath = dataPath.replace(".data.attuned", "");
+    const item = api.getValue(itemDataPath);
+    const valuesToSet = {};
+
+    updateAttributes(item, valuesToSet);
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  // Then update AC calculation in character-main.html and getArmorClassForToken
+  function onItemEquipped() {
+    const itemDataPath = dataPath.replace(".data.carried", "");
+    const item = api.getValue(itemDataPath);
+
+    const itemFields = api.getValue(`${itemDataPath}.fields`) || {};
+    const itemType = api.getValue(`${itemDataPath}.data.type`);
+    const weaponProperties =
+      api.getValue(`${itemDataPath}.data.weaponProperties`) || [];
+    const hasAttunement =
+      api.getValue(`${itemDataPath}.data.attunement`) || false;
+    const isConsumable =
+      api.getValue(`${itemDataPath}.data.consumable`) || false;
+    const hasUseBtn = api.getValue(`${itemDataPath}.data.hasUseBtn`) || false;
+    const isTwoHanded = weaponProperties.includes("Two-Handed");
+    const isThrown = weaponProperties.includes("Thrown"); // Only thrown weapons can be toggled melee/range
+    const isMelee = (itemType || "").toLowerCase().includes("melee"); // Melee shown only melee icon
+
+    // Some items add/remove effects when equipped
+    const equipEffect = api.getValue(`${itemDataPath}.data.equipEffect`);
+    const isEquipEffect = value === "equipped";
+
+    if (equipEffect) {
+      const effect = JSON.parse(equipEffect);
+      const effectId = effect?._id || "";
+      const ourToken = api.getToken();
+      if (effectId && isEquipEffect && ourToken) {
+        api.addEffectById(effectId, ourToken);
+      } else if (effectId && !isEquipEffect && ourToken) {
+        api.removeEffectById(effectId, ourToken);
+      }
+    }
+
+    // If an item's equipped status changes, we need to recalculate the total bulk
+    // and update any bonuses such as AC if it's a piece of armor
+    const valuesToSet = {};
+    const totalBulk = updateTotalBulk(record, false);
+    if (totalBulk !== record?.data?.totalBulk) {
+      valuesToSet["data.totalBulk"] = totalBulk;
+    }
+
+    // Update attributes as per modifiers
+    // updateAttributes(item, valuesToSet);
+
+    // Get the current ac due to armor and set it on the
+    // record
+    // const bestEquippedArmor = getBestEquippedArmor();
+
+    // if (
+    //   JSON.stringify(record?.data?.armor || "{}") !==
+    //   JSON.stringify(bestEquippedArmor)
+    // ) {
+    //   valuesToSet["data.armor"] = bestEquippedArmor;
+    // }
+
+    // const totalAc = getArmorClass(bestEquippedArmor);
+    // if (record?.data?.ac !== totalAc) {
+    //   valuesToSet["data.ac"] = totalAc;
+    // }
+
+    // // Update the fields to show/hide the correct buttons on attack list
+    // // based on type incase it changed
+    // valuesToSet[`${itemDataPath}.fields`] = {
+    //   ...itemFields,
+    //   attuned: { hidden: !hasAttunement },
+    //   useBtn: { hidden: !isConsumable && !hasUseBtn },
+    //   handBtn: { hidden: isTwoHanded },
+    //   // Show toggle button only for melee throwing weapons
+    //   rangeToggleBtn: {
+    //     hidden: !(isMelee && isThrown),
+    //   },
+    //   // Hide disabled range button for melee weapons or when toggle is showing
+    //   rangeToggleBtnDisabled: {
+    //     hidden: isMelee,
+    //   },
+    //   // Hide disabled melee button for ranged weapons or thrown melee weapons
+    //   meleeToggleBtnDisabled: {
+    //     hidden: !isMelee || (isMelee && isThrown),
+    //   },
+    //   ammo: { hidden: isMelee && !isThrown },
+    // };
+
+    // if (Object.keys(valuesToSet).length > 0) {
+    //   api.setValues(valuesToSet);
+    // }
+  }
+</script>
+
+<div
+  style="
+    height: 30px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
+  "
+>
+  <div style="width: 30px; min-width: 30px">
+    <portrait width="30px" height="30px" name="portrait"></portrait>
+  </div>
+  <div style="width: 60px">
+    <numberfield
+      size="xs"
+      variant="tooltip"
+      label="Count"
+      width="100%"
+      field="count"
+      placeholder="0"
+      onchange="setTotalBulk();"
+    ></numberfield>
+  </div>
+  <div style="min-width: 50px; flex-grow: 1">
+    <namefield
+      size="xs"
+      variant="standard"
+      width="100%"
+      placeholder="Item"
+      field="namefield"
+      updateonblur="true"
+    />
+  </div>
+  <iconbutton
+    hidden="true"
+    size="sm"
+    field="attuned"
+    variant="default"
+    options='[{"icon": "IconDiamondOff", "label": "Not Attuned", "value": "false"}, {"icon": "IconDiamond", "label": "Attuned", "value": "true"}]'
+    onchange="onItemAttuned();"
+    onclick=""
+  ></iconbutton>
+  <div style="max-width: 60px">
+    <button
+      hidden="true"
+      size="xs"
+      radius="xs"
+      width="60px"
+      field="useBtn"
+      variant="light"
+      onclick="useItem();"
+      label="Use"
+    ></button>
+  </div>
+  <div style="width: 100px; min-width: 100px">
+    <stringfield
+      width="100%"
+      size="xs"
+      variant="tooltip-underline"
+      label="Location"
+      field="location"
+      placeholder="Enter Location..."
+      updateonblur="true"
+    >
+    </stringfield>
+  </div>
+  <div style="width: 95px; min-width: 95px">
+    <dropdown
+      size="xs"
+      field="carried"
+      variant="default"
+      width="100%"
+      defaultvalue="carried"
+      disablediflocked="false"
+      options='[{"label": "Carried", "value": "carried"}, {"label": "Equipped", "value": "equipped"}, {"label": "Dropped", "value": "dropped"}]'
+      onchange="onItemEquipped();"
+    ></dropdown>
+  </div>
+</div>

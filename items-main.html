@@ -207,6 +207,25 @@
       valuesToSet[`${fieldsPath}.scrollProperties.hidden`] = true;
     }
 
+    // If "Invested" trait is set, show the invested properties
+    if (
+      item.data?.traits &&
+      item.data?.traits
+        .map((trait) => trait.toLowerCase())
+        .includes("invested") &&
+      item.fields?.investedProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.investedProperties.hidden`] = false;
+    } else if (
+      item.data?.traits &&
+      item.data?.traits
+        .map((trait) => trait.toLowerCase())
+        .includes("invested") &&
+      item.fields?.investedProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.investedProperties.hidden`] = true;
+    }
+
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }

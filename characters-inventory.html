@@ -1,0 +1,270 @@
+<script>
+  function updateCoinage() {
+    updateTotalBulk(record);
+  }
+
+  function onDropItem(recordLink) {
+    const item = recordLink?.value;
+
+    const hasAttunement = item.data?.attunement || false;
+    const isConsumable = item.data?.consumable || false;
+    const hasUseBtn = item.data?.hasUseBtn || false;
+    const isTwoHanded = item.data?.weaponProperties?.includes("Two-Handed");
+    const isThrown = item.data?.weaponProperties?.includes("Thrown"); // Only thrown weapons can be toggled melee/range
+    const isMelee = (item.data?.type || "").toLowerCase().includes("melee"); // Melee shown only melee icon
+
+    // Add the item and set the attunement hidden field to visible if requires attunement
+    const itemToAdd = {
+      ...item,
+      icon: "IconMoneybag",
+      data: {
+        ...item?.data,
+        // Track old ID for count tracking
+        fromId: item._id,
+        // Default count to 1
+        count: 1,
+      },
+      fields: {
+        ...item?.fields,
+        attuned: { hidden: !hasAttunement },
+        useBtn: { hidden: !isConsumable && !hasUseBtn },
+        handBtn: { hidden: isTwoHanded },
+        // Show toggle button only for melee throwing weapons
+        rangeToggleBtn: {
+          hidden: !(isMelee && isThrown),
+        },
+        // Hide disabled range button for melee weapons or when toggle is showing
+        rangeToggleBtnDisabled: {
+          hidden: isMelee,
+        },
+        // Hide disabled melee button for ranged weapons or thrown melee weapons
+        meleeToggleBtnDisabled: {
+          hidden: !isMelee || (isMelee && isThrown),
+        },
+        ammo: { hidden: isMelee && !isThrown },
+      },
+    };
+
+    // Determine if we are adding the item or adding count to an existing item
+    const items = record?.data?.inventory || [];
+    const index = items.findIndex((i) => i.data?.fromId === item._id);
+
+    // If the item is an item pack, we're adding a list of items
+    if (item.data?.type === "pack") {
+      // Get the total weight of all items in the pack
+      const itemsInPack = item.data?.items || [];
+      const valuesToSet = {};
+      // Add any currency in pack to character
+      valuesToSet["data.cp"] = (record?.data?.cp || 0) + (item.data?.cp || 0);
+      valuesToSet["data.sp"] = (record?.data?.sp || 0) + (item.data?.sp || 0);
+      valuesToSet["data.ep"] = (record?.data?.ep || 0) + (item.data?.ep || 0);
+      valuesToSet["data.gp"] = (record?.data?.gp || 0) + (item.data?.gp || 0);
+      valuesToSet["data.pp"] = (record?.data?.pp || 0) + (item.data?.pp || 0);
+      const itemsToAdd = itemsInPack
+        .map((item) => {
+          // If this is existing item, get the current count
+          const thisIndex = items.findIndex((i) => i.data?.fromId === item._id);
+          const existingItem = thisIndex !== -1 ? items[thisIndex] : undefined;
+          const itemCount = parseFloat(item?.data?.count || "0");
+          const hasAttunement = item.data?.attunement || false;
+          const isConsumable = item.data?.consumable || false;
+          const isTwoHanded =
+            item.data?.weaponProperties?.includes("Two-Handed");
+          const isThrown = item.data?.weaponProperties?.includes("Thrown"); // Only thrown weapons can be toggled melee/range
+          const isMelee = (item.data?.type || "")
+            .toLowerCase()
+            .includes("melee"); // Melee shown only melee icon
+          let curCount = parseFloat(existingItem?.data?.count || "0");
+          if (!existingItem) {
+            return {
+              ...item,
+              icon: "IconMoneybag",
+              data: {
+                ...item.data,
+                fromId: item._id,
+                count: itemCount,
+              },
+              fields: {
+                ...item?.fields,
+                attuned: { hidden: !hasAttunement },
+                useBtn: { hidden: !isConsumable },
+                handBtn: { hidden: isTwoHanded },
+                rangeToggleBtn: { hidden: !(isMelee && isThrown) },
+                rangeToggleBtnDisabled: { hidden: isMelee },
+                meleeToggleBtnDisabled: {
+                  hidden: !isMelee || (isMelee && isThrown),
+                },
+                ammo: { hidden: isMelee && !isThrown },
+              },
+            };
+          } else {
+            valuesToSet[`data.inventory.${thisIndex}.data.count`] =
+              curCount + itemCount;
+          }
+        })
+        .filter((i) => i);
+      api.addValues(`data.inventory`, itemsToAdd, (record) => {
+        if (Object.keys(valuesToSet).length > 0) {
+          api.setValues(valuesToSet, (updatedRecord) => {
+            // Update total weight after setting count values
+            updateTotalBulk(updatedRecord);
+          });
+        } else {
+          // Else just update the total weight
+          updateTotalBulk(record);
+        }
+      });
+    } else {
+      const existingItem = index !== -1 ? items[index] : undefined;
+      if (existingItem) {
+        // Add count to existing item
+        const count = parseFloat(existingItem.data?.count || "0");
+        // Update the value
+        api.setValue(
+          `data.inventory.${index}.data.count`,
+          count + 1,
+          (record) => {
+            // Update total weight
+            updateTotalBulk(record);
+          }
+        );
+      } else {
+        // Add the item to the list
+        api.addValue(`data.inventory`, itemToAdd, (record) => {
+          // Update total weight
+          updateTotalBulk(record);
+        });
+      }
+    }
+  }
+
+  function onDrop(type, recordLink) {
+    if (type === "items") {
+      onDropItem(recordLink);
+    }
+  }
+
+  function onItemDeleted() {
+    // Fetch the character record again to get latest data
+    const valuesToSet = {};
+    const totalBulk = updateTotalBulk(record, false);
+    valuesToSet["data.totalBulk"] = totalBulk;
+
+    // Get the current ac due to armor and set it on the
+    // record
+    // const bestEquippedArmor = getBestEquippedArmor();
+
+    // if (
+    //   JSON.stringify(record?.data?.armor || "{}") !==
+    //   JSON.stringify(bestEquippedArmor)
+    // ) {
+    //   valuesToSet["data.armor"] = bestEquippedArmor;
+    // }
+
+    // const totalAc = getArmorClass(bestEquippedArmor);
+    // if (record?.data?.ac !== totalAc) {
+    //   valuesToSet["data.ac"] = totalAc;
+    // }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div>
+  <label variant="bold" textalign="center" label="Inventory"></label>
+</div>
+
+<div style="display: flex; flex-direction: row">
+  <div style="margin-left: 34px">
+    <label variant="bold" size="xs" textalign="left" label="Count"></label>
+  </div>
+  <div style="margin-left: 30px">
+    <label variant="bold" size="xs" textalign="left" label="Item"></label>
+  </div>
+  <div style="margin-left: auto">
+    <label
+      variant="bold"
+      size="xs"
+      textalign="left"
+      label="Location / Equipped"
+    ></label>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column; flex-grow: 1">
+  <list
+    listtype="inventory_list"
+    radius="none"
+    variant="striped"
+    field="inventory"
+    onchange="onItemDeleted();"
+    onload="updateTotalBulk(record);"
+  >
+  </list>
+</div>
+
+<div style="margin-top: 8px">
+  <divider label="Bulk" textalign="center"></divider>
+</div>
+
+<div style="display: flex; flex-direction: row; gap: 4px; align-items: center">
+  <numberfield
+    width="50%"
+    placeholder="0"
+    field="totalBulk"
+    label="Total Bulk"
+  ></numberfield>
+  <div style="margin-top: 16px">
+    <label variant="bold" size="xs" textalign="left" label="/"></label>
+  </div>
+  <numberfield
+    width="50%"
+    placeholder="0"
+    field="bulk"
+    label="Max Bulk"
+  ></numberfield>
+</div>
+
+<div style="margin-top: 8px">
+  <divider label="Treasure" textalign="center"></divider>
+</div>
+
+<div style="display: flex; flex-direction: row; gap: 4px">
+  <numberfield
+    placeholder="0"
+    field="cp"
+    label="CP"
+    onchange="updateCoinage();"
+  ></numberfield>
+  <numberfield
+    placeholder="0"
+    field="sp"
+    label="SP"
+    onchange="updateCoinage();"
+  ></numberfield>
+  <numberfield
+    placeholder="0"
+    field="gp"
+    label="GP"
+    onchange="updateCoinage();"
+  ></numberfield>
+  <numberfield
+    placeholder="0"
+    field="pp"
+    label="PP"
+    onchange="updateCoinage();"
+  ></numberfield>
+</div>
+
+<div style="margin-top: 8px">
+  <stringfield
+    placeholder="None"
+    field="otherTreasure"
+    label="Other Treasure"
+    multiline="true"
+    maxrows="4"
+  >
+  </stringfield>
+</div>
