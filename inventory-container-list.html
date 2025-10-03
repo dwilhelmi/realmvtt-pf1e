@@ -1,32 +1,116 @@
-<accordion size="xs" field="backpackAccordion">
-  <accordion.control>
-    <div
-      style="
-        height: 30px;
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        width: 100%;
-      "
-    >
-      <div style="width: 30px; min-width: 30px">
-        <portrait width="30px" height="30px" name="portrait"></portrait>
-      </div>
-      <div style="min-width: 50px; flex-grow: 1">
-        <namefield
-          size="xs"
-          variant="standard"
-          width="100%"
-          placeholder="Backpack"
-          field="namefield"
-          updateonblur="true"
-        />
-      </div>
-    </div>
-  </accordion.control>
+<script>
+  function onItemsChanged() {
+    // Requuery the record first to prevent race conditions when transferring items to containers
+    const recordId = record?._id;
+    const recordType = record?.recordType;
+    const containerDataPath = getNearestParentDataPath(dataPath);
+    const itemsPath = `${containerDataPath}.data.items`;
+    const items = api.getValue(itemsPath) || [];
+    let totalBulk = 0;
+
+    items.forEach((item) => {
+      let weight = parseFloat(item.data?.bulk?.value || "0");
+      // If heldOrStowed is set, and it's not dropped or carried
+      if (item.data?.bulk?.heldOrStowed) {
+        weight = item.data?.bulk?.heldOrStowed;
+      }
+      // If it's armor, it's 1 bulk more when not equipped
+      if (item.data?.type === "armor") {
+        weight += 1;
+      }
+      let count = parseFloat(item.data?.count || "0");
+      if (count === undefined || isNaN(count)) {
+        count = 0;
+      }
+      if (weight !== undefined && !isNaN(weight)) {
+        totalBulk += weight * count;
+      }
+    });
+
+    totalBulk = Math.round(totalBulk * 100) / 100;
+
+    api.setValues(
+      {
+        [`${containerDataPath}.data.bulkUsed`]: totalBulk,
+      },
+      () => {
+        // Requery the record to get the latest data
+        api.getRecord(recordType, recordId, (recordRetrieved) => {
+          updateTotalBulk(recordRetrieved);
+        });
+      }
+    );
+  }
+</script>
+
+<!-- Todo: show container bulk values -->
+<!-- Todo allow us to unequip backpack -->
+<!-- Todup update bulk calculation to add bulk of items in backpack depending on values and if it's equipped or stowed -->
+
+<div
+  style="
+    height: 30px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+  "
+>
+  <div style="width: 30px; min-width: 30px">
+    <portrait width="30px" height="30px" name="portrait"></portrait>
+  </div>
+  <div style="min-width: 50px; flex-grow: 1">
+    <namefield
+      size="xs"
+      variant="standard"
+      width="100%"
+      placeholder="Backpack"
+      field="namefield"
+      updateonblur="true"
+    />
+  </div>
+  <label variant="bold" size="xs" label="Capacity"></label>
+  <div style="min-width: 100px; max-width: 150px">
+    <progressbar
+      field="bulkUsedProgress"
+      width="100%"
+      height="100%"
+      currentvaluefield="bulkUsed"
+      color="secondary"
+      maxvaluefield="bulk.capacity"
+      size="sm"
+    ></progressbar>
+  </div>
+  <label variant="bold" size="xs" label="Ignored: "></label>
+  <div style="min-width: 30px; max-width: 30px">
+    <numberfield
+      size="xs"
+      field="bulk.ignored"
+      placeholder="0"
+      variant="unstyled"
+      editable="false"
+      hidecontrols="true"
+      width="100%"
+    ></numberfield>
+  </div>
+  <div style="width: 95px; min-width: 95px">
+    <dropdown
+      size="xs"
+      field="carried"
+      variant="default"
+      width="100%"
+      defaultvalue="carried"
+      disablediflocked="false"
+      options='[{"label": "Carried", "value": "carried"}, {"label": "Equipped", "value": "equipped"}, {"label": "Dropped", "value": "dropped"}]'
+      onchange="onItemEquipped();"
+    ></dropdown>
+  </div>
+</div>
+<accordion size="xs" field="backpackAccordion" label="Contents">
   <list
     listtype="inventory_backpack_list"
     field="items"
+    onchange="onItemsChanged();"
     variant="striped-outline"
   ></list>
 </accordion>

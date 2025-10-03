@@ -1,10 +1,77 @@
 <script>
   function setTotalBulk(setValues = true) {
-    updateTotalBulk(record, setValues);
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const containerDataPath = getNearestParentDataPath(itemDataPath);
+    const container = api.getValue(containerDataPath);
+    const items = container.data?.items || [];
+    let totalBulk = 0;
+    items.forEach((item) => {
+      let weight = parseFloat(item.data?.bulk?.value || "0");
+      // If heldOrStowed is set, and it's not dropped or carried
+      if (item.data?.bulk?.heldOrStowed) {
+        weight = item.data?.bulk?.heldOrStowed;
+      }
+      let count = parseFloat(item.data?.count || "0");
+      if (count === undefined || isNaN(count)) {
+        count = 0;
+      }
+      if (weight !== undefined && !isNaN(weight)) {
+        totalBulk += weight * count;
+      }
+    });
+
+    totalBulk = Math.round(totalBulk * 100) / 100;
+
+    if (setValues) {
+      api.setValues(
+        {
+          [`${containerDataPath}.data.bulkUsed`]: totalBulk,
+        },
+        (recordUpdated) => {
+          updateTotalBulk(recordUpdated);
+        }
+      );
+    } else {
+      return totalBulk;
+    }
+  }
+
+  function onRemoveFromContainer() {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = api.getValue(itemDataPath);
+
+    const containerDataPath = getNearestParentDataPath(itemDataPath);
+    const container = api.getValue(containerDataPath);
+
+    const items = container.data?.items || [];
+    const index = items.findIndex((i) => i?._id === item?._id);
+    items.splice(index, 1);
+
+    let totalBulk = setTotalBulk(false);
+
+    // First remove the item from the container
+    api.setValues(
+      {
+        [`${containerDataPath}.data.items`]: items,
+        [`${containerDataPath}.data.bulkUsed`]:
+          totalBulk - (item.data?.bulk?.value || 0),
+      },
+      (recordUpdated) => {
+        // Then add the item to the inventory
+        const inventory = [...(recordUpdated?.data?.inventory || [])];
+        inventory.push(item);
+        api.setValues(
+          {
+            [`data.inventory`]: inventory,
+          },
+          (recordUpdated2) => {
+            updateTotalBulk(recordUpdated2);
+          }
+        );
+      }
+    );
   }
 </script>
-
-<!-- TODO: Bulk of backpack tracking -->
 
 <div
   style="
@@ -40,24 +107,11 @@
     />
   </div>
   <iconbutton
-    hidden="true"
     size="sm"
-    field="invested"
+    field="removeBtn"
     variant="default"
-    options='[{"icon": "IconDiamondOff", "label": "Not Invested", "value": "false"}, {"icon": "IconDiamond", "label": "Invested", "value": "true"}]'
-    onchange="onItemInvested();"
-    onclick=""
+    options='[{"icon": "IconArrowUp", "label": "Remove from Container", "value": "remove"}]'
+    disablediflocked="false"
+    onclick="onRemoveFromContainer();"
   ></iconbutton>
-  <div style="max-width: 60px">
-    <button
-      hidden="true"
-      size="xs"
-      radius="xs"
-      width="60px"
-      field="useBtn"
-      variant="light"
-      onclick="useItem();"
-      label="Use"
-    ></button>
-  </div>
 </div>

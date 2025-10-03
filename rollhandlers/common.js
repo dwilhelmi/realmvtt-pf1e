@@ -4102,12 +4102,34 @@ function updateTotalBulk(record, setValue = true) {
   items.forEach((item) => {
     if (item.data?.carried !== "dropped") {
       let weight = parseFloat(item.data?.bulk?.value || "0");
+
+      // If heldOrStowed is set, and it's not dropped or carried
+      if (item.data?.bulk?.heldOrStowed && item.data?.carried !== "equipped") {
+        weight = item.data?.bulk?.heldOrStowed;
+      }
+
+      // Armor that is carried is 1 bulk more
+      if (item.data?.type === "armor" && item.data?.carried !== "equipped") {
+        weight += 1;
+      }
+
       let count = parseFloat(item.data?.count || "0");
       if (count === undefined || isNaN(count)) {
         count = 0;
       }
       if (weight !== undefined && !isNaN(weight)) {
         totalBulk += weight * count;
+      }
+
+      // Get the total bulk of all backpacks (containers)
+      if (item.data?.type === "backpack") {
+        let totalBulkOfPack = parseFloat(item.data?.bulkUsed || "0");
+        // Subtract what's ignored
+        totalBulkOfPack = Math.max(
+          0,
+          totalBulkOfPack - parseFloat(item.data?.bulk?.ignored || "0")
+        );
+        totalBulk += totalBulkOfPack;
       }
     }
   });
