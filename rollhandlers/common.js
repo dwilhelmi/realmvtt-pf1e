@@ -1844,6 +1844,30 @@ function getItemFields(item) {
     .map((trait) => trait.toLowerCase())
     .includes("versatile s");
 
+  // If we have any of the versatile properties, we need to show the toggle for the
+  // primary damage type
+  const hasVersatile =
+    hasVersatilePiercingProperty ||
+    hasVersatileBludgeoningProperty ||
+    hasVersatileSlashingProperty;
+  const versatileFields = {
+    versatilePiercing: { hidden: !hasVersatilePiercingProperty },
+    versatileBludgeoning: { hidden: !hasVersatileBludgeoningProperty },
+    versatileSlashing: { hidden: !hasVersatileSlashingProperty },
+  };
+  if (hasVersatile) {
+    const itemDamageType = item.data?.damage?.damageType || "";
+    if (itemDamageType === "bludgeoning") {
+      versatileFields.versatileBludgeoning = { hidden: false };
+    } else if (itemDamageType === "piercing") {
+      versatileFields.versatilePiercing = { hidden: false };
+    } else if (itemDamageType === "slashing") {
+      versatileFields.versatileSlashing = { hidden: false };
+    }
+  }
+
+  const requiresReload = (item.data?.reload || 0) > 0;
+
   return {
     invested: { hidden: !hasInvestedTrait },
     useBtn: { hidden: !isConsumable && !hasUseBtn },
@@ -1851,10 +1875,12 @@ function getItemFields(item) {
     rangeToggleBtn: { hidden: !(isMelee && isThrown) },
     rangeToggleBtnDisabled: { hidden: isMelee },
     meleeToggleBtnDisabled: { hidden: !isMelee || (isMelee && isThrown) },
+    ammoFields: { hidden: isMelee && !isThrown },
     ammo: { hidden: isMelee && !isThrown },
-    versatilePiercing: { hidden: !hasVersatilePiercingProperty },
-    versatileBludgeoning: { hidden: !hasVersatileBludgeoningProperty },
-    versatileSlashing: { hidden: !hasVersatileSlashingProperty },
+    reloadBtn: { hidden: !requiresReload },
+    loadedAmmo: { hidden: !requiresReload },
+    ammoSelect: { hidden: isMelee || isThrown },
+    ...versatileFields,
   };
 }
 
@@ -1885,6 +1911,8 @@ function setItemFields(item, itemDataPath, valuesToSet) {
     .map((trait) => trait.toLowerCase())
     .includes("versatile s");
 
+  const requiresReload = (item.data?.reload || 0) > 0;
+
   // Set properties - only set hidden to false when needed (to unhide)
   if (hasInvestedTrait && itemFields?.invested?.hidden !== false) {
     valuesToSet[`${itemDataPath}.fields.invested.hidden`] = false;
@@ -1911,9 +1939,30 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   ) {
     valuesToSet[`${itemDataPath}.fields.meleeToggleBtnDisabled.hidden`] = false;
   }
-  if ((!isMelee || isThrown) && itemFields?.ammo?.hidden !== false) {
+  if (
+    (!isMelee || isThrown) &&
+    (itemFields?.ammo?.hidden !== false ||
+      itemFields?.ammoFields?.hidden !== false)
+  ) {
+    valuesToSet[`${itemDataPath}.fields.ammoFields.hidden`] = false;
     valuesToSet[`${itemDataPath}.fields.ammo.hidden`] = false;
   }
+  // Reload fields
+  if (requiresReload && itemFields?.reloadBtn?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.reloadBtn.hidden`] = false;
+  }
+  if (requiresReload && itemFields?.loadedAmmo?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.loadedAmmo.hidden`] = false;
+  }
+  if (!isMelee && itemFields?.ammoSelect?.hidden !== false) {
+    valuesToSet[`${itemDataPath}.fields.ammoSelect.hidden`] = false;
+  }
+
+  if (isThrown && item.data?.count !== item.data?.ammo) {
+    valuesToSet[`${itemDataPath}.data.ammo`] = item.data?.count;
+  }
+
+  // Versatile fields
   if (
     hasVersatilePiercingProperty &&
     itemFields?.versatilePiercing?.hidden !== false
@@ -1931,6 +1980,32 @@ function setItemFields(item, itemDataPath, valuesToSet) {
     itemFields?.versatileSlashing?.hidden !== false
   ) {
     valuesToSet[`${itemDataPath}.fields.versatileSlashing.hidden`] = false;
+  }
+
+  const hasVersatile =
+    hasVersatilePiercingProperty ||
+    hasVersatileBludgeoningProperty ||
+    hasVersatileSlashingProperty;
+
+  // Also set the fields for the versatile properties
+  if (hasVersatile) {
+    const itemDamageType = item.data?.damage?.damageType || "";
+    if (
+      itemDamageType === "bludgeoning" &&
+      itemFields?.versatileBludgeoning?.hidden !== false
+    ) {
+      valuesToSet[`${itemDataPath}.fields.versatileBludgeoning.hidden`] = false;
+    } else if (
+      itemDamageType === "piercing" &&
+      itemFields?.versatilePiercing?.hidden !== false
+    ) {
+      valuesToSet[`${itemDataPath}.fields.versatilePiercing.hidden`] = false;
+    } else if (
+      itemDamageType === "slashing" &&
+      itemFields?.versatileSlashing?.hidden !== false
+    ) {
+      valuesToSet[`${itemDataPath}.fields.versatileSlashing.hidden`] = false;
+    }
   }
 }
 

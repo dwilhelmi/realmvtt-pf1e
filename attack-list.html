@@ -1,0 +1,220 @@
+<script>
+  function handleRoll() {
+    // TODO
+    // TODO - if need to deduct ammo, deduct by expend, also adjust ammo if set on ammoSelect, or error if not laoded if needs reload (do this in common.performAttack())
+  }
+
+  function rollDamage(isCritical) {
+    // TODO
+    // Add method to common, check if versatile, etc.
+  }
+
+  function untoggleOtherDamage(damageType) {
+    const valuesToSet = {};
+    const itemDataPath = getNearestParentDataPath(dataPath);
+
+    if (damageType === "bludgeoning") {
+      valuesToSet[`${itemDataPath}.data.versatilePiercing`] = false;
+      valuesToSet[`${itemDataPath}.data.versatileSlashing`] = false;
+    } else if (damageType === "piercing") {
+      valuesToSet[`${itemDataPath}.data.versatileBludgeoning`] = false;
+      valuesToSet[`${itemDataPath}.data.versatileSlashing`] = false;
+    } else if (damageType === "slashing") {
+      valuesToSet[`${itemDataPath}.data.versatileBludgeoning`] = false;
+      valuesToSet[`${itemDataPath}.data.versatilePiercing`] = false;
+    }
+
+    api.setValues(valuesToSet);
+  }
+
+  function loadAmmo() {
+    // Mark the reload checkbox as true, and send chat message
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+
+    api.setValues({
+      [`${weaponDataPath}.data.loadedAmmo`]: true,
+    });
+
+    api.sendMessage(`**[center]Reloading ${weapon.name}[/center]**`);
+  }
+
+  function onAmmoSelectChange(value) {
+    // Set ammo field to current amount of ammo
+    const inventory = record.data?.inventory || [];
+    const ammo = inventory.find((item) => item._id === value);
+
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+
+    api.setValues({
+      [`${weaponDataPath}.data.ammo`]: ammo?.data?.count || 0,
+    });
+  }
+
+  function ammoOptions() {
+    // Get all ammo items in the inventory
+    const inventory = record.data?.inventory || [];
+    const ammoOptions = inventory.filter(
+      (item) => item.data?.itemCategory.toLowerCase() === "ammo"
+    );
+
+    return [
+      ...ammoOptions.map((ammo) => ({
+        value: ammo._id,
+        label: ammo.identified !== false ? ammo.name : ammo.unidentifiedName,
+      })),
+    ];
+  }
+</script>
+
+<div style="display: flex; flex-direction: column">
+  <!-- Main row for icon, name, buttons -->
+  <div
+    style="display: flex; flex-direction: row; gap: 4px; align-items: center"
+  >
+    <div style="width: 30px; height: 30px; min-width: 30px; min-height: 30px">
+      <portrait width="30px" height="30px" field="portrait"></portrait>
+    </div>
+    <div style="width: 100%">
+      <namefield field="namefield" variant="standard"></namefield>
+    </div>
+    <!--  A way to change to thrown if Throw type is there -->
+    <iconbutton
+      size="md"
+      hidden="true"
+      field="meleeToggleBtnDisabled"
+      variant="default"
+      options='[{"icon": "IconSword", "label": "Melee", "value": "melee"}]'
+    >
+    </iconbutton>
+    <iconbutton
+      size="md"
+      hidden="true"
+      field="rangeToggleBtnDisabled"
+      variant="default"
+      options='[{"icon": "IconBow", "label": "Ranged", "value": "ranged"}]'
+    >
+    </iconbutton>
+    <iconbutton
+      size="md"
+      hidden="true"
+      field="rangeToggleBtn"
+      variant="default"
+      options='[{"icon": "IconSword", "label": "Melee", "value": "melee"}, {"icon": "IconBow", "label": "Ranged", "value": "ranged"}]'
+    >
+    </iconbutton>
+    <!-- Select Hand, hidden for two-handed weapons -->
+    <iconbutton
+      size="md"
+      field="handBtn"
+      variant="default"
+      options='[{"icon": "IconCircleNumber1Filled", "label": "Main Hand", "value": "one"}, {"icon": "IconCircleNumber2Filled", "label": "Two-Handed", "value": "two"}, {"icon": "IconCircleLetterOFilled", "label": "Off Hand", "value": "off"}]'
+    >
+    </iconbutton>
+    <!-- Roll Attack -->
+    <iconbutton
+      size="md"
+      field="rollBtn"
+      variant="outline"
+      options='[{"icon": "D20", "label": "Roll Attack", "value": "roll"}]'
+      onchange="() => { }"
+      onclick="handleRoll();"
+    >
+    </iconbutton>
+    <div>
+      <!-- Roll Damage -->
+      <button
+        size="xs"
+        radius="xs"
+        field="damageBtn"
+        label="Damage"
+        variant="light"
+        onclick="rollDamage(false);"
+      ></button>
+    </div>
+    <!-- Roll Crit -->
+    <div>
+      <button
+        size="xs"
+        radius="xs"
+        field="critBtn"
+        label="Critical"
+        variant="light"
+        color="red"
+        onclick="rollDamage(true);"
+      ></button>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: row; gap: 4px; margin-left: auto">
+    <checkbox
+      field="versatileBludgeoning"
+      label="Bludgeoning"
+      radius="lg"
+      size="sm"
+      hidden="true"
+      onchange="untoggleOtherDamage('bludgeoning');"
+    ></checkbox>
+    <checkbox
+      field="versatilePiercing"
+      label="Piercing"
+      size="sm"
+      radius="lg"
+      hidden="true"
+      onchange="untoggleOtherDamage('piercing');"
+    ></checkbox>
+    <checkbox
+      field="versatileSlashing"
+      label="Slashing"
+      size="sm"
+      radius="lg"
+      hidden="true"
+      onchange="untoggleOtherDamage('slashing');"
+    ></checkbox>
+  </div>
+  <!-- Ammo Field for Ranged Weapons -->
+  <box field="ammoFields" hidden="true" width="100%">
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 4px;
+        align-items: center;
+      "
+    >
+      <div style="margin-left: auto"></div>
+      <dropdown
+        field="ammoSelect"
+        width="150px"
+        size="xs"
+        hidden="true"
+        placeholder="Select Ammo..."
+        optionsFunction="return ammoOptions();"
+        onchange="onAmmoSelectChange(value);"
+      ></dropdown>
+      <button
+        size="xs"
+        field="reloadBtn"
+        label="Reload"
+        hidden="true"
+        variant="light"
+        color="secondary"
+        onclick="loadAmmo();"
+      ></button>
+      <checkbox field="loadedAmmo" label="Loaded:" size="xs" hidden="true">
+      </checkbox>
+      <label size="xs" variant="bold" label="Ammo: "></label>
+      <numberfield
+        hidden="false"
+        field="ammo"
+        placeholder="0"
+        width="60px"
+        variant="tooltip"
+        minvalue="0"
+        label="Ammo"
+        size="xs"
+      >
+      </numberfield>
+    </div>
+  </box>
+</div>
