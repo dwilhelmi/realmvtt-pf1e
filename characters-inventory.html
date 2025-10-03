@@ -31,7 +31,7 @@
     const index = items.findIndex((i) => i.data?.fromId === item._id);
 
     // If the item is an item pack, we're adding a list of items
-    if (item.data?.type === "pack") {
+    if (item.data?.type === "kit") {
       // Get the total weight of all items in the pack
       const itemsInPack = item.data?.items || [];
       const valuesToSet = {};
@@ -103,9 +103,28 @@
     }
   }
 
-  function onDrop(type, recordLink) {
+  function onDrop(type, recordLink, sourceInfo) {
     if (type === "items") {
       onDropItem(recordLink);
+      if (sourceInfo) {
+        if (sourceInfo?.type === "list") {
+          // Query for the record first, then remove the item from the source list
+          api.getRecord(
+            sourceInfo.recordType,
+            sourceInfo.recordId,
+            (sourceRecord) => {
+              api.removeValueFromRecord(
+                sourceRecord,
+                sourceInfo.dataPath,
+                sourceInfo.index
+              );
+            }
+          );
+        } else if (sourceInfo?.type === "partysheet") {
+          // Remove the item from party sheet
+          api.removePartySheetItem(sourceInfo.itemId);
+        }
+      }
     }
   }
 
@@ -141,7 +160,26 @@
   <label variant="bold" textalign="center" label="Inventory"></label>
 </div>
 
-<div style="display: flex; flex-direction: row">
+<div style="display: flex; flex-direction: row; gap: 4px">
+  <dropdown
+    field="filterByType"
+    label="Filter by Type"
+    size="xs"
+    defaultvalue=""
+    placeholder="Select Type..."
+    disablediflocked="false"
+    options='[{"label": "All", "value": ""},
+            {"label": "Armor", "value": "armor"},
+            {"label": "Consumable", "value": "consumable"},
+            {"label": "Equipment", "value": "equipment"},
+            {"label": "Shield", "value": "shield"},
+            {"label": "Treasure", "value": "treasure"},
+            {"label": "Weapon", "value": "weapon"}]'
+  >
+  </dropdown>
+</div>
+
+<div style="display: flex; flex-direction: row; margin-top: 4px">
   <div style="margin-left: 34px">
     <label variant="bold" size="xs" textalign="left" label="Count"></label>
   </div>
