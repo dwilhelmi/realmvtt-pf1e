@@ -4,12 +4,13 @@
     const itemDataPath = getNearestParentDataPath(dataPath);
     const item = itemDataPath ? api.getValue(itemDataPath) : record;
     const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+    const modifiers = item.data?.modifiers || [];
 
     const valuesToSet = {};
 
     modifiers.forEach((modifier, index) => {
       valuesToSet[
-        `${itemDataPath}.modifiers.${index}.fields.itemOnly.hidden`
+        `${dataPrefix}.modifiers.${index}.fields.itemOnly.hidden`
       ] = false;
     });
 

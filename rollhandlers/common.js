@@ -1505,11 +1505,17 @@ function getEffectsAndModifiersForToken(
     });
   }
 
-  // Filter items that are not equipped or that require attunement and not attuned
+  // Filter items that are not equipped or that require investment and not invested
+  // Helper function to check if an item requires investment
+  const requiresInvestment = (item) => {
+    const traits = item.data?.traits || [];
+    return traits.map((trait) => trait.toLowerCase()).includes("invested");
+  };
+
   const equippedItems = items.filter(
     (item) =>
       item.data?.carried === "equipped" &&
-      (!item.data?.attunement || item.data?.attuned === "true")
+      (!requiresInvestment(item) || item.data?.invested === "true")
   );
   [...features, ...equippedItems].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
@@ -1839,18 +1845,16 @@ function getItemFields(item) {
     .includes("versatile s");
 
   return {
-    fields: {
-      invested: { hidden: !hasInvestedTrait },
-      useBtn: { hidden: !isConsumable && !hasUseBtn },
-      handBtn: { hidden: isTwoHanded },
-      rangeToggleBtn: { hidden: !(isMelee && isThrown) },
-      rangeToggleBtnDisabled: { hidden: isMelee },
-      meleeToggleBtnDisabled: { hidden: !isMelee || (isMelee && isThrown) },
-      ammo: { hidden: isMelee && !isThrown },
-      versatilePiercing: { hidden: !hasVersatilePiercingProperty },
-      versatileBludgeoning: { hidden: !hasVersatileBludgeoningProperty },
-      versatileSlashing: { hidden: !hasVersatileSlashingProperty },
-    },
+    invested: { hidden: !hasInvestedTrait },
+    useBtn: { hidden: !isConsumable && !hasUseBtn },
+    handBtn: { hidden: isTwoHanded },
+    rangeToggleBtn: { hidden: !(isMelee && isThrown) },
+    rangeToggleBtnDisabled: { hidden: isMelee },
+    meleeToggleBtnDisabled: { hidden: !isMelee || (isMelee && isThrown) },
+    ammo: { hidden: isMelee && !isThrown },
+    versatilePiercing: { hidden: !hasVersatilePiercingProperty },
+    versatileBludgeoning: { hidden: !hasVersatileBludgeoningProperty },
+    versatileSlashing: { hidden: !hasVersatileSlashingProperty },
   };
 }
 
@@ -1935,22 +1939,6 @@ function onItemEquipped() {
   const itemDataPath = dataPath.replace(".data.carried", "");
   const item = api.getValue(itemDataPath);
 
-  const traits = api.getValue(`${itemDataPath}.data.traits`) || [];
-  const hasInvestedTrait = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("invested");
-
-  const itemFields = api.getValue(`${itemDataPath}.fields`) || {};
-  const itemType = api.getValue(`${itemDataPath}.data.type`);
-  const weaponProperties =
-    api.getValue(`${itemDataPath}.data.weaponProperties`) || [];
-
-  const isConsumable = api.getValue(`${itemDataPath}.data.consumable`) || false;
-  const hasUseBtn = api.getValue(`${itemDataPath}.data.hasUseBtn`) || false;
-  const isTwoHanded = weaponProperties.includes("Two-Handed");
-  const isThrown = weaponProperties.includes("Thrown"); // Only thrown weapons can be toggled melee/range
-  const isMelee = (itemType || "").toLowerCase().includes("melee"); // Melee shown only melee icon
-
   // Some items add/remove effects when equipped
   const equipEffect = api.getValue(`${itemDataPath}.data.equipEffect`);
   const isEquipEffect = value === "equipped";
@@ -1974,32 +1962,17 @@ function onItemEquipped() {
     valuesToSet["data.totalBulk"] = totalBulk;
   }
 
-  // Update attributes as per modifiers
-  // TODO UPDATE FOR PF2E
-  // updateAttributes(item, valuesToSet);
-
-  // Get the current ac due to armor and set it on the
-  // record
-  const bestEquippedArmor = getBestEquippedArmor();
-
-  if (
-    JSON.stringify(record?.data?.armor || "{}") !==
-    JSON.stringify(bestEquippedArmor)
-  ) {
-    valuesToSet["data.armor"] = bestEquippedArmor;
-  }
-
-  const totalAc = getArmorClass(bestEquippedArmor);
-  if (record?.data?.ac !== totalAc) {
-    valuesToSet["data.ac"] = totalAc;
-  }
-
   // Update the fields to show/hide the correct buttons on attack list
   // based on type incase it changed
   setItemFields(item, itemDataPath, valuesToSet);
 
   if (Object.keys(valuesToSet).length > 0) {
-    api.setValues(valuesToSet);
+    api.setValues(valuesToSet, (recordUpdated) => {
+      // Update attributes as needed
+      onAddEditFeature(recordUpdated, undefined, true);
+    });
+  } else {
+    onAddEditFeature(record, undefined, true);
   }
 }
 
@@ -3977,9 +3950,17 @@ function rollSkill(
     attribute = "wis";
   } else if (isLore) {
     attribute = loreSkillStat;
+    // If attribute is undefined or empty, get default ability from skill
+    if (!attribute) {
+      attribute = "int";
+    }
   } else {
     // Get attribute setting from record
-    attribute = record.data?.[`${skill}Ability`] || "int";
+    attribute = record.data?.[`${skill}Ability`] || "";
+    // If attribute is undefined or empty, get default ability from skill
+    if (!attribute) {
+      attribute = getPathfinderSkills()[skill];
+    }
   }
 
   // Get all bonuses/penalties that apply to the skill's attribute
@@ -3987,7 +3968,7 @@ function rollSkill(
   if (attribute) {
     allEffectMods = getEffectsAndModifiersForToken(
       record,
-      [`allBonus`, `allPenalty`],
+      ["allBonus", "allPenalty", "skillBonus", "skillPenalty"],
       attribute
     );
   }

@@ -134,25 +134,10 @@
     const totalBulk = updateTotalBulk(record, false);
     valuesToSet["data.totalBulk"] = totalBulk;
 
-    // Get the current ac due to armor and set it on the
-    // record
-    const bestEquippedArmor = getBestEquippedArmor();
-
-    if (
-      JSON.stringify(record?.data?.armor || "{}") !==
-      JSON.stringify(bestEquippedArmor)
-    ) {
-      valuesToSet["data.armor"] = bestEquippedArmor;
-    }
-
-    const totalAc = getArmorClass(bestEquippedArmor);
-    if (record?.data?.ac !== totalAc) {
-      valuesToSet["data.ac"] = totalAc;
-    }
-
-    if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet);
-    }
+    api.setValues(valuesToSet, (recordUpdated) => {
+      // Update attributes as needed
+      onAddEditFeature(recordUpdated, undefined, true);
+    });
   }
 </script>
 
