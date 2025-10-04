@@ -1,7 +1,8 @@
 <script>
-  function handleRoll() {
-    // TODO
-    // TODO - if need to deduct ammo, deduct by expend, also adjust ammo if set on ammoSelect, or error if not laoded if needs reload (do this in common.performAttack())
+  function handleRoll(attackNumber) {
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    performAttackRoll(record, weapon, weaponDataPath, attackNumber);
   }
 
   function rollDamage(isCritical) {
@@ -113,12 +114,30 @@
     </iconbutton>
     <!-- Roll Attack -->
     <iconbutton
-      size="md"
+      size="lg"
       field="rollBtn"
       variant="outline"
-      options='[{"icon": "D20", "label": "Roll Attack", "value": "roll"}]'
+      options='[{"icon": "D20-1", "label": "Roll 1st Attack", "value": "roll"}]'
       onchange="() => { }"
-      onclick="handleRoll();"
+      onclick="handleRoll(1);"
+    >
+    </iconbutton>
+    <iconbutton
+      size="lg"
+      field="rollBtn"
+      variant="outline"
+      options='[{"icon": "D20-2", "label": "Roll 2nd Attack", "value": "roll"}]'
+      onchange="() => { }"
+      onclick="handleRoll(2);"
+    >
+    </iconbutton>
+    <iconbutton
+      size="lg"
+      field="rollBtn"
+      variant="outline"
+      options='[{"icon": "D20-3", "label": "Roll 3nd Attack", "value": "roll"}]'
+      onchange="() => { }"
+      onclick="handleRoll(3);"
     >
     </iconbutton>
     <div>

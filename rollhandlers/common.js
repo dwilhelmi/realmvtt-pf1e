@@ -1519,6 +1519,7 @@ function getEffectsAndModifiersForToken(
   );
   [...features, ...equippedItems].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
+    const toggleable = feature.data?.toggleable || false;
     modifiers.forEach((modifier) => {
       const ruleType = modifier.data?.type || "";
       const bonusPenaltyType = modifier.data?.modifierType || "none";
@@ -1557,7 +1558,8 @@ function getEffectsAndModifiersForToken(
         results.push({
           name: feature?.name || "Feature",
           value: value,
-          active: modifier.data?.active === true,
+          // If toggleable is true, make all modifiers inactive by default
+          active: toggleable ? false : modifier.data?.active === true,
           type: bonusPenaltyType,
           modifierType: ruleType,
           field: modifier.data?.field || "",
@@ -2085,6 +2087,16 @@ function getBestEquippedArmor() {
   });
 
   return bestEquippedArmor;
+}
+
+// TODO UPDATE FOR PF2E
+function getArmorClassForToken(token) {
+  const record = token?.record;
+  const acCalculationMods = getEffectsAndModifiersForToken(token, [
+    "armorClassCalculation",
+  ]);
+
+  return 10;
 }
 
 // TODO UPDATE FOR PF2E
@@ -2905,21 +2917,21 @@ function updateProficiencies(record, valuesToSet) {
   if (classObj?.data?.perception) {
     proficiencies.perception = parseInt(classObj.data.perception || "0", 10);
   }
-  if (classObj?.data?.armor) {
+  if (classObj?.data?.defenses) {
     proficiencies.unarmored = parseInt(
-      classObj.data.armor?.unarmored || "0",
+      classObj.data.defenses?.unarmored || "0",
       10
     );
-    proficiencies.light = parseInt(classObj.data.armor?.light || "0", 10);
-    proficiencies.medium = parseInt(classObj.data.armor?.medium || "0", 10);
-    proficiencies.heavy = parseInt(classObj.data.armor?.heavy || "0", 10);
+    proficiencies.light = parseInt(classObj.data.defenses?.light || "0", 10);
+    proficiencies.medium = parseInt(classObj.data.defenses?.medium || "0", 10);
+    proficiencies.heavy = parseInt(classObj.data.defenses?.heavy || "0", 10);
   }
-  if (classObj?.data?.weapons) {
-    proficiencies.unarmed = parseInt(classObj.data.weapons?.unarmed || "0", 10);
-    proficiencies.simple = parseInt(classObj.data.weapons?.simple || "0", 10);
-    proficiencies.martial = parseInt(classObj.data.weapons?.martial || "0", 10);
+  if (classObj?.data?.attacks) {
+    proficiencies.unarmed = parseInt(classObj.data.attacks?.unarmed || "0", 10);
+    proficiencies.simple = parseInt(classObj.data.attacks?.simple || "0", 10);
+    proficiencies.martial = parseInt(classObj.data.attacks?.martial || "0", 10);
     proficiencies.advanced = parseInt(
-      classObj.data.weapons?.advanced || "0",
+      classObj.data.attacks?.advanced || "0",
       10
     );
   }
@@ -4207,5 +4219,243 @@ function updateTotalBulk(record, setValue = true) {
     api.setValuesOnRecord(record, { "data.totalBulk": totalBulk });
   } else {
     return totalBulk;
+  }
+}
+
+function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
+  const valuesToSet = {};
+  const isMelee = (weapon.data?.range || 0) === 0;
+  const hasThrownTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("thrown")
+  );
+  const hasFinesseTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("finesse")
+  );
+  const hasAgileTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("agile")
+  );
+  const range = weapon.data?.range || 0;
+
+  const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
+  const requiresReload = (weapon.data?.reload || 0) > 0 && !isMelee;
+
+  if (requiresReload && !weapon.data?.loadedAmmo) {
+    api.showNotification("You need to reload first!", "red", "Out of Ammo");
+    return;
+  }
+
+  let abilityScore = "str";
+
+  if (isThrown || !isMelee) {
+    abilityScore = "dex";
+    // Check if we have enough ammo
+    const ammo = weapon.data?.ammo || 0;
+    if (ammo <= 0) {
+      api.showNotification("You are out of ammo!", "red", "Out of Ammo");
+      return;
+    }
+
+    // Deduct ammo for all weapons that are using this, as well as the item itself
+    const ammoSelected = weapon.data?.ammoSelect;
+    let newCount = Math.max(0, ammo - 1);
+    if (ammoSelected) {
+      const inventory = record.data?.inventory || [];
+      inventory.forEach((item, index) => {
+        if (item._id === ammoSelected) {
+          valuesToSet[`data.inventory.${index}.data.count`] = newCount;
+        }
+        if (item.data?.ammoSelect === ammoSelected) {
+          valuesToSet[`data.inventory.${index}.data.ammo`] = newCount;
+        }
+      });
+    } else {
+      valuesToSet[`${weaponDataPath}.data.ammo`] = newCount;
+    }
+  } else if (
+    hasFinesseTrait &&
+    (record.data?.dex || 0) > (record.data?.str || 0)
+  ) {
+    // If melee, and has finesse trait, use dex if it's higher than str
+    abilityScore = "dex";
+  }
+
+  // Check attackCalculation modifier to see if we use a differenet stat
+  const attackCalculationMod = getEffectsAndModifiersForToken(
+    ["attackCalculation"],
+    undefined,
+    weapon._id
+  );
+  attackCalculationMod.forEach((mod) => {
+    const attackCalculation = mod.field;
+    if (attackCalculation) {
+      if (
+        record.data?.[`${attackCalculation}`] > record.data?.[`${abilityScore}`]
+      ) {
+        abilityScore = attackCalculation.toLowerCase();
+      }
+    }
+  });
+
+  // Determine base proficiency with weapon
+  const weaponCategory = (weapon.data?.itemCategory || "simple").toLowerCase();
+  // Check proficiency
+  const weaponProficiency = parseInt(
+    record.data?.attacks?.[weaponCategory] || "0",
+    10
+  );
+  const proficiencyNames = [
+    "Untrained",
+    "Trained",
+    "Expert",
+    "Master",
+    "Legendary",
+  ];
+  const proficiencyName = proficiencyNames[weaponProficiency] || "Untrained";
+
+  const modifiers = [];
+
+  // Add the total save modifier (includes ability + proficiency)
+  if (weaponProficiency !== 0) {
+    // Calculate the modifier
+    const level = parseInt(record.data?.level || "0", 10);
+    let statMod = parseInt(record.data?.[`${abilityScore}`] || "0", 10);
+    let modifier = weaponProficiency * 2 + level + statMod;
+    modifiers.push({
+      name: `${weaponCategory} (${proficiencyName})`,
+      type: "",
+      value: modifier,
+      active: true,
+    });
+  }
+
+  // If this is the second or third attach we add MAP
+  if (attackNumber === 2 || attackNumber === 3) {
+    let mapPenalty = attackNumber === 2 ? -5 : -10;
+    if (hasAgileTrait) {
+      // If agile trait, -4 / -8
+      mapPenalty = attackNumber === 2 ? -4 : -8;
+    }
+    // Check for MAP reduction modifier
+    const mapReductionMod = getEffectsAndModifiersForToken(
+      ["mapReduction"],
+      undefined,
+      weapon._id
+    );
+    if (mapReductionMod.length) {
+      mapReductionMod.forEach((mod) => {
+        const mapReduction = mod.value;
+        if (math.abs(mapReduction) > 0) {
+          mapPenalty -= Math.max(0, Math.abs(mapReduction));
+        }
+      });
+    }
+    modifiers.push({
+      name: "Mutliple Attack Penalty",
+      value: mapPenalty,
+      isPenalty: true,
+      valueType: "number",
+      active: true,
+    });
+  }
+
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValues(valuesToSet);
+  }
+
+  const metadata = {
+    rollName: "Attack",
+    tooltip: `Attack with ${weapon.name}`,
+    weaponName: weapon.name,
+    icon: isMelee && !isThrown ? "IconSword" : "IconBow",
+  };
+
+  // Roll for each target or just once
+  const targets = api.getTargets();
+  if (targets.length > 0) {
+    for (const target of targets) {
+      const targetName =
+        target?.token?.identified === false
+          ? target?.token?.record?.unidentifiedName
+          : target?.token?.record?.name;
+      const targetDistance = target?.distance || 0;
+
+      // If this a ranged attack, add penalties based on range increment
+      if (!isMelee || isThrown) {
+        let rangePenalty = 0;
+        let increment = 0;
+
+        // Look up ignoreRangePenalty modifier
+        const ignoreRangePenaltyMod = getEffectsAndModifiersForToken(
+          ["ignoreRangePenalty"],
+          undefined,
+          weapon._id
+        );
+        let ignoreRangePenalty = 0;
+        for (const mod of ignoreRangePenaltyMod) {
+          if (mod.value > 0 && mod.value > ignoreRangePenalty) {
+            ignoreRangePenalty = mod.value;
+          }
+        }
+
+        // Calculate range increment penalty
+        // No penalty within first range increment, -2 for each additional increment
+        // Attacks beyond 6th increment (6x range) are impossible
+        if (range > 0 && targetDistance > range) {
+          increment = Math.ceil(targetDistance / range);
+
+          // Attacks beyond 6th increment are impossible
+          if (increment > 6) {
+            api.showNotification(
+              `Target is beyond maximum range (${6 * range} ft)!`,
+              "red",
+              "Out of Range"
+            );
+            continue;
+          }
+
+          // -2 penalty for each increment beyond the first
+          rangePenalty = -(increment - 1) * 2;
+        }
+
+        // Add penalties based on range increment
+        if (
+          targetDistance > 0 &&
+          rangePenalty < 0 &&
+          increment > ignoreRangePenalty
+        ) {
+          modifiers.push({
+            name: `Range Increment (${increment})`,
+            value: rangePenalty,
+            valueType: "number",
+            isPenalty: true,
+            active: true,
+          });
+        }
+      }
+
+      const targetAc = getArmorClassForToken(target?.token);
+
+      metadata.targetName = targetName;
+      metadata.targetId = target?.token?._id;
+      metadata.dc = targetAc;
+
+      // TODO set metadata needed in attack handler for target
+      // TODO check target effects/modifiers
+      api.promptRoll(
+        `Attack with ${weapon.name}`,
+        "1d20",
+        modifiers,
+        metadata,
+        "attack"
+      );
+    }
+  } else {
+    api.promptRoll(
+      `Attack with ${weapon.name}`,
+      "1d20",
+      modifiers,
+      metadata,
+      "attack"
+    );
   }
 }
