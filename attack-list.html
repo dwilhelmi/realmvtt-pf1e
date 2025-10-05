@@ -46,10 +46,72 @@
     const ammo = inventory.find((item) => item._id === value);
 
     const weaponDataPath = getNearestParentDataPath(dataPath);
-
-    api.setValues({
+    const valuesToSet = {
       [`${weaponDataPath}.data.ammo`]: ammo?.data?.count || 0,
+    };
+
+    // Check if ammo has uses system
+    const usesMax = parseInt(ammo?.data?.uses?.max || "0", 10);
+    const usesValue = parseInt(ammo?.data?.uses?.value || "0", 10);
+
+    if (usesMax > 1) {
+      // Show uses counter and set values
+      valuesToSet[`${weaponDataPath}.fields.uses.value.hidden`] = false;
+      valuesToSet[`${weaponDataPath}.data.uses.max`] = usesMax;
+      valuesToSet[`${weaponDataPath}.data.uses.value`] = usesValue || usesMax;
+    } else {
+      // Hide uses counter
+      valuesToSet[`${weaponDataPath}.fields.uses.value.hidden`] = true;
+    }
+
+    api.setValues(valuesToSet);
+  }
+
+  function onUsesChange() {
+    // Update the ammo item's uses.value to match the weapon's uses.value
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    const ammoSelected = weapon?.data?.ammoSelect;
+
+    if (!ammoSelected) return;
+
+    const inventory = record.data?.inventory || [];
+    const usesValue = weapon?.data?.uses?.value;
+
+    // Find the ammo item and update its uses.value
+    inventory.forEach((item, index) => {
+      if (item._id === ammoSelected) {
+        api.setValue(`data.inventory.${index}.data.uses.value`, usesValue);
+      }
     });
+  }
+
+  function onAmmoChange() {
+    // Update all weapons using the same ammo AND the ammo item's count
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    const ammoSelected = weapon?.data?.ammoSelect;
+    const newAmmoCount = weapon?.data?.ammo;
+
+    if (!ammoSelected) return;
+
+    const inventory = record.data?.inventory || [];
+    const valuesToSet = {};
+
+    inventory.forEach((item, index) => {
+      // Update the ammo item's count
+      if (item._id === ammoSelected) {
+        valuesToSet[`data.inventory.${index}.data.count`] = newAmmoCount;
+      }
+      // Update all other weapons using this ammo
+      if (item.data?.ammoSelect === ammoSelected && item._id !== weapon._id) {
+        valuesToSet[`data.inventory.${index}.data.ammo`] = newAmmoCount;
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
   }
 
   function ammoOptions() {
@@ -118,7 +180,6 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-1", "label": "Roll 1st Attack", "value": "roll"}]'
-      onchange="() => { }"
       onclick="handleRoll(1);"
     >
     </iconbutton>
@@ -127,7 +188,6 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-2", "label": "Roll 2nd Attack", "value": "roll"}]'
-      onchange="() => { }"
       onclick="handleRoll(2);"
     >
     </iconbutton>
@@ -136,7 +196,6 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-3", "label": "Roll 3nd Attack", "value": "roll"}]'
-      onchange="() => { }"
       onclick="handleRoll(3);"
     >
     </iconbutton>
@@ -222,6 +281,17 @@
       ></button>
       <checkbox field="loadedAmmo" label="Loaded:" size="xs" hidden="true">
       </checkbox>
+      <counter
+        field="uses.value"
+        hidden="true"
+        maxvaluefield="uses.max"
+        label="Uses"
+        size="xs"
+        textalign="center"
+        color="cyan"
+        editable="true"
+        onchange="onUsesChange();"
+      ></counter>
       <label size="xs" variant="bold" label="Ammo: "></label>
       <numberfield
         hidden="false"
@@ -232,6 +302,7 @@
         minvalue="0"
         label="Ammo"
         size="xs"
+        onchange="onAmmoChange();"
       >
       </numberfield>
     </div>

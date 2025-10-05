@@ -1,6 +1,31 @@
 <script>
-  function setTotalBulk(setValues = true) {
-    updateTotalBulk(record, setValues);
+  function onCountChange(value) {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = api.getValue(itemDataPath);
+    const isAmmo = item?.data?.itemCategory?.toLowerCase() === "ammo";
+    const isThrown = item?.data?.traits?.some((trait) =>
+      trait.toLowerCase().includes("thrown")
+    );
+    const isBomb = item?.data?.group?.toLowerCase() === "bomb";
+
+    const totalBulk = updateTotalBulk(record, false);
+    let valuesToSet = {
+      "data.totalBulk": totalBulk,
+    };
+
+    // Determine if any ammo values need adjusting (if it's ammo, a thrown weapon, or a bomb)
+    if (isAmmo) {
+      const inventory = record?.data?.inventory || [];
+      inventory.forEach((inventoryItem, index) => {
+        if (inventoryItem.data?.ammoSelect === item._id) {
+          valuesToSet[`data.inventory.${index}.data.ammo`] = value;
+        }
+      });
+    } else if (isThrown || isBomb) {
+      valuesToSet[`${itemDataPath}.data.ammo`] = value;
+    }
+
+    api.setValues(valuesToSet);
   }
 </script>
 
@@ -24,7 +49,7 @@
       width="100%"
       field="count"
       placeholder="0"
-      onchange="setTotalBulk();"
+      onchange="onCountChange(value);"
     ></numberfield>
   </div>
   <div style="min-width: 50px; flex-grow: 1">

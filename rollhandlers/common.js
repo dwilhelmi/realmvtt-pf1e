@@ -4257,19 +4257,104 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
     // Deduct ammo for all weapons that are using this, as well as the item itself
     const ammoSelected = weapon.data?.ammoSelect;
-    let newCount = Math.max(0, ammo - 1);
+    const expend = parseInt(weapon.data?.expend || "1", 10) || 1; // Default to 1 if 0 or undefined
+
+    // Get the ammo item to check for uses system
+    let ammoItem = null;
+    let newAmmoCount = 0;
+    let newUsesValue = 0;
+    let needsReload = false; // Track if we need to reload (consumed a full shot)
+
+    if (ammoSelected) {
+      const inventory = record.data?.inventory || [];
+      ammoItem = inventory.find((item) => item._id === ammoSelected);
+    } else {
+      ammoItem = weapon;
+    }
+
+    // Calculate the new ammo count and uses value once
+    if (ammoItem) {
+      const usesMax = parseInt(ammoItem.data?.uses?.max || "0", 10);
+      const usesValue = parseInt(
+        ammoItem.data?.uses?.value || (usesMax > 0 ? usesMax : "0"),
+        10
+      );
+
+      if (usesMax <= 1) {
+        // No uses system or single-use, just deduct count
+        newAmmoCount = Math.max(0, ammo - expend);
+        newUsesValue = 0;
+        needsReload = true; // Always need reload if no uses system
+      } else {
+        // Multi-use system
+        const newValue = usesValue - expend;
+
+        if (newValue > 0) {
+          // Still have uses left on current item
+          newAmmoCount = ammo;
+          newUsesValue = newValue;
+          needsReload = false; // Don't need reload, still have uses
+        } else if (newValue === 0) {
+          // Exactly used up this item, deduct count and reset to max
+          newAmmoCount = Math.max(0, ammo - 1);
+          newUsesValue = usesMax;
+          needsReload = true; // Need reload, consumed full item
+        } else {
+          // Went negative, deduct count and calculate carry-over
+          const countToDeduct = Math.ceil(Math.abs(newValue) / usesMax);
+          newAmmoCount = Math.max(0, ammo - countToDeduct);
+          const remainder = Math.abs(newValue) % usesMax;
+          newUsesValue = remainder > 0 ? usesMax - remainder : usesMax;
+          needsReload = true; // Need reload, consumed full item(s)
+        }
+      }
+    } else {
+      // Fallback if no ammo item found
+      newAmmoCount = Math.max(0, ammo - expend);
+      newUsesValue = 0;
+      needsReload = true;
+    }
+
+    // Apply the calculated values to all relevant items
     if (ammoSelected) {
       const inventory = record.data?.inventory || [];
       inventory.forEach((item, index) => {
         if (item._id === ammoSelected) {
-          valuesToSet[`data.inventory.${index}.data.count`] = newCount;
+          // Update the ammo item itself
+          valuesToSet[`data.inventory.${index}.data.count`] = newAmmoCount;
+          const usesMax = parseInt(item.data?.uses?.max || "0", 10);
+          if (usesMax > 1) {
+            valuesToSet[`data.inventory.${index}.data.uses.value`] =
+              newUsesValue;
+          }
         }
         if (item.data?.ammoSelect === ammoSelected) {
-          valuesToSet[`data.inventory.${index}.data.ammo`] = newCount;
+          // Update all weapons using this ammo
+          valuesToSet[`data.inventory.${index}.data.ammo`] = newAmmoCount;
+          const usesMax = parseInt(ammoItem?.data?.uses?.max || "0", 10);
+          if (usesMax > 1) {
+            valuesToSet[`data.inventory.${index}.data.uses.value`] =
+              newUsesValue;
+            valuesToSet[`data.inventory.${index}.data.uses.max`] = usesMax;
+          }
+          // If weapon requires reloading and we consumed a shot, set loadedAmmo to false
+          if (requiresReload && needsReload) {
+            valuesToSet[`data.inventory.${index}.data.loadedAmmo`] = false;
+          }
         }
       });
     } else {
-      valuesToSet[`${weaponDataPath}.data.ammo`] = newCount;
+      // No ammo selected, update weapon itself
+      valuesToSet[`${weaponDataPath}.data.ammo`] = newAmmoCount;
+      const usesMax = parseInt(weapon.data?.uses?.max || "0", 10);
+      if (usesMax > 1) {
+        valuesToSet[`${weaponDataPath}.data.uses.value`] = newUsesValue;
+      }
+    }
+
+    // If this weapon requires reloading and we consumed a shot, set loadedAmmo to false
+    if (requiresReload && needsReload) {
+      valuesToSet[`${weaponDataPath}.data.loadedAmmo`] = false;
     }
   } else if (
     hasFinesseTrait &&
