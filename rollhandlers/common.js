@@ -1325,6 +1325,37 @@ function getAttackModifiersForTarget(target, distance) {
   return results;
 }
 
+// In this call we look for effects that are relevant to the caller and the target for damage rolls
+function getDamageEffectsForTarget(ourToken, target) {
+  if (!target) {
+    return [];
+  }
+
+  let results = [];
+
+  // Get effects that are relevant to the target
+  // damageTargetBonus is for damage bonuses to attacks specific to the target
+  // and the token that applied the effect
+  const effectsToCheck = ["damageTargetBonus"];
+
+  const damageEffects = getEffectsAndModifiersForToken(
+    target, // Look for effects on this target
+    effectsToCheck, // that match damageTargetBonus
+    "", // field is irrelevant
+    undefined, // itemId is irrelevant
+    ourToken?._id // appliedById is the caller
+  );
+
+  damageEffects.forEach((r) => {
+    results.push({
+      ...r,
+      name: r.isEffect ? `Target Has the ${r.name} Effect` : r.name,
+    });
+  });
+
+  return results;
+}
+
 // Same as getEffectsAndModifiers but for a token that is passed
 function getEffectsAndModifiersForToken(
   target,
@@ -1495,7 +1526,7 @@ function getEffectsAndModifiersForToken(
   const classes = target?.data?.classes || [];
   for (const classObj of classes) {
     // Only push class features that are <= our level
-    const level = classObj.data?.level || 0;
+    const level = target.data?.level || 0;
     const classFeatures = classObj.data?.features || [];
     classFeatures.forEach((feature) => {
       const featureLevel = feature.data?.level || 0;
@@ -4222,6 +4253,216 @@ function updateTotalBulk(record, setValue = true) {
   }
 }
 
+// Automatically determine an animation based on the attack or spell damage and ranged/melee
+function getAnimationFor({
+  abilityName,
+  damage = "",
+  healing = "",
+  isRanged = false,
+}) {
+  if (!abilityName) return null;
+
+  const animation = {
+    animationName: isRanged ? "bolt_1" : "slash_1",
+    sound: isRanged ? "bolt_1" : "slash_1",
+    moveToDestination: isRanged,
+    stretchToDestination:
+      isRanged &&
+      (abilityName.toLowerCase().match(/\bray\b/i) ||
+        abilityName.toLowerCase().match(/\bspray\b/i) ||
+        abilityName.toLowerCase().match(/\bbeam\b/i) ||
+        abilityName.toLowerCase().match(/\bdisintegrate\b/i)),
+    destinationOnly: false,
+    startAtCenter: false,
+  };
+
+  if (!damage) {
+    animation.animationName = "";
+    animation.sound = "";
+  }
+
+  if (
+    isRanged &&
+    damage &&
+    (abilityName.toLowerCase().match(/\borb\b/i) ||
+      abilityName.toLowerCase().match(/\bmissile\b/i))
+  ) {
+    animation.animationName = "orb_1";
+  }
+
+  // If this is actually healing, we use a different animation
+  if (healing) {
+    animation.animationName = "healing_1";
+    animation.scale = 0.75;
+    animation.opacity = 1;
+    animation.sound = "healing_1";
+    animation.moveToDestination = false;
+    animation.startAtCenter = true;
+    animation.destinationOnly = true;
+    return animation;
+  }
+
+  // Based on the damage, set the animation name and props
+  if (damage.includes("fire")) {
+    animation.animationName = "fire_1";
+    animation.sound = "bolt_2";
+    animation.hue = undefined;
+    animation.contrast = undefined;
+    animation.brightness = undefined;
+    if (abilityName.toLowerCase().includes("fireball")) {
+      animation.animationName = "fire_2";
+    }
+  } else if (damage.includes("cold")) {
+    animation.animationName = "ice_1";
+    animation.hue = 180;
+    animation.contrast = 1.0;
+    animation.brightness = 0.5;
+  } else if (damage.includes("acid")) {
+    animation.animationName = "splash_1";
+    animation.sound = "water_1";
+    animation.hue = 100;
+    animation.contrast = 1.0;
+    animation.brightness = 0.8;
+  } else if (damage.includes("lightning")) {
+    animation.animationName = "lightning_1";
+    animation.sound = "lightning_1";
+    animation.hue = 244;
+    animation.opacity = 0.5;
+    animation.contrast = 1.0;
+    animation.brightness = 0.5;
+  } else if (damage.includes("poison")) {
+    animation.hue = 128;
+    animation.contrast = 1.0;
+    animation.brightness = 0.1;
+  } else if (damage.includes("necrotic")) {
+    animation.animationName = "necrotic_1";
+    animation.hue = 240;
+    animation.contrast = 0.1;
+    animation.brightness = 0.1;
+    animation.scale = 0.5;
+    animation.opacity = 0.75;
+  } else if (damage.includes("radiant")) {
+    animation.animationName = "radiant_1";
+    animation.hue = 50;
+    animation.contrast = 1.0;
+    animation.brightness = 0.8;
+    animation.scale = 0.5;
+    animation.opacity = 0.75;
+  } else if (damage.includes("thunder")) {
+    animation.animationName = "lightning_1";
+    animation.sound = "lightning_1";
+    animation.hue = 244;
+    animation.contrast = 1.0;
+    animation.brightness = 0.8;
+  } else if (damage.includes("force")) {
+    animation.hue = 284;
+    animation.contrast = 1.0;
+    animation.brightness = 0.2;
+    if (abilityName.toLowerCase().includes("disintegrate")) {
+      animation.hue = 128;
+    }
+  } else if (damage.includes("psychic")) {
+    animation.hue = 330;
+    animation.contrast = 1.0;
+    animation.brightness = 0.2;
+  } else if (damage.includes("piercing")) {
+    animation.sound = isRanged ? "arrow_1" : "slash_1";
+    // If this is a ranged bow use arrow_1 animationName
+    if (
+      (isRanged &&
+        (abilityName.toLowerCase().match(/\bbow\b/i) ||
+          abilityName.toLowerCase().match(/\bcrossbow\b/i))) ||
+      abilityName.toLowerCase().match(/\longbow\b/i) ||
+      abilityName.toLowerCase().match(/\bshortbow\b/i)
+    ) {
+      animation.animationName = "arrow_1";
+    } else if (isRanged) {
+      animation.animationName = "arrow_2";
+    } else if (!isRanged) {
+      animation.animationName = "pierce_1";
+    }
+  } else if (damage.includes("bludgeoning")) {
+    animation.sound = isRanged ? "bolt_1" : "bludgeon_1";
+    if (isRanged) {
+      animation.animationName = "bullet_1";
+    } else {
+      animation.animationName = "bludgeon_1";
+    }
+  } else if (damage.includes("slashing")) {
+    animation.sound = isRanged ? "bolt_1" : "slash_1";
+  }
+
+  // Alternatively, if the ability name includes something that indicates a metallic weapon, we use slash_2
+  // or a whip, use whip_1, or guns use gun_1
+  if (
+    (abilityName.toLowerCase().includes("sword") ||
+      abilityName.toLowerCase().includes("axe")) &&
+    damage.includes("slashing")
+  ) {
+    animation.animationName = "slash_1";
+    animation.sound = "slash_2";
+  } else if (abilityName.toLowerCase().includes("whip")) {
+    animation.animationName = "slash_1";
+    animation.sound = "whip_1";
+  } else if (abilityName.toLowerCase().includes("pistol")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("rifle")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("arquebus")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("musket")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("shotgun")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("revolver")) {
+    animation.animationName = "bullet_2";
+    animation.sound = "gun_1";
+  } else if (abilityName.toLowerCase().includes("grenade")) {
+    animation.animationName = "explosion_1";
+    animation.sound = "explosive_1";
+    animation.moveToDestination = false;
+    animation.stretchToDestination = false;
+    animation.destinationOnly = true;
+  } else if (abilityName.toLowerCase().includes("gunpowder")) {
+    animation.animationName = "explosion_1";
+    animation.sound = "explosive_1";
+    animation.moveToDestination = false;
+    animation.stretchToDestination = false;
+    animation.destinationOnly = true;
+  } else if (abilityName.toLowerCase().includes("dynamite")) {
+    animation.animationName = "explosion_1";
+    animation.sound = "explosive_1";
+    animation.moveToDestination = false;
+    animation.stretchToDestination = false;
+    animation.destinationOnly = true;
+  } else if (abilityName.toLowerCase().includes("bomb")) {
+    animation.animationName = "explosion_1";
+    animation.sound = "explosive_1";
+    animation.moveToDestination = false;
+    animation.stretchToDestination = false;
+    animation.destinationOnly = true;
+  }
+
+  if (!damage && !healing) {
+    if (abilityName.match(/\bshield\b/i)) {
+      animation.animationName = "shield_1";
+      animation.sound = "healing_1";
+    }
+  }
+
+  if (!animation.animationName) {
+    // If not a spell or ability, we can't determine an animation
+    return null;
+  }
+
+  return animation;
+}
+
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -4243,6 +4484,39 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     api.showNotification("You need to reload first!", "red", "Out of Ammo");
     return;
   }
+
+  // TODO addStrength is also true for certain other ranged weapons
+  const addStrength = false;
+
+  let damageMod = "";
+  // If we add strength to the damage, add the strength modifier
+  if (isMelee || addStrength) {
+    const isPositive = record.data?.str > 0;
+    const sign = isPositive ? "+" : "";
+    damageMod += `${sign}${record.data?.str}`;
+  }
+
+  let damageType = weapon.data?.damage.damageType;
+  // If this is a versatile weapon and we have a different type, set use that
+  if (weapon.data?.versatilePiercing) {
+    damageType = "piercing";
+  } else if (weapon.data?.versatileBludgeoning) {
+    damageType = "bludgeoning";
+  } else if (weapon.data?.versatileSlashing) {
+    damageType = "slashing";
+  }
+  const damage = `${weapon.data?.damage.dice}${weapon.data?.damage.die}${damageMod} ${damageType}`;
+
+  const animation = weapon?.data?.animation?.animationName
+    ? weapon?.data?.animation
+    : getAnimationFor({
+        abilityName: weapon?.name,
+        isRanged: !isMelee || isThrown,
+        damage,
+        healing: "",
+      });
+
+  // TODO persistent / splash damage
 
   let abilityScore = "str";
 
@@ -4422,15 +4696,30 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
     // Check for MAP reduction modifier
     const mapReductionMod = getEffectsAndModifiersForToken(
+      record,
       ["mapReduction"],
       undefined,
       weapon._id
     );
+
     if (mapReductionMod.length) {
       mapReductionMod.forEach((mod) => {
         const mapReduction = mod.value;
-        if (math.abs(mapReduction) > 0) {
-          mapPenalty -= Math.max(0, Math.abs(mapReduction));
+        if (
+          (Math.abs(mapReduction) > 0 &&
+            hasAgileTrait &&
+            mod.field === "agile") ||
+          (Math.abs(mapReduction) > 0 &&
+            !hasAgileTrait &&
+            mod.field !== "agile")
+        ) {
+          modifiers.push({
+            name: `${mod.name} (Reduce MAP)`,
+            value: Math.abs(mapReduction),
+            isPenalty: false,
+            valueType: "number",
+            active: mod.active,
+          });
         }
       });
     }
@@ -4447,15 +4736,51 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     api.setValues(valuesToSet);
   }
 
-  const metadata = {
-    rollName: "Attack",
-    tooltip: `Attack with ${weapon.name}`,
-    weaponName: weapon.name,
-    icon: isMelee && !isThrown ? "IconSword" : "IconBow",
-  };
+  // Get damage modifiers
+  const damageModifiers = getEffectsAndModifiersForToken(
+    record,
+    ["damageBonus", "damagePenalty"],
+    isMelee ? "melee" : "ranged",
+    weapon._id,
+    weapon
+  );
+  // Determine if we are making a damage roll that ignores resistances / immunities
+  const damageIgnoresResistances = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        mod.value.trim().toLowerCase().includes("resistance")
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  const damageIgnoresImmunities = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        (mod.value.trim().toLowerCase().includes("immunities") ||
+          mod.value.trim().toLowerCase().includes("immunity"))
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  const damageIgnoresWeaknesses = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        mod.value.trim().toLowerCase().includes("weakness")
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  // Filter these out of the modifiers array, we don't need them to be toggleable
+  const filteredDamageModifiers = damageModifiers.filter(
+    (m) => !m.value.toString().toLowerCase().includes("ignore")
+  );
 
   // Roll for each target or just once
   const targets = api.getTargets();
+  const ourToken = api.getToken();
   if (targets.length > 0) {
     for (const target of targets) {
       const targetName =
@@ -4471,6 +4796,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
         // Look up ignoreRangePenalty modifier
         const ignoreRangePenaltyMod = getEffectsAndModifiersForToken(
+          record,
           ["ignoreRangePenalty"],
           undefined,
           weapon._id
@@ -4518,23 +4844,80 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         }
       }
 
+      // Get modifiers for target
+      // Get effects and modifiers for the target
+      let autoCritical = false;
+      const targetEffects = getAttackModifiersForTarget(
+        target?.token,
+        targetDistance
+      );
+      targetEffects.forEach((r) => {
+        if (r.value === "critical") {
+          autoCritical = true;
+        } else {
+          modifiers.push(r);
+        }
+      });
+
+      // Get damage effects for the target
+      const targetDamageEffects = getDamageEffectsForTarget(
+        ourToken,
+        target?.token
+      );
+      const allDamageModifiers = [...filteredDamageModifiers];
+      targetDamageEffects.forEach((r) => {
+        allDamageModifiers.push(r);
+      });
+
       const targetAc = getArmorClassForToken(target?.token);
 
-      metadata.targetName = targetName;
-      metadata.targetId = target?.token?._id;
-      metadata.dc = targetAc;
+      const diceRoll = "1d20";
+      const metadata = {
+        attack: `${weapon.name}`,
+        rollName: "Attack",
+        tooltip: `Attack with ${weapon.name}`,
+        weaponName: weapon.name,
+        icon: isMelee && !isThrown ? "IconSword" : "IconBow",
+        targetName: targetName,
+        tokenId: ourToken?._id,
+        targetId: target?.token?._id,
+        autoCritical: autoCritical,
+        dc: targetAc,
+        damage: damage,
+        damageModifiers: allDamageModifiers,
+        damageIgnoresResistances: damageIgnoresResistances,
+        damageIgnoresImmunities: damageIgnoresImmunities,
+        damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+        isRanged: !isMelee || isThrown,
+        animation,
+      };
 
       // TODO set metadata needed in attack handler for target
-      // TODO check target effects/modifiers
       api.promptRoll(
         `Attack with ${weapon.name}`,
-        "1d20",
+        diceRoll,
         modifiers,
         metadata,
         "attack"
       );
     }
   } else {
+    const metadata = {
+      attack: `${weapon.name}`,
+      rollName: "Attack",
+      tooltip: `Attack with ${weapon.name}`,
+      weaponName: weapon.name,
+      icon: isMelee && !isThrown ? "IconSword" : "IconBow",
+      tokenId: ourToken?._id,
+      damage: damage,
+      damageModifiers: filteredDamageModifiers,
+      damageIgnoresResistances: damageIgnoresResistances,
+      damageIgnoresImmunities: damageIgnoresImmunities,
+      damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+      isRanged: !isMelee || isThrown,
+      animation,
+    };
+
     api.promptRoll(
       `Attack with ${weapon.name}`,
       "1d20",
