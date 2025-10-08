@@ -2042,7 +2042,6 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   }
 }
 
-// Then update AC calculation in character-main.html and getArmorClassForToken
 function onItemEquipped() {
   const itemDataPath = dataPath.replace(".data.carried", "");
   const item = api.getValue(itemDataPath);
@@ -2120,21 +2119,23 @@ function getBestEquippedArmor() {
   return bestEquippedArmor;
 }
 
-// TODO UPDATE FOR PF2E
 function getArmorClassForToken(token, isOffGuardDueToFlanking = false) {
-  const record = token?.record;
-  const acCalculationMods = getEffectsAndModifiersForToken(token, [
-    "armorClassCalculation",
-  ]);
-
   const acModifiers = getEffectsAndModifiersForToken(token, [
     "armorClassBonus",
     "armorClassPenalty",
   ]);
 
-  // TODO check armor and dex
+  let tokenData = token.data === undefined ? token.record.data : token.data;
 
-  let baseAc = 10;
+  // NPCs store in attributes.ac.value, PCs store in ac, fall back to 10 as the default
+  let ac = tokenData?.attributes?.ac?.value || tokenData?.ac || 10;
+
+  // Add active modifiers to AC
+  acModifiers.forEach((mod) => {
+    if (mod.valueType === "number") {
+      ac += mod.value;
+    }
+  });
 
   if (isOffGuardDueToFlanking) {
     // Add a circumstance penalty to the AC if there isn't one already
@@ -2143,17 +2144,17 @@ function getArmorClassForToken(token, isOffGuardDueToFlanking = false) {
         (mod) => mod.modifierType === "circumstance" && mod.isPenalty
       )
     ) {
-      baseAc -= 2;
+      ac -= 2;
     }
   }
 
   acModifiers.forEach((mod) => {
     if (mod.valueType === "number") {
-      baseAc += mod.value;
+      ac += mod.value;
     }
   });
 
-  return baseAc;
+  return ac;
 }
 
 // TODO UPDATE FOR PF2E
