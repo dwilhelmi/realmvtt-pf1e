@@ -2121,13 +2121,39 @@ function getBestEquippedArmor() {
 }
 
 // TODO UPDATE FOR PF2E
-function getArmorClassForToken(token) {
+function getArmorClassForToken(token, isOffGuardDueToFlanking = false) {
   const record = token?.record;
   const acCalculationMods = getEffectsAndModifiersForToken(token, [
     "armorClassCalculation",
   ]);
 
-  return 10;
+  const acModifiers = getEffectsAndModifiersForToken(token, [
+    "armorClassBonus",
+    "armorClassPenalty",
+  ]);
+
+  // TODO check armor and dex
+
+  let baseAc = 10;
+
+  if (isOffGuardDueToFlanking) {
+    // Add a circumstance penalty to the AC if there isn't one already
+    if (
+      !acModifiers.some(
+        (mod) => mod.modifierType === "circumstance" && mod.isPenalty
+      )
+    ) {
+      baseAc -= 2;
+    }
+  }
+
+  acModifiers.forEach((mod) => {
+    if (mod.valueType === "number") {
+      baseAc += mod.value;
+    }
+  });
+
+  return baseAc;
 }
 
 // TODO UPDATE FOR PF2E
@@ -4253,6 +4279,360 @@ function updateTotalBulk(record, setValue = true) {
   }
 }
 
+// Helper function to convert size string to grid squares (1 square = 5 feet)
+function getSizeInSquares(size) {
+  const sizeMap = {
+    tiny: 1,
+    small: 1,
+    medium: 1,
+    large: 2,
+    huge: 3,
+    gargantuan: 4,
+  };
+  return sizeMap[size?.toLowerCase()] || 1;
+}
+
+// Helper function to check if a token is incapacitated and cannot act
+function isTokenIncapacitated(token) {
+  if (!token) {
+    return true; // No token means can't act
+  }
+
+  // Check if token has any incapacitating effects
+  const effects = token.effects || [];
+  const incapacitatingConditions = [
+    "dead",
+    "dying",
+    "paralyzed",
+    "petrified",
+    "unconscious",
+    "stunned", // In PF2e, stunned can prevent actions
+    "restrained", // Prevents attack
+  ];
+
+  for (const effect of effects) {
+    const effectName = (effect.name || "").toLowerCase();
+    // Check if the effect name contains any of the incapacitating conditions
+    if (
+      incapacitatingConditions.some((condition) =>
+        effectName.includes(condition)
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Helper function to get the reach of a token
+function getTokenReach(token) {
+  if (!token) {
+    return 5; // Default reach
+  }
+
+  // Check if token has a record with a reach property (for NPCs)
+  // TODO CONFIRM THIS LOGIC
+  const baseReach = token.record?.data?.reach || 5;
+
+  // Check equipped melee weapons for reach trait
+  const inventory = token.record?.data?.inventory || [];
+  const equippedMeleeWeapons = inventory.filter((item) => {
+    const isMelee = (item.data?.range || 0) === 0;
+    const isEquipped = item.data?.carried === "equipped";
+    return isMelee && isEquipped;
+  });
+
+  // Check if any equipped melee weapon has the reach trait
+  let hasReachWeapon = false;
+  for (const weapon of equippedMeleeWeapons) {
+    const traits = weapon.data?.traits || [];
+    const hasReachTrait = traits.some((trait) =>
+      trait.toLowerCase().includes("reach")
+    );
+    if (hasReachTrait) {
+      hasReachWeapon = true;
+      break;
+    }
+  }
+
+  // Reach weapons add 5 feet to the base reach
+  return hasReachWeapon ? baseReach + 5 : baseReach;
+}
+
+// Determines if an enemy is Off-Guard due to Flanking
+// Per PF2e rules: A line drawn between the center of the flankers' spaces
+// must pass through opposite sides or opposite corners of the target's space
+function isOffGuardDueToFlanking({
+  sourceToken,
+  sourceReach = 5, // Default to 5ft reach
+  otherTokens,
+  target,
+}) {
+  const targetToken = target?.token;
+  const targetDistance = target?.distance || 0;
+
+  // Basic validation
+  if (!otherTokens || otherTokens.length === 0) {
+    return false;
+  }
+
+  if (!sourceToken || !targetToken) {
+    return false;
+  }
+
+  // Check if source is within reach of target
+  if (targetDistance > sourceReach) {
+    return false;
+  }
+
+  // Get source position
+  const sourcePos = sourceToken.position;
+  const targetPos = targetToken.position;
+
+  if (!sourcePos || !targetPos) {
+    return false;
+  }
+
+  // Get target size in grid squares
+  const targetSize =
+    targetToken?.data?.size || targetToken?.record?.data?.size || "medium";
+  const targetSizeSquares = getSizeInSquares(targetSize);
+
+  // Find allied tokens (same faction as source)
+  const sourceFaction = sourceToken.faction;
+  const allies = otherTokens.filter((token) => {
+    // Must be the same faction
+    if (token.faction !== sourceFaction) {
+      return false;
+    }
+
+    // Must not be the source token itself
+    if (token._id === sourceToken._id) {
+      return false;
+    }
+
+    // Must not be the target token
+    if (token._id === targetToken._id) {
+      return false;
+    }
+
+    // Must be able to act (not incapacitated)
+    if (isTokenIncapacitated(token)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (allies.length === 0) {
+    return false;
+  }
+
+  // Helper function to check if line segment intersects with a line segment
+  function lineSegmentsIntersect(p1, p2, p3, p4) {
+    const ccw = (A, B, C) =>
+      (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+    return (
+      ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4)
+    );
+  }
+
+  // Helper function to calculate distance from point to line segment
+  function pointToLineDistance(point, lineStart, lineEnd) {
+    const A = point.x - lineStart.x;
+    const B = point.y - lineStart.y;
+    const C = lineEnd.x - lineStart.x;
+    const D = lineEnd.y - lineStart.y;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) {
+      param = dot / lenSq;
+    }
+
+    let xx, yy;
+
+    if (param < 0) {
+      xx = lineStart.x;
+      yy = lineStart.y;
+    } else if (param > 1) {
+      xx = lineEnd.x;
+      yy = lineEnd.y;
+    } else {
+      xx = lineStart.x + param * C;
+      yy = lineStart.y + param * D;
+    }
+
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Helper function to check if line between two allies passes through opposite sides
+  function doesLineCrossOppositeSides(pos1, pos2) {
+    // Define the target's bounding box based on its size and grid system rules
+    // Odd-sized tokens (1x1, 3x3, 5x5): position IS the center square
+    // Even-sized tokens (2x2, 4x4, 6x6): position is offset inward from top-right corner
+
+    let left, right, top, bottom;
+
+    if (targetSizeSquares % 2 === 1) {
+      // Odd-sized token: position is the center
+      // For grid-based flanking, we need the edges of the squares, not just grid positions
+      // Each square extends 0.5 units in each direction from its grid position
+      const halfSize = Math.floor(targetSizeSquares / 2);
+      left = targetPos.x - halfSize - 0.5;
+      right = targetPos.x + halfSize + 0.5;
+      top = targetPos.y - halfSize - 0.5;
+      bottom = targetPos.y + halfSize + 0.5;
+    } else {
+      // Even-sized token: position is offset inward from the actual top-right corner
+      // For a 2x2 token, position is at the top-right corner
+      // For a 4x4 token, position is 1 square inward from top-right (at row 1, col 2 from right)
+      // The offset is (size/2 - 1) squares from the actual corner
+      const offset = targetSizeSquares / 2 - 1;
+
+      // Position is offset inward, so actual top-right corner is at:
+      // pos.x + offset (right), pos.y - offset (top)
+      right = targetPos.x + offset + 0.5;
+      left = right - targetSizeSquares;
+      top = targetPos.y - offset - 0.5;
+      bottom = top + targetSizeSquares;
+    }
+
+    // Define the four corners of the target's bounding box
+    const topLeft = { x: left, y: top };
+    const topRight = { x: right, y: top };
+    const bottomLeft = { x: left, y: bottom };
+    const bottomRight = { x: right, y: bottom };
+
+    // For opposite-side detection, check if the line passes through the target's bounding box
+    // when the flankers are on opposite sides of the target's center
+
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+
+    // Determine which sides of the center each flanker is on
+    const pos1OnLeft = pos1.x < centerX;
+    const pos1OnRight = pos1.x > centerX;
+    const pos1OnTop = pos1.y < centerY;
+    const pos1OnBottom = pos1.y > centerY;
+
+    const pos2OnLeft = pos2.x < centerX;
+    const pos2OnRight = pos2.x > centerX;
+    const pos2OnTop = pos2.y < centerY;
+    const pos2OnBottom = pos2.y > centerY;
+
+    // Check if flankers are on opposite sides (horizontally or vertically)
+    const oppositeHorizontally =
+      (pos1OnLeft && pos2OnRight) || (pos1OnRight && pos2OnLeft);
+    const oppositeVertically =
+      (pos1OnTop && pos2OnBottom) || (pos1OnBottom && pos2OnTop);
+
+    // For opposite-side flanking, check if the line segment intersects the bounding box
+    let passesHorizontally = false;
+    let passesVertically = false;
+
+    if (oppositeHorizontally || oppositeVertically) {
+      // Check if line intersects with any of the four edges of the bounding box
+      const intersectsTop = lineSegmentsIntersect(
+        pos1,
+        pos2,
+        topLeft,
+        topRight
+      );
+      const intersectsBottom = lineSegmentsIntersect(
+        pos1,
+        pos2,
+        bottomLeft,
+        bottomRight
+      );
+      const intersectsLeft = lineSegmentsIntersect(
+        pos1,
+        pos2,
+        topLeft,
+        bottomLeft
+      );
+      const intersectsRight = lineSegmentsIntersect(
+        pos1,
+        pos2,
+        topRight,
+        bottomRight
+      );
+
+      // Also check if either point is inside the bounding box
+      const pos1Inside =
+        pos1.x >= left && pos1.x <= right && pos1.y >= top && pos1.y <= bottom;
+      const pos2Inside =
+        pos2.x >= left && pos2.x <= right && pos2.y >= top && pos2.y <= bottom;
+
+      // For valid flanking, the line must pass through OPPOSITE sides, not adjacent sides
+      // Horizontal flanking: line must cross BOTH left AND right edges (or one flanker inside)
+      if (oppositeHorizontally) {
+        if ((intersectsLeft && intersectsRight) || pos1Inside || pos2Inside) {
+          passesHorizontally = true;
+        }
+      }
+
+      // Vertical flanking: line must cross BOTH top AND bottom edges (or one flanker inside)
+      if (oppositeVertically) {
+        if ((intersectsTop && intersectsBottom) || pos1Inside || pos2Inside) {
+          passesVertically = true;
+        }
+      }
+    }
+
+    // For diagonal flanking, check if the line passes close to opposite corners
+    // A line passes through opposite corners if it's close to both corners of a diagonal
+    const threshold = 0.1; // Tolerance for "close enough" to corner
+
+    const distToTopLeft = pointToLineDistance(topLeft, pos1, pos2);
+    const distToTopRight = pointToLineDistance(topRight, pos1, pos2);
+    const distToBottomLeft = pointToLineDistance(bottomLeft, pos1, pos2);
+    const distToBottomRight = pointToLineDistance(bottomRight, pos1, pos2);
+
+    // Check if line passes through top-left to bottom-right diagonal
+    const passesTopLeftToBottomRight =
+      distToTopLeft < threshold && distToBottomRight < threshold;
+
+    // Check if line passes through top-right to bottom-left diagonal
+    const passesTopRightToBottomLeft =
+      distToTopRight < threshold && distToBottomLeft < threshold;
+
+    const passesDiagonally =
+      passesTopLeftToBottomRight || passesTopRightToBottomLeft;
+
+    return passesHorizontally || passesVertically || passesDiagonally;
+  }
+
+  // Check each ally to see if they create a flanking position
+  for (const ally of allies) {
+    // Get ally's reach
+    const allyReach = getTokenReach(ally);
+
+    // Check if ally is within reach of the target
+    const allyDistance = api.getDistance(ally, targetToken);
+    if (allyDistance > allyReach) {
+      continue; // Ally is not within reach of target
+    }
+
+    const allyPos = ally.position;
+    if (!allyPos) {
+      continue;
+    }
+
+    // Check if the line between source and ally passes through opposite sides
+    if (doesLineCrossOppositeSides(sourcePos, allyPos)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Automatically determine an animation based on the attack or spell damage and ranged/melee
 function getAnimationFor({
   abilityName,
@@ -4476,6 +4856,15 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     trait.toLowerCase().includes("agile")
   );
   const range = weapon.data?.range || 0;
+  const hasReachTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("reach")
+  );
+
+  // TODO make sure this is right for NPC's reach later
+  let reach = record.data?.reach || 5;
+  if (hasReachTrait) {
+    reach += 5;
+  }
 
   const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
   const requiresReload = (weapon.data?.reload || 0) > 0 && !isMelee;
@@ -4485,43 +4874,23 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     return;
   }
 
-  // TODO addStrength is also true for certain other ranged weapons
-  const addStrength = false;
-
-  let damageMod = "";
-  // If we add strength to the damage, add the strength modifier
-  if (isMelee || addStrength) {
-    const isPositive = record.data?.str > 0;
-    const sign = isPositive ? "+" : "";
-    damageMod += `${sign}${record.data?.str}`;
-  }
-
-  let damageType = weapon.data?.damage.damageType;
-  // If this is a versatile weapon and we have a different type, set use that
-  if (weapon.data?.versatilePiercing) {
-    damageType = "piercing";
-  } else if (weapon.data?.versatileBludgeoning) {
-    damageType = "bludgeoning";
-  } else if (weapon.data?.versatileSlashing) {
-    damageType = "slashing";
-  }
-  const damage = `${weapon.data?.damage.dice}${weapon.data?.damage.die}${damageMod} ${damageType}`;
-
-  const animation = weapon?.data?.animation?.animationName
-    ? weapon?.data?.animation
-    : getAnimationFor({
-        abilityName: weapon?.name,
-        isRanged: !isMelee || isThrown,
-        damage,
-        healing: "",
-      });
-
-  // TODO persistent / splash damage
-
   let abilityScore = "str";
+  let addStrengthToDamage = true;
+  let isPropulsive = false;
+  // If the weapon has the propulsive trait we only do half strength
+  if (
+    weapon.data?.traits?.some((trait) =>
+      trait.toLowerCase().includes("propulsive")
+    )
+  ) {
+    isPropulsive = true;
+  }
 
   if (isThrown || !isMelee) {
+    // Thrown and ranged always use dex
     abilityScore = "dex";
+    // Only if thrown
+    addStrengthToDamage = isThrown;
     // Check if we have enough ammo
     const ammo = weapon.data?.ammo || 0;
     if (ammo <= 0) {
@@ -4638,6 +5007,53 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     abilityScore = "dex";
   }
 
+  let damageType = weapon.data?.damage.damageType;
+
+  // Get the damage details to send to attack handler
+  let damageMod = {
+    name: "Strength",
+    value: 0,
+    active: true,
+    type: damageType,
+  };
+  // If we add strength to the damage, add the strength modifier
+  if (isMelee || addStrengthToDamage || isPropulsive) {
+    const isPositive = record.data?.str > 0;
+    if (isPropulsive) {
+      // Add half strength for propulsive weapons if positive, else add whole strength
+      if (isPositive) {
+        damageMod.value = Math.floor(record.data?.str / 2);
+        damageMod.name = "Half Strength (Propulsive)";
+      } else {
+        damageMod.value = record.data?.str;
+        damageMod.name = "Strength (Propulsive)";
+      }
+    } else {
+      damageMod.value = record.data?.str;
+    }
+  }
+
+  // If this is a versatile weapon and we have a different type, set use that
+  if (weapon.data?.versatilePiercing) {
+    damageType = "piercing";
+  } else if (weapon.data?.versatileBludgeoning) {
+    damageType = "bludgeoning";
+  } else if (weapon.data?.versatileSlashing) {
+    damageType = "slashing";
+  }
+  const damage = `${weapon.data?.damage.dice}${weapon.data?.damage.die} ${damageType}`;
+
+  const animation = weapon?.data?.animation?.animationName
+    ? weapon?.data?.animation
+    : getAnimationFor({
+        abilityName: weapon?.name,
+        isRanged: !isMelee || isThrown,
+        damage,
+        healing: "",
+      });
+
+  // TODO persistent / splash damage
+
   // Check attackCalculation modifier to see if we use a differenet stat
   const attackCalculationMod = getEffectsAndModifiersForToken(
     ["attackCalculation"],
@@ -4737,13 +5153,26 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   // Get damage modifiers
-  const damageModifiers = getEffectsAndModifiersForToken(
+  let damageModifiers = getEffectsAndModifiersForToken(
     record,
     ["damageBonus", "damagePenalty"],
     isMelee ? "melee" : "ranged",
     weapon._id,
     weapon
   );
+
+  damageModifiers = damageModifiers.map((mod) => {
+    return {
+      ...mod,
+      type: damageType,
+    };
+  });
+
+  // Push the damage mod, if there is one, to the top
+  if (damageMod.value !== 0) {
+    damageModifiers.unshift(damageMod);
+  }
+
   // Determine if we are making a damage roll that ignores resistances / immunities
   const damageIgnoresResistances = damageModifiers
     .filter(
@@ -4781,6 +5210,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   // Roll for each target or just once
   const targets = api.getTargets();
   const ourToken = api.getToken();
+  const otherTokens = api.getOtherTokens();
   if (targets.length > 0) {
     for (const target of targets) {
       const targetName =
@@ -4866,10 +5296,28 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       );
       const allDamageModifiers = [...filteredDamageModifiers];
       targetDamageEffects.forEach((r) => {
-        allDamageModifiers.push(r);
+        allDamageModifiers.push({
+          ...r,
+          type: damageType,
+        });
       });
 
-      const targetAc = getArmorClassForToken(target?.token);
+      // Check if target is off guard due to flanking (only for melee attacks)
+      // Per PF2e rules, flanking only applies to melee attacks
+      const targetIsOffGuardDueToFlanking =
+        isMelee &&
+        !isThrown &&
+        isOffGuardDueToFlanking({
+          sourceToken: ourToken,
+          sourceReach: reach,
+          otherTokens: otherTokens,
+          target: target,
+        });
+
+      let targetAc = getArmorClassForToken(
+        target?.token,
+        targetIsOffGuardDueToFlanking
+      );
 
       const diceRoll = "1d20";
       const metadata = {
@@ -4888,9 +5336,15 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         damageIgnoresResistances: damageIgnoresResistances,
         damageIgnoresImmunities: damageIgnoresImmunities,
         damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+        targetIsOffGuardDueToFlanking: targetIsOffGuardDueToFlanking,
         isRanged: !isMelee || isThrown,
         animation,
       };
+
+      if (targetIsOffGuardDueToFlanking) {
+        // Float text to show
+        api.floatText(target?.token, "Off-Guard (Flanked)", "#ff7700");
+      }
 
       // TODO set metadata needed in attack handler for target
       api.promptRoll(
