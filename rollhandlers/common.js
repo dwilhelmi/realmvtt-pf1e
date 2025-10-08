@@ -2119,7 +2119,7 @@ function getBestEquippedArmor() {
   return bestEquippedArmor;
 }
 
-function getArmorClassForToken(token, isOffGuardDueToFlanking = false) {
+function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   const acModifiers = getEffectsAndModifiersForToken(token, [
     "armorClassBonus",
     "armorClassPenalty",
@@ -2137,7 +2137,7 @@ function getArmorClassForToken(token, isOffGuardDueToFlanking = false) {
     }
   });
 
-  if (isOffGuardDueToFlanking) {
+  if (targetIsOffGuardDueToFlanking) {
     // Add a circumstance penalty to the AC if there isn't one already
     if (
       !acModifiers.some(
@@ -4361,6 +4361,20 @@ function getTokenReach(token) {
   return hasReachWeapon ? baseReach + 5 : baseReach;
 }
 
+function isOffGuard(token) {
+  const effects = token?.effects || [];
+  return effects.some(
+    (effect) =>
+      effect.name.toLowerCase().includes("off-guard") ||
+      effect.name.toLowerCase().includes("off guard") ||
+      effect.name.toLowerCase().includes("offguard")
+  );
+}
+
+function getOffGuardTooltip() {
+  return "You're distracted or otherwise unable to focus your full attention on defense. You take a –2 circumstance penalty to AC. Some effects give you the off-guard condition only to certain creatures or against certain attacks. Others—especially conditions—can make you off-guard against everything. If a rule doesn't specify that the condition applies only to certain circumstances, it applies to all of them, such as “The target is off-guard.”";
+}
+
 // Determines if an enemy is Off-Guard due to Flanking
 // Per PF2e rules: A line drawn between the center of the flankers' spaces
 // must pass through opposite sides or opposite corners of the target's space
@@ -5046,12 +5060,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   const animation = weapon?.data?.animation?.animationName
     ? weapon?.data?.animation
-    : getAnimationFor({
-        abilityName: weapon?.name,
-        isRanged: !isMelee || isThrown,
-        damage,
-        healing: "",
-      });
+    : undefined;
 
   // TODO persistent / splash damage
 
@@ -5303,17 +5312,19 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         });
       });
 
-      // Check if target is off guard due to flanking (only for melee attacks)
+      // Check if target is off guard due to effects or flanking (only for melee attacks)
       // Per PF2e rules, flanking only applies to melee attacks
-      const targetIsOffGuardDueToFlanking =
-        isMelee &&
-        !isThrown &&
-        isOffGuardDueToFlanking({
+      let targetIsOffGuard = isOffGuard(target?.token);
+      let targetIsOffGuardDueToFlanking = false;
+      if (isMelee && !isThrown && !targetIsOffGuard) {
+        targetIsOffGuardDueToFlanking = isOffGuardDueToFlanking({
           sourceToken: ourToken,
           sourceReach: reach,
           otherTokens: otherTokens,
           target: target,
         });
+        targetIsOffGuard = targetIsOffGuardDueToFlanking;
+      }
 
       let targetAc = getArmorClassForToken(
         target?.token,
@@ -5337,7 +5348,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         damageIgnoresResistances: damageIgnoresResistances,
         damageIgnoresImmunities: damageIgnoresImmunities,
         damageIgnoresWeaknesses: damageIgnoresWeaknesses,
-        targetIsOffGuardDueToFlanking: targetIsOffGuardDueToFlanking,
+        isOffGuard: targetIsOffGuard,
         isRanged: !isMelee || isThrown,
         animation,
       };
