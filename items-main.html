@@ -84,6 +84,19 @@
       valuesToSet[`${fieldsPath}.armorProperties.hidden`] = true;
     }
 
+    // Show/hide shield properties based on item type
+    if (
+      item.data?.type === "shield" &&
+      item.fields?.shieldProperties?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.shieldProperties.hidden`] = false;
+    } else if (
+      item.data?.type !== "shield" &&
+      item.fields?.shieldProperties?.hidden !== true
+    ) {
+      valuesToSet[`${fieldsPath}.shieldProperties.hidden`] = true;
+    }
+
     // Show/hide other properties for weapons and armor
     if (
       (item.data?.type === "weapon" || item.data?.type === "armor") &&
@@ -696,6 +709,47 @@
         label="Strength"
         placeholder="0"
         showsign="true"
+      ></numberfield>
+    </div>
+  </box>
+
+  <box field="shieldProperties" hidden="true" hidewhenidentified="false">
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100%"
+        field="acBonus"
+        label="AC Bonus"
+        placeholder="0"
+        showsign="true"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="speedPenalty"
+        label="Speed Penalty"
+        placeholder="—"
+      ></numberfield>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <numberfield
+        width="100%"
+        field="hardness"
+        label="Hardness"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="hp.value"
+        label="HP (Current)"
+        placeholder="0"
+        minvalue="0"
+      ></numberfield>
+      <numberfield
+        width="100%"
+        field="hp.max"
+        label="HP (Max)"
+        placeholder="0"
+        minvalue="0"
       ></numberfield>
     </div>
   </box>

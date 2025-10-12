@@ -252,6 +252,26 @@
   </div>
 </box>
 
+<box field="shieldProperties" hidden="true" hidewhenidentified="false">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+    <!-- Shield Runes -->
+    <dropdown
+      width="100%"
+      field="runes.reinforcing"
+      label="Reinforcing Rune"
+      placeholder="Select Reinforcing Rune..."
+      options='[
+        {"label": "Minor Reinforcing Rune", "value": "1"},
+        {"label": "Lesser Reinforcing Rune", "value": "2"},
+        {"label": "Moderate Reinforcing Rune", "value": "3"},
+        {"label": "Greater Reinforcing Rune", "value": "4"},
+        {"label": "Major Reinforcing Rune", "value": "5"},
+        {"label": "Supreme Reinforcing Rune", "value": "6"}
+      ]'
+    ></dropdown>
+  </div>
+</box>
+
 <box field="otherProperties" hidden="true" hidewhenidentified="false">
   <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
     <numberfield

@@ -1603,20 +1603,10 @@ function getEffectsAndModifiersForToken(
     });
   });
 
-  // TODO - fix for pf2e Special case for armor, if this is a stealth check
-  if (field === "stealth") {
-    const bestEquippedArmor = target?.data?.armor || undefined;
-    if (bestEquippedArmor?.stealthPenalty) {
-      results.push({
-        name: "Disadvantage due to Armor",
-        value: "disadvantage",
-        active: true,
-        modifierType: "skillPenalty",
-        isPenalty: true,
-        field: "stealth",
-        isEffect: false,
-      });
-    }
+  // Special case for armor check penalty
+  const checkPenalty = getCheckPenaltyForArmor(target);
+  if (checkPenalty) {
+    results.push(...checkPenalty);
   }
 
   if (allTypes && allTypes.length > 0) {
@@ -2083,40 +2073,107 @@ function onItemEquipped() {
   }
 }
 
-// TODO UPDATE FOR PF2E
 // Gets the best equipped armor for the context of the current PC
 function getBestEquippedArmor() {
   // Get the current ac due to armor
   let bestEquippedArmor = {
-    ac: 0,
-    maxDex: 0,
-    shieldAc: 0,
-    stealthPenalty: false,
+    armor: {
+      acBonus: 0,
+      dexCap: 10, // Unarmored, just set cap to 10
+      strength: null,
+      checkPenalty: null,
+      speedPenalty: null,
+      armorCategory: "unarmored",
+      group: "",
+    },
+    shield: {
+      acBonus: 0,
+      hardness: 0,
+      hp: {
+        value: 0,
+        max: 0,
+      },
+      speedPenalty: null,
+    },
   };
 
   const items = record.data?.inventory || [];
   items.forEach((item) => {
     if (item.data?.carried === "equipped" && item.data?.type === "armor") {
-      const ac = item?.data?.armorClass || 0;
-      const maxDex = item?.data?.addDex ? item?.data?.maxDex || 99 : 0;
-      if (ac > bestEquippedArmor.ac) {
-        bestEquippedArmor.ac = ac;
-        bestEquippedArmor.maxDex = maxDex;
-        bestEquippedArmor.stealthPenalty =
-          item?.data?.stealth === "disadvantage";
+      const ac = item?.data?.acBonus || 0;
+      const dexCap = item?.data?.dexCap ? item?.data?.dexCap : 0;
+      if (ac > bestEquippedArmor.armor.acBonus) {
+        bestEquippedArmor.armor.acBonus = ac;
+        bestEquippedArmor.armor.dexCap = dexCap;
+        bestEquippedArmor.armor.checkPenalty = item?.data?.checkPenalty;
+        bestEquippedArmor.armor.speedPenalty = item?.data?.speedPenalty;
+        bestEquippedArmor.armor.strength = item?.data?.strength;
+        bestEquippedArmor.armor.armorCategory = (
+          item?.data?.itemCategory || "unarmored"
+        ).toLowerCase();
+        bestEquippedArmor.armor.group = (item?.data?.group || "").toLowerCase();
       }
     } else if (
       item.data?.carried === "equipped" &&
       item.data?.type === "shield"
     ) {
-      const ac = item?.data?.armorClass || 0;
-      if (ac > bestEquippedArmor.shieldAc) {
-        bestEquippedArmor.shieldAc = ac;
+      const ac = item?.data?.acBonus || 0;
+      const hardness = item?.data?.hardness || 0;
+      const hpValue = item?.data?.hp?.value || 0;
+      if (
+        ac > bestEquippedArmor.shield.acBonus ||
+        (ac === bestEquippedArmor.shield.acBonus &&
+          hardness > bestEquippedArmor.shield.hardness) ||
+        (ac === bestEquippedArmor.shield.acBonus &&
+          hardness === bestEquippedArmor.shield.hardness &&
+          hpValue > bestEquippedArmor.shield.hp.value)
+      ) {
+        bestEquippedArmor.shield.acBonus = ac;
+        bestEquippedArmor.shield.hardness = item?.data?.hardness;
+        bestEquippedArmor.shield.hp.value = item?.data?.hp?.value;
+        bestEquippedArmor.shield.hp.max = item?.data?.hp?.max;
+        bestEquippedArmor.shield.speedPenalty = item?.data?.speedPenalty;
       }
     }
   });
 
   return bestEquippedArmor;
+}
+
+// Returns the penalty if necessary for the armor worn
+function getCheckPenaltyForArmor(record) {
+  const bestArmor = getBestEquippedArmor(record);
+  const checkPenalty =
+    bestArmor?.armor?.checkPenalty !== undefined
+      ? bestArmor.armor.checkPenalty
+      : 0;
+  const strength = record.data?.str != undefined ? record.data?.str : 0;
+  const armorStrengthRequired = bestArmor?.armor?.strength;
+  if (armorStrengthRequired !== undefined && strength < armorStrengthRequired) {
+    return [
+      {
+        value: -1 * Math.abs(checkPenalty),
+        isPenalty: true,
+        valueType: "number",
+        name: "Check Penalty",
+        type: "item",
+        modifierType: "skillPenalty",
+        field: "str",
+        active: true,
+      },
+      {
+        value: -1 * Math.abs(checkPenalty),
+        isPenalty: true,
+        valueType: "number",
+        name: "Check Penalty",
+        type: "item",
+        modifierType: "skillPenalty",
+        field: "dex",
+        active: true,
+      },
+    ];
+  }
+  return null;
 }
 
 function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
@@ -2130,9 +2187,9 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   // NPCs store in attributes.ac.value, PCs store in ac, fall back to 10 as the default
   let ac = tokenData?.attributes?.ac?.value || tokenData?.ac || 10;
 
-  // Add active modifiers to AC
+  // Add active modifiers to AC (only if it's from an EFFECT, items are already included)
   acModifiers.forEach((mod) => {
-    if (mod.valueType === "number") {
+    if (mod.valueType === "number" && mod.isEffect) {
       ac += mod.value;
     }
   });
@@ -2155,71 +2212,6 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   });
 
   return ac;
-}
-
-// TODO UPDATE FOR PF2E
-// Used when calculating new AC for equipment changes
-function getArmorClass(bestEquippedArmor) {
-  // If we are shapeshifted, we use whatever our AC is currently set to
-  if (record?.data?.wildShapeNpc || record?.data?.polymorphNpc) {
-    return parseInt(record?.data?.ac || "0", 10);
-  }
-
-  const acCalculationMods = getEffectsAndModifiersForToken(record, [
-    "armorClassCalculation",
-  ]);
-
-  // If this is a character, we use their dexterity modifier
-  const dexMod = parseInt(record?.data?.dexterityMod || "0", 10);
-  let armorClass = 10 + dexMod;
-  // Else, we use the armor class value
-  if (record?.recordType === "npcs") {
-    armorClass = parseInt(record?.data?.ac || "0", 10);
-  } else if (bestEquippedArmor && bestEquippedArmor.ac > 0) {
-    // PC's base class is the best equipped armor if provided
-    // Add the dex bonus to the ac, using max dex as the max.
-    // If maxDex is not set, we assume it is 0
-    armorClass =
-      bestEquippedArmor.ac +
-      (bestEquippedArmor.maxDex
-        ? Math.min(dexMod, bestEquippedArmor.maxDex)
-        : 0);
-  }
-
-  let calcBonus = 0;
-  // Only add acCalculationMods if we are unarmored
-  if (bestEquippedArmor?.ac === 0 || !bestEquippedArmor) {
-    acCalculationMods.forEach((mod) => {
-      // We only benefit from the highest AC calculation modifier
-      if (mod.field && mod.field !== "dexterity") {
-        const acBonus = parseInt(record?.data?.[`${mod.field}Mod`] || "0", 10);
-        if (acBonus > calcBonus) {
-          calcBonus = acBonus;
-        }
-      }
-    });
-  }
-  // Get general AC bonuses
-  const acBonuses = getEffectsAndModifiersForToken(record, [
-    "armorClassBonus",
-    "armorClassPenalty",
-  ]);
-  acBonuses.forEach((mod) => {
-    if (mod.value) {
-      const acBonus = parseInt(mod.value || "0", 10);
-      if (!isNaN(acBonus)) {
-        calcBonus += acBonus;
-      }
-    }
-  });
-  // Add shield if it is equipped
-  if (bestEquippedArmor?.shieldAc) {
-    armorClass += bestEquippedArmor.shieldAc;
-  }
-  // Add the bonuses
-  armorClass += calcBonus;
-
-  return armorClass;
 }
 
 function updateAttribute({
@@ -2264,37 +2256,65 @@ function updateAttribute({
   }
 
   // You can carry an amount of Bulk equal to 5 plus your Strength modifier without penalty
-  let strength = parseInt(record.data?.str || 0, 10);
+  let strength = parseInt(
+    record.data?.str !== undefined ? record.data?.str : 0,
+    10
+  );
   if (attribute === "str") {
     strength = value;
   }
   valuesToSet[`data.bulk`] = 5 + strength;
 
-  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
-  // TODO GET BEST ARMOR
-  // const bestArmor = getBestEquippedArmor(record);
-  // PLACEHOLDER
-  // TODO ADD ARMOR PROFICIENCIES AND CHECK IF PROFICIENCT IN CURRENT ARMOR (or UNARMORED if no armor)
-  // THEN ADD PROFICIENCY BONUS TO AC
-  const bestArmor = {
-    ac: 10,
-    addDex: true,
-    shield: 0,
-    shieldName: "",
-    armorType: "",
-  };
-  let ac = Math.max(10, bestArmor.ac);
-  let dexterity = record.data?.dex || 0;
+  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC and adds proficency bonus if proficient
+  let dexValue = parseInt(
+    record.data?.dex !== undefined ? record.data?.dex : 0,
+    10
+  );
   if (attribute === "dex") {
-    dexterity = value;
+    dexValue = value;
+  }
+  const bestArmor = getBestEquippedArmor(record);
+  let ac = 10 + Math.max(0, bestArmor.armor.acBonus);
+  let additionalAcAttribute = "dex";
+  // Check for armorClassCalculation mods
+  const acCalculationMods = getEffectsAndModifiersForToken(record, [
+    "armorClassCalculation",
+  ]);
+  acCalculationMods.forEach((mod) => {
+    if (mod.field !== undefined && mod.field !== "dex") {
+      additionalAcAttribute = mod.field;
+    }
+  });
+  if (additionalAcAttribute !== "dex") {
+    let additionalAcValue = parseInt(
+      record.data?.[additionalAcAttribute] !== undefined
+        ? record.data?.[additionalAcAttribute]
+        : 0,
+      10
+    );
+    if (attribute === additionalAcAttribute) {
+      additionalAcValue = value;
+    }
+    ac += additionalAcValue;
   }
   // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
-  if (bestArmor.addDex) {
-    ac += dexterity;
+  if (bestArmor.armor.dexCap !== undefined && bestArmor.armor.dexCap > 0) {
+    ac += Math.min(dexValue, bestArmor.armor.dexCap);
   }
-  if (bestArmor.shield) {
-    ac += bestArmor.shield;
+  // AC bonus is only if shield is equipped AND raised
+  if (bestArmor.shield && record.data?.shieldRaised === "true") {
+    ac += bestArmor.shield.acBonus;
   }
+  // Get proficiency bonus for this armor type
+  const armorProf = parseInt(
+    record?.data?.defenses?.[bestArmor.armor.armorCategory] || 0,
+    10
+  );
+  // Prof bonus is prof * 2 + level, if we're proficient, else we don't add level
+  if (armorProf > 0) {
+    ac += armorProf * 2 + (record?.data?.level || 0);
+  }
+
   const acBonus = getEffectsAndModifiersForToken(
     record,
     ["armorClassBonus", "armorClassPenalty"],
@@ -2302,7 +2322,8 @@ function updateAttribute({
   );
   const armorModsSet = new Set();
   acBonus.forEach((modifier) => {
-    if (!armorModsSet.has(JSON.stringify(modifier))) {
+    // Only if it was from a feature or item, not effect
+    if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
       ac += modifier.value;
       armorModsSet.add(JSON.stringify(modifier));
     }
@@ -2315,13 +2336,14 @@ function updateAttribute({
       bestArmor.armorType
     );
     armorTypeBonus.forEach((modifier) => {
-      if (!armorModsSet.has(JSON.stringify(modifier))) {
+      // Only if it was from a feature or item, not effect
+      if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
         ac += modifier.value;
         armorModsSet.add(JSON.stringify(modifier));
       }
     });
   }
-  // Also get the shield bonus
+  // Also get the shield bonuses
   if (bestArmor.shieldName) {
     const shieldBonus = getEffectsAndModifiersForToken(
       record,
@@ -2329,13 +2351,17 @@ function updateAttribute({
       "Shield"
     );
     shieldBonus.forEach((modifier) => {
-      if (!armorModsSet.has(JSON.stringify(modifier))) {
+      // Only if it was from a feature or item, not effect
+      if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
         ac += modifier.value;
         armorModsSet.add(JSON.stringify(modifier));
       }
     });
   }
+
   valuesToSet[`data.ac`] = ac;
+
+  // TODO set shieldHP/hardness/bt
 
   // If moreValuesToSet is provided, add it to the valuesToSet else call API directly
   if (moreValuesToSet) {
@@ -3895,6 +3921,8 @@ function rollSave(record, type, dc = null, isSpell = false) {
     saveType
   );
 
+  const additionalModsSet = new Set();
+
   // If this is a spell, get the spell save modifiers
   if (isSpell) {
     const spellSaveMods = getEffectsAndModifiersForToken(
@@ -3903,7 +3931,11 @@ function rollSave(record, type, dc = null, isSpell = false) {
       "spell"
     );
     spellSaveMods.forEach((mod) => {
-      modifiers.push(mod);
+      const modString = JSON.stringify(mod);
+      if (!additionalModsSet.has(modString)) {
+        additionalModsSet.add(modString);
+        modifiers.push(mod);
+      }
     });
   }
 
@@ -3924,22 +3956,30 @@ function rollSave(record, type, dc = null, isSpell = false) {
 
   // Add save-specific modifiers
   additionalMods.forEach((mod) => {
-    modifiers.push({
-      name: mod.name || "Save Modifier",
-      type: mod.type || "",
-      value: mod.value,
-      active: true,
-    });
+    const modString = JSON.stringify(mod);
+    if (!additionalModsSet.has(modString)) {
+      additionalModsSet.add(modString);
+      modifiers.push({
+        name: mod.name || "Save Modifier",
+        type: mod.type || "",
+        value: mod.value,
+        active: true,
+      });
+    }
   });
 
-  // Add attribute-based all bonuses/penalties
+  // Add attribute-based all bonuses/penalties unless already seen
   allEffectMods.forEach((mod) => {
-    modifiers.push({
-      name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
-      type: mod.type || "",
-      value: mod.value,
-      active: true,
-    });
+    const modString = JSON.stringify(mod);
+    if (!additionalModsSet.has(modString)) {
+      additionalModsSet.add(modString);
+      modifiers.push({
+        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
+        type: mod.type || "",
+        value: mod.value,
+        active: true,
+      });
+    }
   });
 
   // Prepare metadata for the roll handler
@@ -4072,6 +4112,7 @@ function rollSkill(
   }
 
   // Get skill-specific modifiers
+  const additionalModsSet = new Set();
   let additionalMods;
   if (isPerception) {
     // Perception gets special treatment with perception-specific bonuses
@@ -4120,22 +4161,30 @@ function rollSkill(
 
   // Add skill-specific modifiers
   additionalMods.forEach((mod) => {
-    modifiers.push({
-      name: mod.name || "Skill Modifier",
-      type: mod.type || "",
-      value: mod.value,
-      active: true,
-    });
+    const modString = JSON.stringify(mod);
+    if (!additionalModsSet.has(modString)) {
+      additionalModsSet.add(modString);
+      modifiers.push({
+        name: mod.name || "Skill Modifier",
+        type: mod.type || "",
+        value: mod.value,
+        active: true,
+      });
+    }
   });
 
   // Add attribute-based all bonuses/penalties
   allEffectMods.forEach((mod) => {
-    modifiers.push({
-      name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
-      type: mod.type || "",
-      value: mod.value,
-      active: true,
-    });
+    const modString = JSON.stringify(mod);
+    if (!additionalModsSet.has(modString)) {
+      additionalModsSet.add(modString);
+      modifiers.push({
+        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
+        type: mod.type || "",
+        value: mod.value,
+        active: true,
+      });
+    }
   });
 
   // Prepare metadata for the roll handler

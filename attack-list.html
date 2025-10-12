@@ -118,7 +118,7 @@
     // Get all ammo items in the inventory
     const inventory = record.data?.inventory || [];
     const ammoOptions = inventory.filter(
-      (item) => item.data?.itemCategory.toLowerCase() === "ammo"
+      (item) => item.data?.itemCategory?.toLowerCase() === "ammo"
     );
 
     return [
