@@ -2406,7 +2406,27 @@ function updateAttribute({
     valuesToSet[`data.speed`] = speedDisplay;
   }
 
-  // TODO set shieldHP/hardness/bt
+  if (bestArmor?.shield?.hp?.value !== undefined) {
+    valuesToSet[`data.shieldHp`] = bestArmor.shield.hp.value;
+    valuesToSet[`data.shieldMaxHp`] = bestArmor.shield.hp.max;
+    valuesToSet[`data.shieldBt`] = Math.floor(
+      (bestArmor.shield.hp.max || 0) / 2
+    );
+  } else {
+    valuesToSet[`data.shieldHp`] = null;
+    valuesToSet[`data.shieldMaxHp`] = null;
+    valuesToSet[`data.shieldBt`] = null;
+  }
+  if (bestArmor?.shield?.hardness !== undefined) {
+    valuesToSet[`data.shieldHardness`] = bestArmor.shield.hardness;
+  } else {
+    valuesToSet[`data.shieldHardness`] = null;
+  }
+  if (bestArmor?.shield?.acBonus !== undefined) {
+    valuesToSet[`data.shieldAC`] = bestArmor.shield.acBonus;
+  } else {
+    valuesToSet[`data.shieldAC`] = null;
+  }
 
   // If moreValuesToSet is provided, add it to the valuesToSet else call API directly
   if (moreValuesToSet) {
