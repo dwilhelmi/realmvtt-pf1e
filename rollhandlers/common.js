@@ -2361,6 +2361,49 @@ function updateAttribute({
 
   valuesToSet[`data.ac`] = ac;
 
+  // Check for speed penalty
+  let totalSpeedPenalty = 0;
+  const armorStrength =
+    bestArmor?.armor?.strength !== undefined ? bestArmor.armor.strength : 0;
+  if (
+    bestArmor?.armor?.speedPenalty !== undefined &&
+    armorStrength !== undefined
+  ) {
+    totalSpeedPenalty = bestArmor.armor.speedPenalty;
+    // If we meet the strength requirement, reduce speed penalty by 5
+    if (strength >= armorStrength) {
+      totalSpeedPenalty -= 5;
+    }
+  }
+  // If the shield has a speed penalty always add it
+  if (bestArmor?.shield?.speedPenalty !== undefined) {
+    totalSpeedPenalty += bestArmor.shield.speedPenalty;
+  }
+
+  const speed = record.data?.speed || "";
+  valuesToSet[`data.speedPenalty`] = totalSpeedPenalty;
+
+  // Update speed display to show penalty in parentheses
+  let speedDisplay = speed;
+  // Remove any existing parenthetical note first
+  speedDisplay = speedDisplay.replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+  // Add penalty note if there is a penalty
+  if (totalSpeedPenalty > 0 && speedDisplay) {
+    // Extract the numeric value from the base speed
+    const speedMatch = speedDisplay.match(/(\d+)/);
+    if (speedMatch) {
+      const baseSpeed = parseInt(speedMatch[1]);
+      const penalizedSpeed = Math.max(0, baseSpeed - totalSpeedPenalty);
+      // Extract the unit (e.g., "feet")
+      const unitMatch = speedDisplay.match(/\d+\s+(\w+)/);
+      const unit = unitMatch ? unitMatch[1] : "feet";
+      speedDisplay = `${speedDisplay} (${penalizedSpeed} ${unit} due to armor)`;
+    }
+  }
+
+  valuesToSet[`data.speed`] = speedDisplay;
+
   // TODO set shieldHP/hardness/bt
 
   // If moreValuesToSet is provided, add it to the valuesToSet else call API directly
