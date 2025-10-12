@@ -2402,7 +2402,9 @@ function updateAttribute({
     }
   }
 
-  valuesToSet[`data.speed`] = speedDisplay;
+  if (speedDisplay !== speed) {
+    valuesToSet[`data.speed`] = speedDisplay;
+  }
 
   // TODO set shieldHP/hardness/bt
 
