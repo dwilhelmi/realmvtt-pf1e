@@ -725,6 +725,71 @@
 
     return boosts;
   }
+
+  function onChangeShieldHp(value) {
+    // If shield HP is <= BT, set broken true
+    const shieldHp = value || 0;
+    const brokenThreshold = record.data?.shieldBt || 0;
+    const broken = shieldHp <= brokenThreshold;
+
+    // Get the shield index and update the HP on the item as well
+    const valuesToSet = {};
+    const bestArmor = getBestEquippedArmor(record);
+    if (bestArmor?.shield?.shieldIndex) {
+      valuesToSet[
+        `data.inventory.${bestArmor.shield.shieldIndex}.data.hp.value`
+      ] = shieldHp;
+    }
+
+    if (broken !== record.data?.shieldBroken) {
+      valuesToSet["data.shieldBroken"] = broken;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function onChangeShieldMaxHp(value) {
+    const shieldMaxHp = value || 0;
+    const shieldHp = record.data?.shieldHp || 0;
+    const valuesToSet = {};
+    const bestArmor = getBestEquippedArmor(record);
+
+    const brokenThreshold = Math.floor(shieldMaxHp / 2);
+    if (brokenThreshold !== record.data?.shieldBt) {
+      valuesToSet["data.shieldBt"] = brokenThreshold;
+    }
+
+    const broken = shieldHp <= brokenThreshold;
+    if (broken !== record.data?.shieldBroken) {
+      valuesToSet["data.shieldBroken"] = broken;
+    }
+
+    if (bestArmor?.shield?.shieldIndex) {
+      valuesToSet[
+        `data.inventory.${bestArmor.shield.shieldIndex}.data.hp.max`
+      ] = shieldMaxHp;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function onChangeShieldValue(value, field) {
+    const valuesToSet = {};
+    const bestArmor = getBestEquippedArmor(record);
+    if (bestArmor?.shield?.shieldIndex) {
+      valuesToSet[
+        `data.inventory.${bestArmor.shield.shieldIndex}.data.${field}`
+      ] = value;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
 </script>
 
 <div style="display: flex; flex-direction: row">
@@ -939,7 +1004,9 @@
         icon="IconShield"
         size="xs"
         field="shieldHp"
+        minvalue="0"
         label="Shield HP"
+        onchange="onChangeShieldHp(value)"
       ></numberfield>
 
       <numberfield
@@ -948,6 +1015,7 @@
         size="xs"
         field="shieldMaxHp"
         label="Max Sh. HP"
+        onchange="onChangeShieldMaxHp(value)"
       ></numberfield>
 
       <iconbutton
@@ -964,6 +1032,7 @@
         hidecontrols="true"
         size="xs"
         field="shieldAC"
+        onchange="onChangeShieldValue(value, 'acBonus')"
         label="AC"
       ></numberfield>
       <numberfield
@@ -972,6 +1041,7 @@
         hidecontrols="true"
         size="xs"
         field="shieldHardness"
+        onchange="onChangeShieldValue(value, 'hardness')"
         label="H"
       ></numberfield>
       <numberfield

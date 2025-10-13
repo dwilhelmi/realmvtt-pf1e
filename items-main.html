@@ -224,6 +224,41 @@
       api.setValues(valuesToSet);
     }
   }
+
+  function onChangeShieldValue(value, field) {
+    // If this is a nested item in an inventory, we adjust the parent's shield values
+    if (dataPath.includes("inventory")) {
+      const nearestParentDataPath = getNearestParentDataPath(dataPath);
+      const item = api.getValue(nearestParentDataPath);
+      const bestArmor = getBestEquippedArmor(record);
+
+      const valuesToSet = {};
+      let hp = item?.data?.hp?.value;
+      let maxHp = item?.data?.hp?.max;
+      let brokenThreshold = Math.floor(maxHp / 2);
+
+      if (field === "hp.value") {
+        valuesToSet["data.shieldHp"] = value;
+        hp = value;
+      } else if (field === "hp.max") {
+        valuesToSet["data.shieldMaxHp"] = value;
+        brokenThreshold = Math.floor(value / 2);
+        valuesToSet["data.shieldBt"] = brokenThreshold;
+        maxHp = value;
+      } else if (field === "acBonus") {
+        valuesToSet["data.shieldAC"] = value;
+      } else if (field === "hardness") {
+        valuesToSet["data.shieldHardness"] = value;
+      }
+
+      const broken = hp <= brokenThreshold;
+      valuesToSet["data.shieldBroken"] = broken;
+
+      if (Object.keys(valuesToSet).length > 0) {
+        api.setValues(valuesToSet);
+      }
+    }
+  }
 </script>
 
 <div
@@ -719,6 +754,7 @@
         width="100%"
         field="acBonus"
         label="AC Bonus"
+        onchange="onChangeShieldValue(value, 'acBonus')"
         placeholder="0"
         showsign="true"
       ></numberfield>
@@ -732,6 +768,7 @@
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <numberfield
         width="100%"
+        onchange="onChangeShieldValue(value, 'hardness')"
         field="hardness"
         label="Hardness"
         placeholder="0"
@@ -740,6 +777,7 @@
       <numberfield
         width="100%"
         field="hp.value"
+        onchange="onChangeShieldValue(value, 'hp.value')"
         label="HP (Current)"
         placeholder="0"
         minvalue="0"
@@ -747,6 +785,7 @@
       <numberfield
         width="100%"
         field="hp.max"
+        onchange="onChangeShieldValue(value, 'hp.max')"
         label="HP (Max)"
         placeholder="0"
         minvalue="0"

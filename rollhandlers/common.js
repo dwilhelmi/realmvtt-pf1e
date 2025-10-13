@@ -2078,6 +2078,8 @@ function getBestEquippedArmor() {
   // Get the current ac due to armor
   let bestEquippedArmor = {
     armor: {
+      armorId: null,
+      armorIndex: null,
       acBonus: 0,
       dexCap: 10, // Unarmored, just set cap to 10
       strength: null,
@@ -2087,6 +2089,8 @@ function getBestEquippedArmor() {
       group: "",
     },
     shield: {
+      shieldId: null,
+      shieldIndex: null,
       acBonus: 0,
       hardness: 0,
       hp: {
@@ -2098,7 +2102,7 @@ function getBestEquippedArmor() {
   };
 
   const items = record.data?.inventory || [];
-  items.forEach((item) => {
+  items.forEach((item, index) => {
     if (item.data?.carried === "equipped" && item.data?.type === "armor") {
       const ac = item?.data?.acBonus || 0;
       const dexCap = item?.data?.dexCap ? item?.data?.dexCap : 0;
@@ -2108,6 +2112,8 @@ function getBestEquippedArmor() {
         bestEquippedArmor.armor.checkPenalty = item?.data?.checkPenalty;
         bestEquippedArmor.armor.speedPenalty = item?.data?.speedPenalty;
         bestEquippedArmor.armor.strength = item?.data?.strength;
+        bestEquippedArmor.armor.armorId = item?._id;
+        bestEquippedArmor.armor.armorIndex = index;
         bestEquippedArmor.armor.armorCategory = (
           item?.data?.itemCategory || "unarmored"
         ).toLowerCase();
@@ -2133,6 +2139,8 @@ function getBestEquippedArmor() {
         bestEquippedArmor.shield.hp.value = item?.data?.hp?.value;
         bestEquippedArmor.shield.hp.max = item?.data?.hp?.max;
         bestEquippedArmor.shield.speedPenalty = item?.data?.speedPenalty;
+        bestEquippedArmor.shield.shieldId = item?._id;
+        bestEquippedArmor.shield.shieldIndex = index;
       }
     }
   });
@@ -2301,8 +2309,13 @@ function updateAttribute({
   if (bestArmor.armor.dexCap !== undefined && bestArmor.armor.dexCap > 0) {
     ac += Math.min(dexValue, bestArmor.armor.dexCap);
   }
-  // AC bonus is only if shield is equipped AND raised
-  if (bestArmor.shield && record.data?.shieldRaised === "true") {
+  const shieldBroken = record.data?.shieldBroken === true;
+  // AC bonus is only if shield is equipped AND raised AND not broken
+  if (
+    bestArmor.shield &&
+    record.data?.shieldRaised === "true" &&
+    !shieldBroken
+  ) {
     ac += bestArmor.shield.acBonus;
   }
   // Get proficiency bonus for this armor type
