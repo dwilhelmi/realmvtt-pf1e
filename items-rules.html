@@ -18,6 +18,14 @@
       api.setValues(valuesToSet);
     }
   }
+
+  function onChangeArmorValue(value, field) {
+    // If this is a nested item in an inventory, we adjust the parent's armor values
+    if (dataPath.includes("inventory")) {
+      // Update AC for the character
+      onAddEditFeature(record, undefined, true);
+    }
+  }
 </script>
 
 <!-- Rules Section -->
@@ -160,6 +168,7 @@
       field="runes.potency"
       label="Potency"
       placeholder="Select..."
+      onchange="onChangeArmorValue(value, 'potency')"
       options='[
         {"label": "Armor Potency +1", "value": "1"},
         {"label": "Armor Potency +2", "value": "2"},

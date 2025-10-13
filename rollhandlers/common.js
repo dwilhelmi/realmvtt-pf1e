@@ -1526,7 +1526,7 @@ function getEffectsAndModifiersForToken(
   const classes = target?.data?.classes || [];
   for (const classObj of classes) {
     // Only push class features that are <= our level
-    const level = target.data?.level || 0;
+    const level = target?.data?.level || 0;
     const classFeatures = classObj.data?.features || [];
     classFeatures.forEach((feature) => {
       const featureLevel = feature.data?.level || 0;
@@ -1603,10 +1603,15 @@ function getEffectsAndModifiersForToken(
     });
   });
 
-  // Special case for armor check penalty
-  const checkPenalty = getCheckPenaltyForArmor(target);
+  // Add modifiers for armor penalties and runes
+  const bestArmor = getBestEquippedArmor(target);
+  const checkPenalty = getCheckPenaltyForArmor(target, bestArmor);
+  const resilientBonus = getResilientArmorBonus(target, bestArmor);
   if (checkPenalty) {
     results.push(...checkPenalty);
+  }
+  if (resilientBonus) {
+    results.push(...resilientBonus);
   }
 
   if (allTypes && allTypes.length > 0) {
@@ -2073,8 +2078,17 @@ function onItemEquipped() {
   }
 }
 
+// Gets the AC for an armor item
+function getACForArmor(item) {
+  let ac = item?.data?.acBonus || 0;
+  // Check for potency runes
+  const potencyRune = parseInt(item?.data?.runes?.potency || 0, 10);
+  ac += potencyRune;
+  return ac;
+}
+
 // Gets the best equipped armor for the context of the current PC
-function getBestEquippedArmor() {
+function getBestEquippedArmor(record) {
   // Get the current ac due to armor
   let bestEquippedArmor = {
     armor: {
@@ -2101,10 +2115,10 @@ function getBestEquippedArmor() {
     },
   };
 
-  const items = record.data?.inventory || [];
+  const items = record?.data?.inventory || [];
   items.forEach((item, index) => {
     if (item.data?.carried === "equipped" && item.data?.type === "armor") {
-      const ac = item?.data?.acBonus || 0;
+      const ac = getACForArmor(item);
       const dexCap = item?.data?.dexCap ? item?.data?.dexCap : 0;
       if (ac > bestEquippedArmor.armor.acBonus) {
         bestEquippedArmor.armor.acBonus = ac;
@@ -2148,9 +2162,51 @@ function getBestEquippedArmor() {
   return bestEquippedArmor;
 }
 
+// Returns bonuses to Saves for Resiliency rune in armor
+function getResilientArmorBonus(record, bestArmor) {
+  // Check if record and bestArmor are valid
+  if (!record || !bestArmor?.armor?.armorId) {
+    return null;
+  }
+
+  // Find the armor in the inventory and check for a rune
+  const armor = (record.data?.inventory || [])?.find(
+    (item) => item._id === bestArmor?.armor?.armorId
+  );
+
+  if (armor) {
+    const resiliencyRune = parseInt(armor?.data?.runes?.resilient || 0, 10);
+    if (resiliencyRune > 0) {
+      let runeName = "Resilient";
+      if (resiliencyRune === 2) {
+        runeName = "Greater Resilient";
+      } else if (resiliencyRune === 3) {
+        runeName = "Major Resilient";
+      }
+      return [
+        {
+          value: Math.abs(resiliencyRune),
+          isPenalty: false,
+          valueType: "number",
+          name: `Armor ${runeName} Rune`,
+          type: "item",
+          modifierType: "saveBonus",
+          field: "all",
+          active: true,
+        },
+      ];
+    }
+  }
+
+  return null;
+}
+
 // Returns the penalty if necessary for the armor worn
-function getCheckPenaltyForArmor(record) {
-  const bestArmor = getBestEquippedArmor(record);
+function getCheckPenaltyForArmor(record, bestArmor) {
+  if (!record) {
+    return null;
+  }
+
   const checkPenalty =
     bestArmor?.armor?.checkPenalty !== undefined
       ? bestArmor.armor.checkPenalty
@@ -3947,7 +4003,7 @@ function setTraits(traits, callback = undefined) {
 }
 
 // Roll a saving throw for PF2e
-function rollSave(record, type, dc = null, isSpell = false) {
+function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   if (!record || !type) {
     console.error("rollSave: Invalid record or type");
     return;
@@ -4078,7 +4134,18 @@ function rollSave(record, type, dc = null, isSpell = false) {
   }
 
   // Use promptRoll to allow players to modify the roll
-  api.promptRoll(`${saveDisplay} Save`, "1d20", modifiers, metadata, "save");
+  if (isMacro) {
+    api.promptRollForToken(
+      record,
+      `${saveDisplay} Save`,
+      "1d20",
+      modifiers,
+      metadata,
+      "save"
+    );
+  } else {
+    api.promptRoll(`${saveDisplay} Save`, "1d20", modifiers, metadata, "save");
+  }
 }
 
 // Generate a clickable save macro for PF2e
@@ -4116,7 +4183,7 @@ selectedTokens.forEach(token => {
   }
 
   // Add isSpell parameter
-  macroContent += `, ${isSpell}`;
+  macroContent += `, ${isSpell}, true`;
 
   // Close the function call and forEach
   macroContent += `);
@@ -4142,7 +4209,8 @@ function rollSkill(
   isLore = false,
   loreSkillMod = 0,
   loreSkillTraining = 1,
-  loreSkillStat = "int"
+  loreSkillStat = "int",
+  isMacro = false
 ) {
   if (!record || !skillName) {
     console.error("rollSkill: Invalid record or skillName");
@@ -4282,7 +4350,24 @@ function rollSkill(
   }
 
   // Use promptRoll to allow players to modify the roll
-  api.promptRoll(`${skillDisplay} Check`, "1d20", modifiers, metadata, "skill");
+  if (isMacro) {
+    api.promptRollForToken(
+      record,
+      `${skillDisplay} Check`,
+      "1d20",
+      modifiers,
+      metadata,
+      "skill"
+    );
+  } else {
+    api.promptRoll(
+      `${skillDisplay} Check`,
+      "1d20",
+      modifiers,
+      metadata,
+      "skill"
+    );
+  }
 }
 
 // Generate a clickable skill check macro for PF2e
@@ -4309,9 +4394,9 @@ selectedTokens.forEach(token => {
 
   // Add DC parameter
   if (dc !== null && dc !== undefined) {
-    macroContent += `, ${dc}`;
+    macroContent += `, ${dc}, false, 0, 1, "int", true`;
   } else {
-    macroContent += `, null`;
+    macroContent += `, null, false, 0, 1, "int", true`;
   }
 
   // Close the function call and forEach
@@ -4344,7 +4429,7 @@ function rollSkillCheck(skill, dc) {
   const escapedSkillName = skill.toLowerCase().replace(/'/g, "\\'");
   const selectedTokens = api.getSelectedOrDroppedToken();
   selectedTokens.forEach((token) => {
-    rollSkill(token, escapedSkillName, dc);
+    rollSkill(token, escapedSkillName, dc, false, 0, 1, "int", true);
   });
 }
 
@@ -5193,6 +5278,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   // Check attackCalculation modifier to see if we use a differenet stat
   const attackCalculationMod = getEffectsAndModifiersForToken(
+    record,
     ["attackCalculation"],
     undefined,
     weapon._id
