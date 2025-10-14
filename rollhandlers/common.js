@@ -4424,7 +4424,7 @@ function rollSavingThrow(save, dc) {
   });
 }
 
-// For a quick custo skill macro
+// For a quick custom skill macro
 function rollSkillCheck(skill, dc) {
   const escapedSkillName = skill.toLowerCase().replace(/'/g, "\\'");
   const selectedTokens = api.getSelectedOrDroppedToken();

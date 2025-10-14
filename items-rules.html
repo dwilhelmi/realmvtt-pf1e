@@ -26,6 +26,88 @@
       onAddEditFeature(record, undefined, true);
     }
   }
+
+  function onChangeShieldValue(value, field) {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = itemDataPath ? api.getValue(itemDataPath) : record;
+    const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+
+    const valuesToSet = {};
+
+    if (field === "runes.reinforcing") {
+      const runeValue = parseInt(value || 0, 10);
+
+      // Store base values if not already stored (first time applying a rune)
+      // These represent the shield's stats without any rune bonuses
+      if (!item.data?.baseHardness && item.data?.hardness !== undefined) {
+        valuesToSet[`${dataPrefix}.baseHardness`] = item.data.hardness;
+      }
+      if (!item.data?.baseHp && item.data?.hp?.max !== undefined) {
+        valuesToSet[`${dataPrefix}.baseHp`] = item.data.hp.max;
+      }
+
+      // Get the base values (either stored or current if no rune was previously applied)
+      const baseHardness = item.data?.baseHardness || item.data?.hardness || 0;
+      const baseHpMax = item.data?.baseHp || item.data?.hp?.max || 0;
+      const currentHpValue = item.data?.hp?.value || 0;
+
+      // Define rune bonuses based on reinforcing level
+      const runeBonuses = {
+        0: { hardness: 0, hp: 0, maxHardness: null, maxHp: null }, // No rune
+        1: { hardness: 3, hp: 44, maxHardness: 8, maxHp: 64 }, // Minor
+        2: { hardness: 3, hp: 52, maxHardness: 10, maxHp: 80 }, // Lesser
+        3: { hardness: 3, hp: 64, maxHardness: 13, maxHp: 104 }, // Moderate
+        4: { hardness: 5, hp: 80, maxHardness: 15, maxHp: 120 }, // Greater
+        5: { hardness: 5, hp: 84, maxHardness: 17, maxHp: 136 }, // Major
+        6: { hardness: 7, hp: 108, maxHardness: 20, maxHp: 160 }, // Supreme
+      };
+
+      const bonus = runeBonuses[runeValue] || runeBonuses[0];
+
+      // Calculate new values with rune bonuses
+      let newHardness = baseHardness + bonus.hardness;
+      let newHpMax = baseHpMax + bonus.hp;
+
+      // Apply maximum caps if they exist
+      if (bonus.maxHardness !== null && newHardness > bonus.maxHardness) {
+        newHardness = bonus.maxHardness;
+      }
+      if (bonus.maxHp !== null && newHpMax > bonus.maxHp) {
+        newHpMax = bonus.maxHp;
+      }
+
+      // Calculate the HP difference to adjust current HP proportionally
+      const hpDifference = newHpMax - (item.data?.hp?.max || 0);
+      let newHpValue = currentHpValue + hpDifference;
+
+      // Make sure current HP doesn't exceed new max
+      if (newHpValue > newHpMax) {
+        newHpValue = newHpMax;
+      }
+      // Don't let it go below 0
+      if (newHpValue < 0) {
+        newHpValue = 0;
+      }
+
+      // Set the new values
+      valuesToSet[`${dataPrefix}.hardness`] = newHardness;
+      valuesToSet[`${dataPrefix}.hp.max`] = newHpMax;
+      valuesToSet[`${dataPrefix}.hp.value`] = newHpValue;
+
+      // If removing the rune (value is 0 or empty), clear the base values
+      if (runeValue === 0) {
+        valuesToSet[`${dataPrefix}.baseHardness`] = null;
+        valuesToSet[`${dataPrefix}.baseHp`] = null;
+      }
+
+      api.setValues(valuesToSet, (recordUpdated) => {
+        // Then, if this is a nested item in an inventory, we adjust the parent's values
+        if (dataPath.includes("inventory")) {
+          onAddEditFeature(recordUpdated, undefined, true);
+        }
+      });
+    }
+  }
 </script>
 
 <!-- Rules Section -->
@@ -268,6 +350,7 @@
       width="100%"
       field="runes.reinforcing"
       label="Reinforcing Rune"
+      onchange="onChangeShieldValue(value, 'runes.reinforcing')"
       placeholder="Select Reinforcing Rune..."
       options='[
         {"label": "Minor Reinforcing Rune", "value": "1"},
