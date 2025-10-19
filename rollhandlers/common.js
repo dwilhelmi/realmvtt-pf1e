@@ -5558,8 +5558,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     record,
     ["damageBonus", "damagePenalty"],
     isMelee ? "melee" : "ranged",
-    weapon._id,
-    weapon
+    weapon._id
   );
 
   damageModifiers = damageModifiers.map((mod) => {
@@ -5825,8 +5824,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     record,
     ["damageBonus", "damagePenalty"],
     isMelee ? "melee" : "ranged",
-    weapon._id,
-    weapon
+    weapon._id
   );
 
   damageModifiers = damageModifiers.map((mod) => {
