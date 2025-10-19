@@ -10,6 +10,7 @@ const damageIgnoresImmunities =
   data?.roll?.metadata?.damageIgnoresImmunities || "";
 const damageIgnoresWeaknesses =
   data?.roll?.metadata?.damageIgnoresWeaknesses || "";
+const hasDeathTrait = data?.roll?.metadata?.hasDeathTrait === true;
 const icon = data?.roll?.metadata?.icon;
 
 let damage = data?.roll?.metadata?.damage;
@@ -155,6 +156,7 @@ const damageMetadata = {
   damageIgnoresResistances: damageIgnoresResistances,
   damageIgnoresImmunities: damageIgnoresImmunities,
   damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+  hasDeathTrait: hasDeathTrait,
 };
 
 // Add damage button to message

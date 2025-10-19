@@ -5070,6 +5070,109 @@ function getAnimationFor({
   return animation;
 }
 
+/**
+ * Helper function to get damage type, string, and modifiers for a weapon/spell/item
+ * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
+ */
+function getWeaponDamageInfo(record, weapon) {
+  const isMelee = (weapon.data?.range || 0) === 0;
+  const hasThrownTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("thrown")
+  );
+  const hasDeathTrait = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("death")
+  );
+
+  const isSpell = weapon.recordType === "spells";
+  const isItem =
+    weapon.recordType === "items" && weapon.data?.type !== "weapon";
+  const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
+
+  let isPropulsive = false;
+  // If the weapon has the propulsive trait we only do half strength
+  if (
+    weapon.data?.traits?.some((trait) =>
+      trait.toLowerCase().includes("propulsive")
+    )
+  ) {
+    isPropulsive = true;
+  }
+
+  let damageType = weapon.data?.damage.damageType;
+
+  // If this is a versatile weapon and we have a different type, use that
+  if (weapon.data?.versatilePiercing) {
+    damageType = "piercing";
+  } else if (weapon.data?.versatileBludgeoning) {
+    damageType = "bludgeoning";
+  } else if (weapon.data?.versatileSlashing) {
+    damageType = "slashing";
+  }
+
+  // Get the damage modifier (STR/DEX)
+  let damageMod = {
+    name: "Strength",
+    value: 0,
+    active: true,
+    type: damageType,
+  };
+
+  // If we add strength to the damage, add the strength modifier
+  // Don't add for spells or non-weapon items
+  if (!isSpell && !isItem && (isMelee || isThrown || isPropulsive)) {
+    const isPositive = record.data?.str > 0;
+    if (isPropulsive) {
+      // Add half strength for propulsive weapons if positive, else add whole strength
+      if (isPositive) {
+        damageMod.value = Math.floor(record.data?.str / 2);
+        damageMod.name = "Half Strength (Propulsive)";
+      } else {
+        damageMod.value = record.data?.str;
+        damageMod.name = "Strength (Propulsive)";
+      }
+    } else {
+      damageMod.value = record.data?.str;
+    }
+  }
+
+  // Check for striking runes and create modifier
+  // Striking runes add extra weapon damage dice of the same type
+  const strikingRune = parseInt(weapon.data?.runes?.striking || "0", 10);
+  let strikingRuneMod = null;
+
+  if (strikingRune > 0 && weapon.data?.damage?.die) {
+    const strikingNames = {
+      1: "Striking",
+      2: "Greater Striking",
+      3: "Major Striking",
+    };
+
+    strikingRuneMod = {
+      name: strikingNames[strikingRune] || "Striking",
+      value: `${strikingRune}${weapon.data.damage.die}`,
+      active: true,
+      type: damageType,
+      valueType: "string",
+    };
+  }
+
+  // TODO if this is a spell or item, get damage from formula
+  const damageString = `${weapon.data?.damage.dice}${weapon.data?.damage.die} ${damageType}`;
+
+  return {
+    damageType,
+    damageString,
+    damageMod,
+    strikingRuneMod,
+    isMelee,
+    isThrown,
+    isPropulsive,
+    hasDeathTrait,
+    isSpell,
+    isItem,
+  };
+}
+
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -5234,16 +5337,19 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     abilityScore = "dex";
   }
 
-  let damageType = weapon.data?.damage.damageType;
+  // Get weapon damage info using helper function
+  const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
+  const damageType = weaponDamageInfo.damageType;
+  const damage = weaponDamageInfo.damageString;
+  const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
+  const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
 
-  // Get the damage details to send to attack handler
+  // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
   let damageMod = {
-    name: "Strength",
-    value: 0,
-    active: true,
-    type: damageType,
+    ...weaponDamageInfo.damageMod,
   };
-  // If we add strength to the damage, add the strength modifier
+
+  // In attack rolls, we use addStrengthToDamage instead of the helper's logic
   if (isMelee || addStrengthToDamage || isPropulsive) {
     const isPositive = record.data?.str > 0;
     if (isPropulsive) {
@@ -5258,17 +5364,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     } else {
       damageMod.value = record.data?.str;
     }
+  } else {
+    damageMod.value = 0; // Don't add damage if conditions not met
   }
-
-  // If this is a versatile weapon and we have a different type, set use that
-  if (weapon.data?.versatilePiercing) {
-    damageType = "piercing";
-  } else if (weapon.data?.versatileBludgeoning) {
-    damageType = "bludgeoning";
-  } else if (weapon.data?.versatileSlashing) {
-    damageType = "slashing";
-  }
-  const damage = `${weapon.data?.damage.dice}${weapon.data?.damage.die} ${damageType}`;
 
   const animation = weapon?.data?.animation?.animationName
     ? weapon?.data?.animation
@@ -5312,7 +5410,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   const modifiers = [];
 
-  // Add the total save modifier (includes ability + proficiency)
+  // Add the total proficiency modifier
   if (weaponProficiency !== 0) {
     // Calculate the modifier
     const level = parseInt(record.data?.level || "0", 10);
@@ -5323,6 +5421,18 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       type: "",
       value: modifier,
       active: true,
+    });
+  }
+
+  // Get bonuses for potenct runes
+  const potencyRune = parseInt(weapon.data?.runes?.potency || "0", 10);
+  if (potencyRune > 0) {
+    modifiers.push({
+      name: `Weapon Potency +${potencyRune}`,
+      value: potencyRune,
+      isPenalty: false,
+      active: true,
+      valueType: "number",
     });
   }
 
@@ -5390,6 +5500,11 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       type: damageType,
     };
   });
+
+  // Add striking rune modifier if present
+  if (strikingRuneMod) {
+    damageModifiers.unshift(strikingRuneMod);
+  }
 
   // Push the damage mod, if there is one, to the top
   if (damageMod.value !== 0) {
@@ -5593,6 +5708,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageIgnoresResistances: damageIgnoresResistances,
       damageIgnoresImmunities: damageIgnoresImmunities,
       damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+      hasDeathTrait: hasDeathTraitFromHelper,
       isRanged: !isMelee || isThrown,
       animation,
     };
@@ -5605,4 +5721,483 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       "attack"
     );
   }
+}
+
+// Perform a damage roll with the given weapon (or ability)
+function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
+  // Get weapon damage info using helper function
+  const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
+  const damageType = weaponDamageInfo.damageType;
+  const damage = weaponDamageInfo.damageString;
+  const damageMod = weaponDamageInfo.damageMod;
+  const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
+  const isMelee = weaponDamageInfo.isMelee;
+  const isThrown = weaponDamageInfo.isThrown;
+  const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
+  const isSpell = weaponDamageInfo.isSpell;
+
+  // TODO persistent / splash damage
+
+  // Get damage modifiers
+  let damageModifiers = getEffectsAndModifiersForToken(
+    record,
+    ["damageBonus", "damagePenalty"],
+    isMelee ? "melee" : "ranged",
+    weapon._id,
+    weapon
+  );
+
+  damageModifiers = damageModifiers.map((mod) => {
+    return {
+      ...mod,
+      type: damageType,
+    };
+  });
+
+  // Add striking rune modifier if present
+  if (strikingRuneMod) {
+    damageModifiers.unshift(strikingRuneMod);
+  }
+
+  // Push the damage mod for STR, if there is one, to the top
+  if (damageMod.value !== 0) {
+    damageModifiers.unshift(damageMod);
+  }
+
+  // Determine if we are making a damage roll that ignores resistances / immunities
+  const damageIgnoresResistances = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        mod.value.trim().toLowerCase().includes("resistance")
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  const damageIgnoresImmunities = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        (mod.value.trim().toLowerCase().includes("immunities") ||
+          mod.value.trim().toLowerCase().includes("immunity"))
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  const damageIgnoresWeaknesses = damageModifiers
+    .filter(
+      (mod) =>
+        mod.valueType === "string" &&
+        mod.value.trim().toLowerCase().startsWith("ignore") &&
+        mod.value.trim().toLowerCase().includes("weakness")
+    )
+    ?.map((mod) => mod.value.split(" ")[1])
+    .join(",");
+  // Filter these out of the modifiers array, we don't need them to be toggleable
+  const filteredDamageModifiers = damageModifiers.filter(
+    (m) => !m.value.toString().toLowerCase().includes("ignore")
+  );
+
+  // Roll for each target or just once
+  const targets = api.getTargets();
+  const ourToken = api.getToken();
+  if (targets.length > 0) {
+    for (const target of targets) {
+      // Get damage effects for the target
+      const targetDamageEffects = getDamageEffectsForTarget(
+        ourToken,
+        target?.token
+      );
+      targetDamageEffects.forEach((r) => {
+        filteredDamageModifiers.push({
+          ...r,
+          type: damageType,
+        });
+      });
+    }
+  }
+  const metadata = {
+    attack: `${weapon.name}`,
+    rollName: "Damage",
+    tooltip: `${weapon.name} Damage`,
+    critical: isCritical,
+    damageIgnoresResistances: damageIgnoresResistances,
+    damageIgnoresImmunities: damageIgnoresImmunities,
+    damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+    isRanged: !isMelee || isThrown,
+    isSpell: isSpell,
+    hasDeathTrait: hasDeathTrait,
+  };
+
+  api.promptRoll(
+    `${weapon.name} Damage`,
+    damage,
+    filteredDamageModifiers,
+    metadata,
+    "damage"
+  );
+}
+
+// Helper function to get Immunities, Weaknesses, and Resistances for PF2e
+function getIWR(target) {
+  const immunities = [];
+  const weaknesses = {};
+  const resistances = {};
+
+  // Parse immunities (simple array of types)
+  const immunityArray = target.data?.immunities || [];
+  immunityArray.forEach((immunity) => {
+    if (immunity) {
+      immunities.push(immunity.toLowerCase().trim());
+    }
+  });
+
+  // Parse weaknesses (format: "Fire 5", "Cold 10", etc.)
+  const weaknessArray = target.data?.weaknesses || [];
+  weaknessArray.forEach((weakness) => {
+    if (weakness) {
+      const match = weakness.match(/^(.+?)\s+(\d+)$/i);
+      if (match) {
+        const type = match[1].toLowerCase().trim();
+        const value = parseInt(match[2], 10);
+        weaknesses[type] = value;
+      }
+    }
+  });
+
+  // Parse resistances (format: "Fire 5", "Physical 3", etc.)
+  const resistanceArray = target.data?.resistances || [];
+  resistanceArray.forEach((resistance) => {
+    if (resistance) {
+      const match = resistance.match(/^(.+?)\s+(\d+)$/i);
+      if (match) {
+        const type = match[1].toLowerCase().trim();
+        const value = parseInt(match[2], 10);
+        resistances[type] = value;
+      }
+    }
+  });
+
+  return { immunities, weaknesses, resistances };
+}
+
+/**
+ * Applies damage to selected or dropped tokens following PF2e rules.
+ *
+ * @param {Object} record - The record that initiated the damage (for ownership checks)
+ * @param {Object} roll - The damage roll object containing:
+ *   - types: Array of damage types with {type, value} properties
+ *   - metadata: Additional roll metadata including:
+ *     - critical: Boolean indicating critical hit
+ *     - criticalOnlyDiceIndices: Array of indices for damage dice that shouldn't be doubled (fatal/deadly)
+ *     - hasDeathTrait: Boolean indicating death trait
+ *     - damageIgnoresResistances: Comma-separated string of damage types that ignore resistances
+ *     - damageIgnoresImmunities: Comma-separated string of damage types that ignore immunities
+ *     - damageIgnoresWeaknesses: Comma-separated string of damage types that ignore weaknesses
+ * @param {boolean} halfDamage - Whether to halve the damage (e.g., successful basic save)
+ *
+ * PF2e Critical Damage Rules:
+ * - On a critical hit, damage is normally doubled (roll dice twice or double the total)
+ * - Dice from fatal/deadly weapon traits are NOT doubled (they're critical-only bonuses)
+ * - Use metadata.criticalOnlyDiceIndices to mark which dice shouldn't be doubled
+ * - All modifiers, bonuses, and penalties are doubled
+ * - After doubling, apply IWR (Immunities, Weaknesses, Resistances) as normal
+ * - Round down when halving damage (minimum 1 damage)
+ *
+ * PF2e Death Rules:
+ * - Massive Damage: Instant death if damage >= 2× max HP (before reductions)
+ * - Death Trait: Instant death if reduced to 0 HP by damage with death trait
+ * - Dying Condition: At 0 HP, gain Dying 1 + Wounded value
+ * - Critical Hit Dying: Gain Dying 2 instead of 1 from critical hits
+ * - Death at Dying 4+
+ *
+ * @example
+ * // Normal damage
+ * applyDamage(null, rollData, false);
+ *
+ * // Critical hit with fatal dice (marked in metadata)
+ * const roll = {
+ *   types: [
+ *     {type: 'slashing', value: 20},  // Index 0: doubled
+ *     {type: 'slashing', value: 8}    // Index 1: not doubled (in criticalOnlyDiceIndices)
+ *   ],
+ *   metadata: {
+ *     critical: true,
+ *     criticalOnlyDiceIndices: [1]  // Index 1 is fatal/deadly, don't double
+ *   }
+ * };
+ * applyDamage(null, roll, false);
+ *
+ * // Half damage (successful basic save)
+ * applyDamage(null, rollData, true);
+ *
+ * // Death effect spell
+ * const roll = {
+ *   types: [{type: 'negative', value: 30}],
+ *   metadata: { hasDeathTrait: true }
+ * };
+ * applyDamage(null, roll, false);
+ */
+function applyDamage(record, roll, halfDamage = false) {
+  // Extract values from metadata
+  const isCritical = roll.metadata?.critical === true;
+  const hasDeathTrait = roll.metadata?.hasDeathTrait === true;
+
+  // Parse damage ignore lists from metadata (comma-separated strings)
+  const damageIgnoresResistances = (
+    roll.metadata?.damageIgnoresResistances || ""
+  )
+    .split(",")
+    .map((s) => s.toLowerCase().trim())
+    .filter((s) => s.length > 0);
+  const damageIgnoresImmunities = (roll.metadata?.damageIgnoresImmunities || "")
+    .split(",")
+    .map((s) => s.toLowerCase().trim())
+    .filter((s) => s.length > 0);
+  const damageIgnoresWeaknesses = (roll.metadata?.damageIgnoresWeaknesses || "")
+    .split(",")
+    .map((s) => s.toLowerCase().trim())
+    .filter((s) => s.length > 0);
+
+  let targets = api.getSelectedOrDroppedToken();
+
+  // If record is not null, check if we're the GM or owner and use it
+  if (record) {
+    if (isGM || record?.record?.ownerId === userId) {
+      targets = [record];
+    }
+  }
+
+  // If we're a player and we did not drop on a record, get our owned tokens
+  if (!isGM && targets.length === 0) {
+    targets = api.getSelectedOwnedTokens().map((target) => target.token);
+  }
+
+  targets.forEach((target) => {
+    // Apply damage
+    if (target && target.data) {
+      let damage = 0;
+      let totalDamageBeforeReductions = 0;
+
+      const IWR = getIWR(target);
+
+      // Get list of damage dice indices that shouldn't be doubled on crits (fatal/deadly)
+      const criticalOnlyDiceIndices =
+        roll.metadata?.criticalOnlyDiceIndices || [];
+
+      // First, calculate damage with PF2e critical rules
+      // On a critical hit: double all damage EXCEPT dice from fatal/deadly traits
+      const damageByType = {};
+      roll.types.forEach((type, index) => {
+        const damageType = type.type || "untyped";
+        let damageValue = type.value;
+
+        // Track total damage before any modifications (for massive damage check)
+        totalDamageBeforeReductions += damageValue;
+
+        // PF2e Critical Rule: Double damage unless it's from fatal/deadly trait
+        if (isCritical) {
+          // Check if this dice index is marked as critical-only (fatal/deadly)
+          const isCriticalOnlyDice = criticalOnlyDiceIndices.includes(index);
+          if (!isCriticalOnlyDice) {
+            damageValue *= 2;
+          }
+        }
+
+        // Apply half damage if needed (e.g., successful basic save)
+        // Round down, but minimum 1 damage
+        if (halfDamage) {
+          damageValue = Math.floor(damageValue / 2);
+          if (damageValue < 1 && type.value > 0) {
+            damageValue = 1;
+          }
+        }
+
+        damageByType[damageType] =
+          (damageByType[damageType] || 0) + damageValue;
+      });
+
+      // PF2e: Apply Immunities, Weaknesses, and Resistances
+      Object.keys(damageByType).forEach((type) => {
+        let thisDamage = damageByType[type];
+        const lowerType = type.toLowerCase();
+
+        // Apply Immunities first (damage becomes 0)
+        if (!damageIgnoresImmunities.includes(lowerType)) {
+          if (IWR.immunities.includes(lowerType)) {
+            thisDamage = 0;
+          }
+        }
+
+        // Apply Weaknesses (add extra damage)
+        if (!damageIgnoresWeaknesses.includes(lowerType)) {
+          if (IWR.weaknesses[lowerType]) {
+            thisDamage += IWR.weaknesses[lowerType];
+          }
+        }
+
+        // Apply Resistances (reduce damage, minimum 0)
+        if (!damageIgnoresResistances.includes(lowerType)) {
+          if (IWR.resistances[lowerType]) {
+            thisDamage -= IWR.resistances[lowerType];
+            if (thisDamage < 0) {
+              thisDamage = 0;
+            }
+          }
+        }
+
+        damage += thisDamage;
+      });
+
+      // We cannot deal negative damage
+      if (damage < 0) {
+        damage = 0;
+      }
+
+      var curhp = target.data?.curhp || 0;
+      const maxHp = target.data?.hitpoints || 0;
+      const oldTempHp = parseInt(target.data?.tempHp || "0", 10);
+
+      // Check for Massive Damage (instant death)
+      // "You die instantly if you ever take damage equal to or greater than double your maximum Hit Points in one blow."
+      let massiveDamage = false;
+      if (totalDamageBeforeReductions >= maxHp * 2) {
+        massiveDamage = true;
+      }
+
+      // Collect all values to change and their old values for undo
+      const valuesToSet = {};
+      const oldValues = {};
+
+      // Store old values
+      const oldHp = curhp;
+      oldValues["data.curhp"] = oldHp;
+      oldValues["data.tempHp"] = oldTempHp;
+
+      // If damage > 0, float text
+      if (damage > 0) {
+        api.floatText(target, `-${damage}`, "#FF0000");
+      }
+
+      // First deduct from Temp HP
+      const newTempHp = Math.max(oldTempHp - damage, 0);
+      damage = Math.max(damage - oldTempHp, 0);
+      let usedTempHp = false;
+      if (newTempHp !== oldTempHp) {
+        valuesToSet["data.tempHp"] = newTempHp;
+        usedTempHp = true;
+      }
+
+      // Then deduct from Current HP
+      curhp -= damage;
+
+      // Check for instant death conditions
+      let instantDeath = false;
+      let deathReason = "";
+
+      if (massiveDamage) {
+        instantDeath = true;
+        deathReason = "MASSIVE DAMAGE";
+      } else if (hasDeathTrait && curhp <= 0) {
+        // Death trait: "If you are reduced to 0 Hit Points by a death effect, you are slain instantly"
+        instantDeath = true;
+        deathReason = "DEATH EFFECT";
+      }
+
+      if (curhp < 0) {
+        curhp = 0;
+      }
+      if (curhp > maxHp) {
+        curhp = maxHp;
+      }
+
+      valuesToSet["data.curhp"] = curhp;
+
+      const unIdentified = target.identified === false;
+      const targetName = !unIdentified
+        ? target.name || target.record.name
+        : target.unidentifiedName || target.record.unidentifiedName;
+
+      let message = `${targetName} took ${damage} damage.`;
+      if (usedTempHp) {
+        message = `${targetName} took ${damage} damage after deducting Temp HP.`;
+      }
+
+      // Handle death conditions
+      if (instantDeath) {
+        message += `\n**[center][color=red]INSTANT DEATH (${deathReason})[/color][/center]**`;
+        // For characters, set dying to 4+ (dead)
+        if (target.recordType === "characters") {
+          oldValues["data.dying"] = parseInt(target.data?.dying || "0", 10);
+          oldValues["data.wounded"] = parseInt(target.data?.wounded || "0", 10);
+          valuesToSet["data.dying"] = 4;
+          valuesToSet["data.wounded"] = 0;
+          api.addEffect("Dead", target);
+        }
+        // For NPCs, add Dead effect
+        if (target.recordType === "npcs") {
+          api.addEffect("Dead", target);
+        }
+      } else if (curhp <= 0 && damage > 0) {
+        // Not instant death, but reduced to 0 HP
+        if (target.recordType === "characters") {
+          // Characters gain Dying condition
+          const currentDying = parseInt(target.data?.dying || "0", 10);
+          const wounded = parseInt(target.data?.wounded || "0", 10);
+          let newDying = currentDying + 1 + wounded;
+
+          // Store old values
+          oldValues["data.dying"] = currentDying;
+
+          // Check if this is from a critical hit (if isCritical is available)
+          if (typeof isCritical !== "undefined" && isCritical) {
+            newDying = currentDying + 2 + wounded;
+            message += `\n${targetName} gains Dying ${newDying} (critical hit increases dying by 2).`;
+          } else {
+            message += `\n${targetName} gains Dying ${newDying}.`;
+          }
+
+          // Cap dying at 4 (death)
+          if (newDying > 4) {
+            newDying = 4;
+          }
+
+          valuesToSet["data.dying"] = newDying;
+
+          // Check if dying >= 4 (death)
+          if (newDying >= 4) {
+            api.addEffect("Dead", target);
+            message += `\n**[center][color=red]DEAD (Dying ${newDying})[/color][/center]**`;
+          }
+        } else if (target.recordType === "npcs") {
+          // NPCs just die at 0 HP
+          api.addEffect("Dead", target);
+          message += `\n${targetName} is dead.`;
+        }
+      }
+
+      // Apply all value changes in a single batch
+      if (Object.keys(valuesToSet).length > 0) {
+        api.setValuesOnTokenById(target._id, target.recordType, valuesToSet);
+      }
+
+      // Build undo macro with all old values as a single batch operation
+      const macro =
+        damage > 0 && !instantDeath && Object.keys(oldValues).length > 0
+          ? `\n\`\`\`Undo\nif (isGM) { api.setValuesOnTokenById('${
+              target._id
+            }', '${target.recordType}', ${JSON.stringify(
+              oldValues
+            )}); api.editMessage(null, \`~${message}~\`); } else { api.showNotification('Only the GM can undo damage.', 'yellow', 'Notice'); }\n\`\`\``
+          : "";
+
+      api.sendMessage(
+        `${message}${macro}`,
+        undefined,
+        undefined,
+        undefined,
+        target
+      );
+    }
+  });
 }

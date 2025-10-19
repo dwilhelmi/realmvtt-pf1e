@@ -6,8 +6,9 @@
   }
 
   function rollDamage(isCritical) {
-    // TODO
-    // Add method to common, check if versatile, etc.
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    performDamageRoll(record, weapon, weaponDataPath, isCritical);
   }
 
   function untoggleOtherDamage(damageType) {
