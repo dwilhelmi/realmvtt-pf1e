@@ -5072,7 +5072,7 @@ function getAnimationFor({
 
 /**
  * Helper function to get damage type, string, and modifiers for a weapon/spell/item
- * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
+ * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, deadlyDie, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
  */
 function getWeaponDamageInfo(record, weapon) {
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -5096,6 +5096,19 @@ function getWeaponDamageInfo(record, weapon) {
     )
   ) {
     isPropulsive = true;
+  }
+
+  // Check for deadly trait and parse the die size
+  // Format: "Deadly d4", "Deadly d10", etc.
+  let deadlyDie = null;
+  const deadlyTrait = weapon.data?.traits?.find((trait) =>
+    trait.toLowerCase().startsWith("deadly")
+  );
+  if (deadlyTrait) {
+    const match = deadlyTrait.match(/deadly\s+(d\d+)/i);
+    if (match) {
+      deadlyDie = match[1].toLowerCase(); // e.g., "d10"
+    }
   }
 
   let damageType = weapon.data?.damage.damageType;
@@ -5164,6 +5177,7 @@ function getWeaponDamageInfo(record, weapon) {
     damageString,
     damageMod,
     strikingRuneMod,
+    deadlyDie,
     isMelee,
     isThrown,
     isPropulsive,
@@ -5343,6 +5357,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const damage = weaponDamageInfo.damageString;
   const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
+  const deadlyDie = weaponDamageInfo.deadlyDie;
 
   // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
   let damageMod = {
@@ -5678,6 +5693,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         damageIgnoresWeaknesses: damageIgnoresWeaknesses,
         isOffGuard: targetIsOffGuard,
         isRanged: !isMelee || isThrown,
+        deadlyDie: deadlyDie,
         animation,
       };
 
@@ -5710,6 +5726,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageIgnoresWeaknesses: damageIgnoresWeaknesses,
       hasDeathTrait: hasDeathTraitFromHelper,
       isRanged: !isMelee || isThrown,
+      deadlyDie: deadlyDie,
       animation,
     };
 
@@ -5731,6 +5748,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const damage = weaponDamageInfo.damageString;
   const damageMod = weaponDamageInfo.damageMod;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
+  const deadlyDie = weaponDamageInfo.deadlyDie;
   const isMelee = weaponDamageInfo.isMelee;
   const isThrown = weaponDamageInfo.isThrown;
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
@@ -5762,6 +5780,53 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // Push the damage mod for STR, if there is one, to the top
   if (damageMod.value !== 0) {
     damageModifiers.unshift(damageMod);
+  }
+
+  // On critical hits, add deadly dice to damage modifiers
+  // The number of deadly dice depends on striking runes
+  let criticalOnlyDice = [];
+
+  if (isCritical && deadlyDie) {
+    // Determine number of deadly dice based on striking runes
+    let strikingRuneLevel = 0;
+    if (strikingRuneMod) {
+      if (strikingRuneMod.name.includes("Major")) {
+        strikingRuneLevel = 3;
+      } else if (strikingRuneMod.name.includes("Greater")) {
+        strikingRuneLevel = 2;
+      } else {
+        strikingRuneLevel = 1;
+      }
+    }
+
+    // Number of deadly dice = 1 + striking rune level
+    const numDeadlyDice = 1 + strikingRuneLevel;
+
+    // Add deadly dice modifier
+    const deadlyMod = {
+      name: `Deadly`,
+      value: `${numDeadlyDice}${deadlyDie}`,
+      active: true,
+      type: damageType,
+      valueType: "string",
+    };
+
+    damageModifiers.push(deadlyMod);
+
+    // Track the deadly dice so we don't double them
+    // Extract die size (e.g., "d8" -> 8)
+    const dieSizeMatch = deadlyDie.match(/d(\d+)/);
+    const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+
+    if (dieSize > 0) {
+      // Add one entry for each deadly die
+      for (let i = 0; i < numDeadlyDice; i++) {
+        criticalOnlyDice.push({
+          dieType: dieSize,
+          damageType: damageType.toLowerCase(),
+        });
+      }
+    }
   }
 
   // Determine if we are making a damage roll that ignores resistances / immunities
@@ -5827,6 +5892,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     isRanged: !isMelee || isThrown,
     isSpell: isSpell,
     hasDeathTrait: hasDeathTrait,
+    criticalOnlyDice: criticalOnlyDice,
   };
 
   api.promptRoll(
@@ -5887,9 +5953,10 @@ function getIWR(target) {
  * @param {Object} record - The record that initiated the damage (for ownership checks)
  * @param {Object} roll - The damage roll object containing:
  *   - types: Array of damage types with {type, value} properties
+ *   - dice: Array of individual dice results with {type, value} properties
  *   - metadata: Additional roll metadata including:
  *     - critical: Boolean indicating critical hit
- *     - criticalOnlyDiceIndices: Array of indices for damage dice that shouldn't be doubled (fatal/deadly)
+ *     - criticalOnlyDice: Array of {dieType, damageType} objects for dice that shouldn't be doubled (deadly/fatal)
  *     - hasDeathTrait: Boolean indicating death trait
  *     - damageIgnoresResistances: Comma-separated string of damage types that ignore resistances
  *     - damageIgnoresImmunities: Comma-separated string of damage types that ignore immunities
@@ -5898,10 +5965,12 @@ function getIWR(target) {
  *
  * PF2e Critical Damage Rules:
  * - On a critical hit, damage is normally doubled (roll dice twice or double the total)
- * - Dice from fatal/deadly weapon traits are NOT doubled (they're critical-only bonuses)
- * - Use metadata.criticalOnlyDiceIndices to mark which dice shouldn't be doubled
+ * - Dice from deadly/fatal weapon traits are NOT doubled (they're critical-only bonuses)
+ * - Use metadata.criticalOnlyDice to specify which dice shouldn't be doubled
+ *   - Each entry: { dieType: 8, damageType: "slashing" } for a d8
  * - All modifiers, bonuses, and penalties are doubled
- * - After doubling, apply IWR (Immunities, Weaknesses, Resistances) as normal
+ * - After doubling, subtract the extra value from deadly/fatal dice
+ * - Apply IWR (Immunities, Weaknesses, Resistances) after damage calculation
  * - Round down when halving damage (minimum 1 damage)
  *
  * PF2e Death Rules:
@@ -5915,15 +5984,21 @@ function getIWR(target) {
  * // Normal damage
  * applyDamage(null, rollData, false);
  *
- * // Critical hit with fatal dice (marked in metadata)
+ * // Critical hit with deadly dice (marked in metadata)
  * const roll = {
  *   types: [
- *     {type: 'slashing', value: 20},  // Index 0: doubled
- *     {type: 'slashing', value: 8}    // Index 1: not doubled (in criticalOnlyDiceIndices)
+ *     {type: 'slashing', value: 20},  // Normal damage: doubled
+ *     {type: 'slashing', value: 8}    // Deadly dice: not doubled
+ *   ],
+ *   dice: [
+ *     {type: 6, value: 4}, {type: 6, value: 5},  // 2d6 weapon dice
+ *     {type: 8, value: 8}                         // 1d8 deadly die
  *   ],
  *   metadata: {
  *     critical: true,
- *     criticalOnlyDiceIndices: [1]  // Index 1 is fatal/deadly, don't double
+ *     criticalOnlyDice: [
+ *       { dieType: 8, damageType: "slashing" }  // The d8 is deadly, don't double
+ *     ]
  *   }
  * };
  * applyDamage(null, roll, false);
@@ -5981,13 +6056,15 @@ function applyDamage(record, roll, halfDamage = false) {
 
       const IWR = getIWR(target);
 
-      // Get list of damage dice indices that shouldn't be doubled on crits (fatal/deadly)
-      const criticalOnlyDiceIndices =
-        roll.metadata?.criticalOnlyDiceIndices || [];
+      // Get list of critical-only dice that shouldn't be doubled (deadly/fatal)
+      // Each entry has { dieType, damageType }
+      const criticalOnlyDice = roll.metadata?.criticalOnlyDice || [];
 
       // First, calculate damage with PF2e critical rules
-      // On a critical hit: double all damage EXCEPT dice from fatal/deadly traits
+      // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
       const damageByType = {};
+
+      // Process each damage type entry from the roll
       roll.types.forEach((type, index) => {
         const damageType = type.type || "untyped";
         let damageValue = type.value;
@@ -5995,13 +6072,9 @@ function applyDamage(record, roll, halfDamage = false) {
         // Track total damage before any modifications (for massive damage check)
         totalDamageBeforeReductions += damageValue;
 
-        // PF2e Critical Rule: Double damage unless it's from fatal/deadly trait
+        // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
         if (isCritical) {
-          // Check if this dice index is marked as critical-only (fatal/deadly)
-          const isCriticalOnlyDice = criticalOnlyDiceIndices.includes(index);
-          if (!isCriticalOnlyDice) {
-            damageValue *= 2;
-          }
+          damageValue *= 2; // Start by doubling everything
         }
 
         // Apply half damage if needed (e.g., successful basic save)
@@ -6016,6 +6089,41 @@ function applyDamage(record, roll, halfDamage = false) {
         damageByType[damageType] =
           (damageByType[damageType] || 0) + damageValue;
       });
+
+      // Now subtract the doubled critical-only dice
+      // We need to process the raw roll dice to find and "un-double" the deadly dice
+      if (isCritical && criticalOnlyDice.length > 0 && roll.dice) {
+        // Create a working copy of criticalOnlyDice to track which we've found
+        const remainingCriticalDice = [...criticalOnlyDice];
+
+        // Process dice from the end (deadly dice are added last)
+        for (
+          let i = roll.dice.length - 1;
+          i >= 0 && remainingCriticalDice.length > 0;
+          i--
+        ) {
+          const die = roll.dice[i];
+
+          // Find a matching critical-only die
+          const matchIndex = remainingCriticalDice.findIndex(
+            (critDie) => critDie.dieType === die.type
+          );
+
+          if (matchIndex >= 0) {
+            // Found a match - this die shouldn't have been doubled
+            const critDie = remainingCriticalDice[matchIndex];
+            const damageType = critDie.damageType || "untyped";
+
+            // Subtract the extra value (we doubled it, but should have only counted it once)
+            if (damageByType[damageType] !== undefined) {
+              damageByType[damageType] -= die.value;
+            }
+
+            // Remove this entry from the remaining list
+            remainingCriticalDice.splice(matchIndex, 1);
+          }
+        }
+      }
 
       // PF2e: Apply Immunities, Weaknesses, and Resistances
       Object.keys(damageByType).forEach((type) => {
@@ -6149,17 +6257,17 @@ function applyDamage(record, roll, halfDamage = false) {
           // Store old values
           oldValues["data.dying"] = currentDying;
 
+          // Cap dying at 4 (death)
+          if (newDying > 4) {
+            newDying = 4;
+          }
+
           // Check if this is from a critical hit (if isCritical is available)
           if (typeof isCritical !== "undefined" && isCritical) {
             newDying = currentDying + 2 + wounded;
             message += `\n${targetName} gains Dying ${newDying} (critical hit increases dying by 2).`;
           } else {
             message += `\n${targetName} gains Dying ${newDying}.`;
-          }
-
-          // Cap dying at 4 (death)
-          if (newDying > 4) {
-            newDying = 4;
           }
 
           valuesToSet["data.dying"] = newDying;

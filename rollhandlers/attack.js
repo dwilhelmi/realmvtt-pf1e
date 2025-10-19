@@ -148,6 +148,71 @@ if (wasOffGuard) {
   });
 }
 
+// Get deadly die information from metadata
+const deadlyDie = data?.roll?.metadata?.deadlyDie;
+
+// On critical hits, add deadly dice to damage modifiers
+// The number of deadly dice depends on striking runes:
+// - No rune: 1 deadly die
+// - Striking (1): 2 deadly dice
+// - Greater Striking (2): 3 deadly dice
+// - Major Striking (3): 4 deadly dice
+let criticalOnlyDice = [];
+
+if (isCritical && deadlyDie && damage) {
+  // Determine number of deadly dice based on striking runes
+  // We need to find the striking rune value from the damage modifiers
+  let strikingRuneLevel = 0;
+  const strikingMod = damageModifiers.find(
+    (mod) =>
+      mod.name &&
+      (mod.name.includes("Striking") || mod.name.includes("striking"))
+  );
+
+  if (strikingMod) {
+    if (strikingMod.name.includes("Major")) {
+      strikingRuneLevel = 3;
+    } else if (strikingMod.name.includes("Greater")) {
+      strikingRuneLevel = 2;
+    } else {
+      strikingRuneLevel = 1;
+    }
+  }
+
+  // Number of deadly dice = 1 + striking rune level
+  const numDeadlyDice = 1 + strikingRuneLevel;
+
+  // Determine the damage type from the base damage string
+  const damageTypeMatch = damage.match(/\s+(\w+)$/);
+  const damageType = damageTypeMatch ? damageTypeMatch[1] : "untyped";
+
+  // Add deadly dice modifier
+  const deadlyMod = {
+    name: `Deadly`,
+    value: `${numDeadlyDice}${deadlyDie}`,
+    active: true,
+    type: damageType,
+    valueType: "string",
+  };
+
+  damageModifiers.push(deadlyMod);
+
+  // Track the deadly dice so we don't double them
+  // Extract die size (e.g., "d8" -> 8)
+  const dieSizeMatch = deadlyDie.match(/d(\d+)/);
+  const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+
+  if (dieSize > 0) {
+    // Add one entry for each deadly die
+    for (let i = 0; i < numDeadlyDice; i++) {
+      criticalOnlyDice.push({
+        dieType: dieSize,
+        damageType: damageType.toLowerCase(),
+      });
+    }
+  }
+}
+
 const damageMetadata = {
   // This is so that our damage handler script can tell if it was from a critical hit
   critical: isCritical,
@@ -157,6 +222,7 @@ const damageMetadata = {
   damageIgnoresImmunities: damageIgnoresImmunities,
   damageIgnoresWeaknesses: damageIgnoresWeaknesses,
   hasDeathTrait: hasDeathTrait,
+  criticalOnlyDice: criticalOnlyDice,
 };
 
 // Add damage button to message
