@@ -5791,11 +5791,11 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     let strikingRuneLevel = 0;
     if (strikingRuneMod) {
       if (strikingRuneMod.name.includes("Major")) {
-        strikingRuneLevel = 3;
-      } else if (strikingRuneMod.name.includes("Greater")) {
         strikingRuneLevel = 2;
-      } else {
+      } else if (strikingRuneMod.name.includes("Greater")) {
         strikingRuneLevel = 1;
+      } else {
+        strikingRuneLevel = 0;
       }
     }
 
@@ -5974,7 +5974,7 @@ function getIWR(target) {
  * - Round down when halving damage (minimum 1 damage)
  *
  * PF2e Death Rules:
- * - Massive Damage: Instant death if damage >= 2× max HP (before reductions)
+ * - Massive Damage: Instant death if damage >= 2× max HP (after all reductions)
  * - Death Trait: Instant death if reduced to 0 HP by damage with death trait
  * - Dying Condition: At 0 HP, gain Dying 1 + Wounded value
  * - Critical Hit Dying: Gain Dying 2 instead of 1 from critical hits
@@ -6052,7 +6052,6 @@ function applyDamage(record, roll, halfDamage = false) {
     // Apply damage
     if (target && target.data) {
       let damage = 0;
-      let totalDamageBeforeReductions = 0;
 
       const IWR = getIWR(target);
 
@@ -6069,21 +6068,9 @@ function applyDamage(record, roll, halfDamage = false) {
         const damageType = type.type || "untyped";
         let damageValue = type.value;
 
-        // Track total damage before any modifications (for massive damage check)
-        totalDamageBeforeReductions += damageValue;
-
         // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
         if (isCritical) {
           damageValue *= 2; // Start by doubling everything
-        }
-
-        // Apply half damage if needed (e.g., successful basic save)
-        // Round down, but minimum 1 damage
-        if (halfDamage) {
-          damageValue = Math.floor(damageValue / 2);
-          if (damageValue < 1 && type.value > 0) {
-            damageValue = 1;
-          }
         }
 
         damageByType[damageType] =
@@ -6125,37 +6112,54 @@ function applyDamage(record, roll, halfDamage = false) {
         }
       }
 
-      // PF2e: Apply Immunities, Weaknesses, and Resistances
+      // Calculate total base damage (before IWR and before half)
+      let baseDamage = 0;
       Object.keys(damageByType).forEach((type) => {
-        let thisDamage = damageByType[type];
+        baseDamage += damageByType[type];
+      });
+
+      // Apply half damage to the base if needed (e.g., successful basic save)
+      let damageAfterHalf = baseDamage;
+      if (halfDamage && baseDamage > 0) {
+        damageAfterHalf = Math.floor(baseDamage / 2);
+        // Minimum 1 damage if there was any damage to begin with
+        if (damageAfterHalf < 1) {
+          damageAfterHalf = 1;
+        }
+      }
+
+      // PF2e: Apply Immunities, Weaknesses, and Resistances
+      // These are applied AFTER halving
+      let iwrAdjustment = 0;
+      Object.keys(damageByType).forEach((type) => {
         const lowerType = type.toLowerCase();
 
-        // Apply Immunities first (damage becomes 0)
+        // Check Immunities first (all damage of this type is negated)
         if (!damageIgnoresImmunities.includes(lowerType)) {
           if (IWR.immunities.includes(lowerType)) {
-            thisDamage = 0;
+            // Immune to this damage type - negate all damage
+            iwrAdjustment -= damageAfterHalf;
+            return; // Skip weakness/resistance for this type
           }
         }
 
         // Apply Weaknesses (add extra damage)
         if (!damageIgnoresWeaknesses.includes(lowerType)) {
           if (IWR.weaknesses[lowerType]) {
-            thisDamage += IWR.weaknesses[lowerType];
+            iwrAdjustment += IWR.weaknesses[lowerType];
           }
         }
 
-        // Apply Resistances (reduce damage, minimum 0)
+        // Apply Resistances (reduce damage)
         if (!damageIgnoresResistances.includes(lowerType)) {
           if (IWR.resistances[lowerType]) {
-            thisDamage -= IWR.resistances[lowerType];
-            if (thisDamage < 0) {
-              thisDamage = 0;
-            }
+            iwrAdjustment -= IWR.resistances[lowerType];
           }
         }
-
-        damage += thisDamage;
       });
+
+      // Final damage = halved damage + IWR adjustments
+      damage = damageAfterHalf + iwrAdjustment;
 
       // We cannot deal negative damage
       if (damage < 0) {
@@ -6168,8 +6172,9 @@ function applyDamage(record, roll, halfDamage = false) {
 
       // Check for Massive Damage (instant death)
       // "You die instantly if you ever take damage equal to or greater than double your maximum Hit Points in one blow."
+      // This uses the actual damage taken after all reductions (IWR, half damage, etc.)
       let massiveDamage = false;
-      if (totalDamageBeforeReductions >= maxHp * 2) {
+      if (damage >= maxHp * 2) {
         massiveDamage = true;
       }
 

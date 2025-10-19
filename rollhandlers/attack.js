@@ -154,9 +154,9 @@ const deadlyDie = data?.roll?.metadata?.deadlyDie;
 // On critical hits, add deadly dice to damage modifiers
 // The number of deadly dice depends on striking runes:
 // - No rune: 1 deadly die
-// - Striking (1): 2 deadly dice
-// - Greater Striking (2): 3 deadly dice
-// - Major Striking (3): 4 deadly dice
+// - Striking (1): No bonus, 1 deadly die
+// - Greater Striking (2): 2 deadly dice
+// - Major Striking (3): 3 deadly dice
 let criticalOnlyDice = [];
 
 if (isCritical && deadlyDie && damage) {
@@ -171,11 +171,11 @@ if (isCritical && deadlyDie && damage) {
 
   if (strikingMod) {
     if (strikingMod.name.includes("Major")) {
-      strikingRuneLevel = 3;
-    } else if (strikingMod.name.includes("Greater")) {
       strikingRuneLevel = 2;
-    } else {
+    } else if (strikingMod.name.includes("Greater")) {
       strikingRuneLevel = 1;
+    } else {
+      strikingRuneLevel = 0;
     }
   }
 
