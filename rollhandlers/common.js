@@ -835,13 +835,21 @@ function getTraitToolTip(value) {
     formattedTraitDescriptions[formatTraitName(key)] = value;
   }
 
+  // Function to normalize a trait name by removing spaces and hyphens (to match camelCase keys)
+  function normalizeTraitName(name) {
+    return name.replace(/[\s\-]+/g, "");
+  }
+
   // Function to find a trait that starts with the given value
   function findTraitStartingWith(value) {
     if (!value) return null;
 
+    // Normalize the incoming value to remove spaces and hyphens
+    const normalizedValue = normalizeTraitName(value);
+
     // Convert keys to an array and find a match
     const keys = Object.keys(traitDescriptions);
-    return keys.find((key) => value.startsWith(key));
+    return keys.find((key) => normalizedValue.startsWith(key));
   }
 
   // First, check if the exact value exists in the original trait descriptions
@@ -849,7 +857,7 @@ function getTraitToolTip(value) {
     return traitDescriptions[value];
   }
 
-  // Try to find a trait that the value starts with (for cases like "Deadly d8")
+  // Try to find a trait that the value starts with (for cases like "Deadly d8" or "Two Hand d10")
   const matchingTrait = findTraitStartingWith(value);
   if (matchingTrait) {
     return traitDescriptions[matchingTrait];
@@ -5082,6 +5090,20 @@ function getWeaponDamageInfo(record, weapon) {
   const hasDeathTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("death")
   );
+  // Check for two-hand trait and parse the die size
+  // Format: "Two Hand d10", "Two-Hand d10", "Two-Hand-d10", "TwoHand d10", etc.
+  let twoHandDie = null;
+  const twoHandTrait = weapon.data?.traits?.find((trait) => {
+    const normalized = trait.toLowerCase().replace(/[\s\-]+/g, "");
+    return normalized.includes("twohand");
+  });
+  if (twoHandTrait) {
+    // Match with optional spaces or hyphens between "two hand" and die size
+    const match = twoHandTrait.match(/two[\s\-]*hand[\s\-]*(d\d+)/i);
+    if (match) {
+      twoHandDie = match[1].toLowerCase(); // e.g., "d10"
+    }
+  }
 
   const isSpell = weapon.recordType === "spells";
   const isItem =
@@ -5099,13 +5121,14 @@ function getWeaponDamageInfo(record, weapon) {
   }
 
   // Check for deadly trait and parse the die size
-  // Format: "Deadly d4", "Deadly d10", etc.
+  // Format: "Deadly d4", "Deadly d10", "Deadly-d10", etc.
   let deadlyDie = null;
   const deadlyTrait = weapon.data?.traits?.find((trait) =>
     trait.toLowerCase().startsWith("deadly")
   );
   if (deadlyTrait) {
-    const match = deadlyTrait.match(/deadly\s+(d\d+)/i);
+    // Match with optional space or hyphen between "deadly" and die size
+    const match = deadlyTrait.match(/deadly[\s\-]*(d\d+)/i);
     if (match) {
       deadlyDie = match[1].toLowerCase(); // e.g., "d10"
     }
@@ -5170,7 +5193,13 @@ function getWeaponDamageInfo(record, weapon) {
   }
 
   // TODO if this is a spell or item, get damage from formula
-  const damageString = `${weapon.data?.damage.dice}${weapon.data?.damage.die} ${damageType}`;
+
+  let damageDie = weapon.data?.damage.die;
+  if (twoHandDie && weapon.data?.handBtn === "two") {
+    damageDie = twoHandDie;
+  }
+
+  const damageString = `${weapon.data?.damage.dice}${damageDie} ${damageType}`;
 
   return {
     damageType,
