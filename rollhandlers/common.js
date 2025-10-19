@@ -6058,6 +6058,9 @@ function getIWR(target) {
  *   - Each entry: { dieType: 8, damageType: "slashing" } for a d8
  * - All modifiers, bonuses, and penalties are doubled
  * - After doubling, subtract the extra value from deadly/fatal dice
+ * - Critical Hit Immunity: If target has immunity to "critical" or "critical hits", treat as normal hit
+ *   - Damage is not doubled
+ *   - Dying condition increases by 1 instead of 2
  * - Apply IWR (Immunities, Weaknesses, Resistances) after damage calculation
  * - Round down when halving damage (minimum 1 damage)
  *
@@ -6065,7 +6068,7 @@ function getIWR(target) {
  * - Massive Damage: Instant death if damage >= 2× max HP (after all reductions)
  * - Death Trait: Instant death if reduced to 0 HP by damage with death trait
  * - Dying Condition: At 0 HP, gain Dying 1 + Wounded value
- * - Critical Hit Dying: Gain Dying 2 instead of 1 from critical hits
+ * - Critical Hit Dying: Gain Dying 2 instead of 1 from critical hits (unless immune to critical)
  * - Death at Dying 4+
  *
  * @example
@@ -6143,12 +6146,20 @@ function applyDamage(record, roll, halfDamage = false) {
 
       const IWR = getIWR(target);
 
+      // Check if target is immune to critical hits
+      const immuneToCritical = IWR.immunities.some((immunity) =>
+        ["critical", "critical hits", "critical hit", "crits", "crit"].includes(
+          immunity.toLowerCase().trim()
+        )
+      );
+
       // Get list of critical-only dice that shouldn't be doubled (deadly/fatal)
       // Each entry has { dieType, damageType }
       const criticalOnlyDice = roll.metadata?.criticalOnlyDice || [];
 
       // First, calculate damage with PF2e critical rules
       // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
+      // If target is immune to critical hits, treat as a normal hit
       const damageByType = {};
 
       // Process each damage type entry from the roll
@@ -6157,7 +6168,8 @@ function applyDamage(record, roll, halfDamage = false) {
         let damageValue = type.value;
 
         // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
-        if (isCritical) {
+        // or target is immune to critical hits
+        if (isCritical && !immuneToCritical) {
           damageValue *= 2; // Start by doubling everything
         }
 
@@ -6167,7 +6179,13 @@ function applyDamage(record, roll, halfDamage = false) {
 
       // Now subtract the doubled critical-only dice
       // We need to process the raw roll dice to find and "un-double" the deadly dice
-      if (isCritical && criticalOnlyDice.length > 0 && roll.dice) {
+      // Skip this if target is immune to critical hits (damage wasn't doubled)
+      if (
+        isCritical &&
+        !immuneToCritical &&
+        criticalOnlyDice.length > 0 &&
+        roll.dice
+      ) {
         // Create a working copy of criticalOnlyDice to track which we've found
         const remainingCriticalDice = [...criticalOnlyDice];
 
@@ -6277,7 +6295,11 @@ function applyDamage(record, roll, halfDamage = false) {
 
       // If damage > 0, float text
       if (damage > 0) {
-        api.floatText(target, `-${damage}`, "#FF0000");
+        let message = `-${damage}`;
+        if (immuneToCritical && isCritical) {
+          message += "\n(Immune to Critical Hits)";
+        }
+        api.floatText(target, message, "#FF0000");
       }
 
       // First deduct from Temp HP
@@ -6356,7 +6378,12 @@ function applyDamage(record, roll, halfDamage = false) {
           }
 
           // Check if this is from a critical hit (if isCritical is available)
-          if (typeof isCritical !== "undefined" && isCritical) {
+          // If target is immune to critical hits, treat as normal hit
+          if (
+            typeof isCritical !== "undefined" &&
+            isCritical &&
+            !immuneToCritical
+          ) {
             newDying = currentDying + 2 + wounded;
             message += `\n${targetName} gains Dying ${newDying} (critical hit increases dying by 2).`;
           } else {
