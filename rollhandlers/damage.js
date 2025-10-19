@@ -1,10 +1,23 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
+const traits = data.roll?.metadata?.traits || [];
+
 const tags = [
   {
     name: "Damage",
     tooltip: "Damage Roll",
   },
 ];
+
+traits.forEach((trait) => {
+  // Ignore rarity traits
+  if (getIsTraitRarity(trait)) {
+    return;
+  }
+  tags.push({
+    name: trait,
+    tooltip: getTraitToolTip(trait),
+  });
+});
 
 // We'll always show half damage, even if the damage was a normal attack, in case the GM
 // needs to apply half damage

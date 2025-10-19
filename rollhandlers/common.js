@@ -5204,6 +5204,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     trait.toLowerCase().includes("reach")
   );
 
+  // Create a list of all traits as tags that we'll add to the roll message
+  const traits = weapon.data?.traits || [];
+
   // TODO make sure this is right for NPC's reach later
   let reach = record.data?.reach || 5;
   if (hasReachTrait) {
@@ -5680,6 +5683,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         rollName: "Attack",
         tooltip: `Attack with ${weapon.name}`,
         weaponName: weapon.name,
+        traits: traits,
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
         tokenId: ourToken?._id,
@@ -5716,6 +5720,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       attack: `${weapon.name}`,
       rollName: "Attack",
       tooltip: `Attack with ${weapon.name}`,
+      traits: traits,
       weaponName: weapon.name,
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
@@ -5753,6 +5758,9 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const isThrown = weaponDamageInfo.isThrown;
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
   const isSpell = weaponDamageInfo.isSpell;
+
+  // Create a list of all traits as tags that we'll add to the roll message
+  const traits = weapon.data?.traits || [];
 
   // TODO persistent / splash damage
 
@@ -5883,6 +5891,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   }
   const metadata = {
     attack: `${weapon.name}`,
+    traits: traits,
     rollName: "Damage",
     tooltip: `${weapon.name} Damage`,
     critical: isCritical,

@@ -1,5 +1,6 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const rollName = data?.roll?.metadata?.rollName;
+const traits = data?.roll?.metadata?.traits || [];
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
@@ -139,6 +140,17 @@ const tags = [
     tooltip: tooltip || "Attack Roll",
   },
 ];
+
+traits.forEach((trait) => {
+  // Ignore rarity traits
+  if (getIsTraitRarity(trait)) {
+    return;
+  }
+  tags.push({
+    name: trait,
+    tooltip: getTraitToolTip(trait),
+  });
+});
 
 // Add off-guard tag if target was off-guard
 if (wasOffGuard) {
