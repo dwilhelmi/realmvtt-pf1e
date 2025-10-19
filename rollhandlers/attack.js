@@ -15,6 +15,7 @@ const hasDeathTrait = data?.roll?.metadata?.hasDeathTrait === true;
 const icon = data?.roll?.metadata?.icon;
 
 let damage = data?.roll?.metadata?.damage;
+let fatalDamageString = data?.roll?.metadata?.fatalDamageString;
 let autoCritical = data?.roll?.metadata?.autoCritical;
 
 const animation = data?.roll?.metadata?.animation;
@@ -162,7 +163,7 @@ if (wasOffGuard) {
 
 // Get deadly die information from metadata
 const deadlyDie = data?.roll?.metadata?.deadlyDie;
-
+const fatalDie = data?.roll?.metadata?.fatalDie;
 // On critical hits, add deadly dice to damage modifiers
 // The number of deadly dice depends on striking runes:
 // - No rune: 1 deadly die
@@ -224,10 +225,37 @@ if (isCritical && deadlyDie && damage) {
     }
   }
 }
+// On critical hits, add fatal dice to damage modifiers
+if (isCritical && fatalDie) {
+  // Determine the damage type from the base damage string
+  const damageTypeMatch = damage.match(/\s+(\w+)$/);
+  const damageType = damageTypeMatch ? damageTypeMatch[1] : "untyped";
+  damage = fatalDamageString;
+
+  // Add modifier for the fatal die
+  const fatalMod = {
+    name: `Fatal`,
+    value: `1${fatalDie}`,
+    active: true,
+    type: damageType,
+    valueType: "string",
+  };
+  damageModifiers.push(fatalMod);
+
+  const dieSizeMatch = fatalDie.match(/d(\d+)/);
+  const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+
+  // Add one entry for the fatal die
+  criticalOnlyDice.push({
+    dieType: dieSize,
+    damageType: damageType.toLowerCase(),
+  });
+}
 
 const damageMetadata = {
   // This is so that our damage handler script can tell if it was from a critical hit
   critical: isCritical,
+  traits,
   // So we can tell the damage handler script if it was a spell-related damage
   isSpell: isSpell,
   damageIgnoresResistances: damageIgnoresResistances,

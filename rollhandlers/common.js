@@ -5134,6 +5134,19 @@ function getWeaponDamageInfo(record, weapon) {
     }
   }
 
+  // Check for fatal trait the same way
+  let fatalDie = null;
+  const fatalTrait = weapon.data?.traits?.find((trait) =>
+    trait.toLowerCase().startsWith("fatal")
+  );
+  if (fatalTrait) {
+    // Match with optional space or hyphen between "fatal" and die size
+    const match = fatalTrait.match(/fatal[\s\-]*(d\d+)/i);
+    if (match) {
+      fatalDie = match[1].toLowerCase(); // e.g., "d10"
+    }
+  }
+
   let damageType = weapon.data?.damage.damageType;
 
   // If this is a versatile weapon and we have a different type, use that
@@ -5198,8 +5211,12 @@ function getWeaponDamageInfo(record, weapon) {
   if (twoHandDie && weapon.data?.handBtn === "two") {
     damageDie = twoHandDie;
   }
+  let numDice = weapon.data?.damage.dice;
 
-  const damageString = `${weapon.data?.damage.dice}${damageDie} ${damageType}`;
+  const damageString = `${numDice}${damageDie} ${damageType}`;
+  const fatalDamageString = fatalDie
+    ? `${numDice}${fatalDie} ${damageType}`
+    : null;
 
   return {
     damageType,
@@ -5207,6 +5224,8 @@ function getWeaponDamageInfo(record, weapon) {
     damageMod,
     strikingRuneMod,
     deadlyDie,
+    fatalDie,
+    fatalDamageString,
     isMelee,
     isThrown,
     isPropulsive,
@@ -5387,9 +5406,11 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
   const damage = weaponDamageInfo.damageString;
+  const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
   const deadlyDie = weaponDamageInfo.deadlyDie;
+  const fatalDie = weaponDamageInfo.fatalDie;
 
   // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
   let damageMod = {
@@ -5720,6 +5741,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         autoCritical: autoCritical,
         dc: targetAc,
         damage: damage,
+        fatalDamageString: fatalDamageString,
         damageModifiers: allDamageModifiers,
         damageIgnoresResistances: damageIgnoresResistances,
         damageIgnoresImmunities: damageIgnoresImmunities,
@@ -5727,6 +5749,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         isOffGuard: targetIsOffGuard,
         isRanged: !isMelee || isThrown,
         deadlyDie: deadlyDie,
+        fatalDie: fatalDie,
         animation,
       };
 
@@ -5754,6 +5777,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
       damage: damage,
+      fatalDamageString: fatalDamageString,
       damageModifiers: filteredDamageModifiers,
       damageIgnoresResistances: damageIgnoresResistances,
       damageIgnoresImmunities: damageIgnoresImmunities,
@@ -5761,6 +5785,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       hasDeathTrait: hasDeathTraitFromHelper,
       isRanged: !isMelee || isThrown,
       deadlyDie: deadlyDie,
+      fatalDie: fatalDie,
       animation,
     };
 
@@ -5779,10 +5804,12 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // Get weapon damage info using helper function
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
-  const damage = weaponDamageInfo.damageString;
+  let damage = weaponDamageInfo.damageString;
+  const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const damageMod = weaponDamageInfo.damageMod;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
   const deadlyDie = weaponDamageInfo.deadlyDie;
+  const fatalDie = weaponDamageInfo.fatalDie;
   const isMelee = weaponDamageInfo.isMelee;
   const isThrown = weaponDamageInfo.isThrown;
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
@@ -5864,6 +5891,29 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
         });
       }
     }
+  }
+
+  // On critical hits, add fatal dice to damage modifiers
+  if (isCritical && fatalDie) {
+    damage = fatalDamageString;
+    // Add modifier for the fatal die
+    const fatalMod = {
+      name: `Fatal`,
+      value: `1${fatalDie}`,
+      active: true,
+      type: damageType,
+      valueType: "string",
+    };
+    damageModifiers.push(fatalMod);
+
+    const dieSizeMatch = fatalDie.match(/d(\d+)/);
+    const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+
+    // Add one entry for the fatal die
+    criticalOnlyDice.push({
+      dieType: dieSize,
+      damageType: damageType.toLowerCase(),
+    });
   }
 
   // Determine if we are making a damage roll that ignores resistances / immunities
