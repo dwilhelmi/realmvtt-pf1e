@@ -5683,10 +5683,12 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     weapon._id
   );
 
+  // Preserve the modifierType before mapping to avoid losing deduplication info
   damageModifiers = damageModifiers.map((mod) => {
     return {
       ...mod,
       type: damageType,
+      modifierType: mod.modifierType, // Preserve for potential future deduplication
     };
   });
 
@@ -5699,6 +5701,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   if (damageMod.value !== 0) {
     damageModifiers.unshift(damageMod);
   }
+
+  // Remove duplicates based on name and value
+  const seenModifiers = new Set();
+  damageModifiers = damageModifiers.filter((mod) => {
+    const key = `${mod.name}-${mod.value}-${mod.valueType}`;
+    if (seenModifiers.has(key)) {
+      return false; // Skip duplicate
+    }
+    seenModifiers.add(key);
+    return true;
+  });
 
   // Determine if we are making a damage roll that ignores resistances / immunities
   const damageIgnoresResistances = damageModifiers
