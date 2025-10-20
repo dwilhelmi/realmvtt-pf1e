@@ -1201,6 +1201,10 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
     value = String(value || "");
   }
 
+  // Replace Foundry-style @actor.level with actual level
+  const actorLevel = parseInt(thisRecord?.data?.level || "1", 10);
+  value = value.replaceAll("@actor.level", String(actorLevel));
+
   // Case for 'Half Level' or 'Half Character Level'
   const matchHalfLevel =
     value.match(/[Hh]alf [Cc]haracter [Ll]evel/) ||
@@ -1211,19 +1215,11 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
     // Minimum of 1 if half level is 0
     value = value.replaceAll(
       matchHalfLevel[0],
-      String(
-        Math.max(
-          1,
-          Math.floor(parseInt(thisRecord?.data?.level || "1", 10) / 2)
-        )
-      )
+      String(Math.max(1, Math.floor(actorLevel / 2)))
     );
   } else if (matchCharacterLevel) {
     // Minimum of 1
-    value = value.replaceAll(
-      matchCharacterLevel[0],
-      String(Math.floor(parseInt(thisRecord?.data?.level || "1", 10)))
-    );
+    value = value.replaceAll(matchCharacterLevel[0], String(actorLevel));
   }
 
   // Case for Strength|Dexterity|Constitution|Wisdom|Intelligence|Charisma
@@ -1249,13 +1245,138 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
     );
     value = value.replaceAll(matchModifier[0], attributeMod);
   }
+
   // Check for replacements in the replacements object
   if (replacements && Object.keys(replacements).length > 0) {
     Object.keys(replacements).forEach((key) => {
       value = value.replaceAll(key, replacements[key]);
     });
   }
+
+  // Process formulas: ternary() and comparison functions
+  // This handles expressions like: ternary(lt(@actor.level, 5), 1, 2)
+  value = evaluateFormula(value);
+
   return value;
+}
+
+// Helper function to evaluate formulas
+function evaluateFormula(formula) {
+  if (typeof formula !== "string") {
+    return formula;
+  }
+
+  // Keep evaluating until no more functions are found
+  let previousFormula = "";
+  let iterations = 0;
+  const maxIterations = 50; // Prevent infinite loops
+
+  while (formula !== previousFormula && iterations < maxIterations) {
+    previousFormula = formula;
+    iterations++;
+
+    // Evaluate comparison functions: lt, lte, gt, gte, eq, ne
+    // lt(a, b) - less than
+    formula = formula.replace(/lt\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA < numB ? "1" : "0";
+    });
+
+    // lte(a, b) - less than or equal
+    formula = formula.replace(/lte\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA <= numB ? "1" : "0";
+    });
+
+    // gt(a, b) - greater than
+    formula = formula.replace(/gt\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA > numB ? "1" : "0";
+    });
+
+    // gte(a, b) - greater than or equal
+    formula = formula.replace(/gte\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA >= numB ? "1" : "0";
+    });
+
+    // eq(a, b) - equal
+    formula = formula.replace(/eq\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA === numB ? "1" : "0";
+    });
+
+    // ne(a, b) - not equal
+    formula = formula.replace(/ne\(([^,]+),\s*([^)]+)\)/g, (_match, a, b) => {
+      const numA = parseFloat(a.trim());
+      const numB = parseFloat(b.trim());
+      return numA !== numB ? "1" : "0";
+    });
+
+    // Evaluate ternary: ternary(condition, trueValue, falseValue)
+    // We need to handle nested ternaries by finding matching parentheses
+    const ternaryMatch = findTernary(formula);
+    if (ternaryMatch) {
+      const { start, end, condition, trueValue, falseValue } = ternaryMatch;
+      const conditionNum = parseFloat(condition.trim());
+      // In Foundry, any non-zero value is true
+      const result = conditionNum !== 0 ? trueValue.trim() : falseValue.trim();
+      formula = formula.substring(0, start) + result + formula.substring(end);
+    }
+  }
+
+  return formula;
+}
+
+// Helper function to find and parse a ternary expression with proper parenthesis matching
+function findTernary(str) {
+  const ternaryIndex = str.indexOf("ternary(");
+  if (ternaryIndex === -1) return null;
+
+  const startIndex = ternaryIndex;
+  let pos = ternaryIndex + 8; // Position after "ternary("
+  let parenDepth = 1;
+  let commaPositions = [];
+
+  // Find commas at depth 1 (not inside nested parentheses)
+  while (pos < str.length && parenDepth > 0) {
+    const char = str[pos];
+    if (char === "(") {
+      parenDepth++;
+    } else if (char === ")") {
+      parenDepth--;
+      if (parenDepth === 0) break;
+    } else if (char === "," && parenDepth === 1) {
+      commaPositions.push(pos);
+    }
+    pos++;
+  }
+
+  // We need exactly 2 commas for ternary(condition, trueValue, falseValue)
+  if (commaPositions.length !== 2 || parenDepth !== 0) {
+    return null;
+  }
+
+  const conditionStart = ternaryIndex + 8;
+  const conditionEnd = commaPositions[0];
+  const trueValueStart = commaPositions[0] + 1;
+  const trueValueEnd = commaPositions[1];
+  const falseValueStart = commaPositions[1] + 1;
+  const falseValueEnd = pos;
+  const endIndex = pos + 1; // Include the closing paren
+
+  return {
+    start: startIndex,
+    end: endIndex,
+    condition: str.substring(conditionStart, conditionEnd),
+    trueValue: str.substring(trueValueStart, trueValueEnd),
+    falseValue: str.substring(falseValueStart, falseValueEnd),
+  };
 }
 
 function getTotalValueFromFields(
