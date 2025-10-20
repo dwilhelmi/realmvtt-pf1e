@@ -5606,6 +5606,276 @@ function getProfiencyForWeapon(record, weaponCategory, weaponGroup) {
   return weaponProficiency;
 }
 
+/**
+ * Evaluates a predicate string for game mechanics.
+ * Supports predicates like:
+ * - gte(item:proficiency:rank, 3)
+ * - target:condition:off-guard
+ * - item:trait:agile
+ * - and(...), or(...) for combining conditions
+ *
+ * @param {string} predicate - The predicate string to evaluate
+ * @param {Object} record - The character record
+ * @param {Object} item - The item (weapon, armor, etc.) being evaluated
+ * @param {Object} targetIsOffGuard - True if the target is off guard (optional)
+ * @returns {boolean} - True if predicate is satisfied
+ */
+function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
+  if (!predicate || typeof predicate !== "string") {
+    console.warn("evaluatePredicate: invalid predicate", predicate);
+    return false;
+  }
+
+  // Safety check for required parameters
+  if (!record || !item) {
+    console.warn("evaluatePredicate: missing record or item parameter");
+    return false;
+  }
+
+  // Helper to check if item has a trait
+  const hasItemTrait = (traitName) => {
+    if (!item || !item.data) return false;
+    const traits = item.data.traits || [];
+    return traits.some((trait) =>
+      trait.toLowerCase().includes(traitName.toLowerCase())
+    );
+  };
+
+  // Helper to get item proficiency rank (for weapons/armor)
+  const getItemProficiencyRank = () => {
+    if (!item || !item.data) return 0;
+
+    const itemCategory = (item.data.itemCategory || "simple").toLowerCase();
+    const itemGroup = (item.data.group || "").toLowerCase();
+
+    // Check if this is armor or weapon
+    const armorCategories = ["unarmored", "light", "medium", "heavy"];
+    if (armorCategories.includes(itemCategory)) {
+      return getProfiencyForArmor(record, itemCategory, itemGroup);
+    } else {
+      // Default to weapon proficiency
+      return getProfiencyForWeapon(record, itemCategory, itemGroup);
+    }
+  };
+
+  // Replace predicate variables with actual values
+  let evaluatedPredicate = predicate;
+
+  try {
+    // Handle item:proficiency:rank
+    if (evaluatedPredicate.includes("item:proficiency:rank")) {
+      const profRank = getItemProficiencyRank();
+      evaluatedPredicate = evaluatedPredicate.replace(
+        /item:proficiency:rank/g,
+        String(profRank)
+      );
+    }
+
+    // Handle target:condition:off-guard
+    if (evaluatedPredicate.includes("target:condition:off-guard")) {
+      const offGuardValue = targetIsOffGuard ? "1" : "0";
+      evaluatedPredicate = evaluatedPredicate.replace(
+        /target:condition:off-guard/g,
+        offGuardValue
+      );
+    }
+
+    // Handle item:trait:X patterns
+    // Convert iterator to array to avoid issues when modifying the string
+    const traitMatches = Array.from(
+      evaluatedPredicate.matchAll(/item:trait:(\w+)/g)
+    );
+    for (const match of traitMatches) {
+      const traitName = match[1];
+      const hasTrait = hasItemTrait(traitName);
+      evaluatedPredicate = evaluatedPredicate.replace(
+        match[0],
+        hasTrait ? "1" : "0"
+      );
+    }
+  } catch (error) {
+    console.error("Error in evaluatePredicate variable replacement:", error);
+    console.error("Predicate:", predicate);
+    console.error("Item:", item);
+    return false;
+  }
+
+  // Now we need to handle logical operators: and(...), or(...)
+  // Process from innermost to outermost
+
+  // Helper to recursively evaluate logical functions from innermost to outermost
+  const evaluateLogicalFunctions = (str) => {
+    let result = str;
+    let changed = true;
+
+    // Keep processing until no more changes occur
+    while (changed) {
+      changed = false;
+      const previousResult = result;
+
+      // Find innermost and/or functions (those with no nested functions in args)
+      // Process both and() and or() in the same pass
+      const andRegex = /and\(([^()]+)\)/g;
+      const orRegex = /or\(([^()]+)\)/g;
+
+      // Replace all innermost and() functions
+      result = result.replace(andRegex, (match, argsStr) => {
+        const args = argsStr.split(",").map((arg) => arg.trim());
+        // Verify all arguments are numeric
+        const allNumeric = args.every((arg) => !isNaN(parseFloat(arg)));
+        if (!allNumeric) return match; // Skip if not all numeric
+
+        const allTrue = args.every((arg) => {
+          const num = parseFloat(arg);
+          return !isNaN(num) && num !== 0;
+        });
+        return allTrue ? "1" : "0";
+      });
+
+      // Replace all innermost or() functions
+      result = result.replace(orRegex, (match, argsStr) => {
+        const args = argsStr.split(",").map((arg) => arg.trim());
+        // Verify all arguments are numeric
+        const allNumeric = args.every((arg) => !isNaN(parseFloat(arg)));
+        if (!allNumeric) return match; // Skip if not all numeric
+
+        const anyTrue = args.some((arg) => {
+          const num = parseFloat(arg);
+          return !isNaN(num) && num !== 0;
+        });
+        return anyTrue ? "1" : "0";
+      });
+
+      // Check if anything changed
+      if (result !== previousResult) {
+        changed = true;
+      }
+    }
+
+    return result;
+  };
+
+  try {
+    // Evaluate all logical functions (handles nesting recursively)
+    evaluatedPredicate = evaluateLogicalFunctions(evaluatedPredicate);
+
+    // Now use the existing evaluateFormula to handle comparison functions like gte, lt, etc.
+    evaluatedPredicate = evaluateFormula(evaluatedPredicate);
+
+    // Final result: check if the predicate evaluates to a truthy value
+    const result = parseFloat(evaluatedPredicate);
+
+    return !isNaN(result) && result !== 0;
+  } catch (error) {
+    console.error("Error in evaluatePredicate logical evaluation:", error);
+    console.error("Predicate at error:", evaluatedPredicate);
+    return false;
+  }
+}
+
+/**
+ * Checks if the character has a critical specialization effect for the given item.
+ * Critical specialization requires:
+ * - A feature with a "criticalSpecialization" modifier
+ * - The modifier's field predicate must evaluate to true
+ *
+ * @param {Object} record - The character record
+ * @param {Object} item - The item (typically a weapon) being used
+ * @param {Object} targetIsOffGuard - True if the target is off guard (optional)
+ * @returns {boolean} - True if critical specialization effect applies
+ */
+function hasCriticalSpecializationEffect(
+  record,
+  item,
+  targetIsOffGuard = false
+) {
+  const features = collectFeatures(record);
+
+  // Check all features for criticalSpecialization modifiers
+  for (const feature of features) {
+    const modifiers = feature.data?.modifiers || [];
+    for (const modifier of modifiers) {
+      const modifierType = modifier.data?.type || "";
+      const predicate = modifier.data?.field || "";
+
+      // Check if this is a criticalSpecialization modifier
+      if (modifierType.toLowerCase() === "criticalspecialization") {
+        // Evaluate the predicate
+        if (evaluatePredicate(predicate, record, item, targetIsOffGuard)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Gets the critical specialization effect details for a weapon group.
+ *
+ * @param {string} weaponGroup - The weapon group name
+ * @returns {Object} - Object containing description, group name, and macros array
+ */
+function getCriticalSpecializationDetails(weaponGroup) {
+  const group = (weaponGroup || "").toLowerCase();
+
+  const specializations = {
+    axe: "Choose one creature adjacent to the initial target and within reach. If its AC is lower than your attack roll result for the critical hit, you deal damage to that creature equal to the result of the weapon damage die you rolled (including extra dice for its striking rune, if any). This amount isn't doubled, and no bonuses or other additional dice apply to this damage.",
+
+    bomb: "Increase the radius of the bomb's splash damage (if any) to 10 feet.",
+
+    bow: "If the target of the critical hit is adjacent to a surface, it gets stuck to that surface by the missile. The target is immobilized and must spend an Interact action to attempt a DC 10 Athletics check to pull the missile free; it can't move from its space until it succeeds. The creature doesn't become stuck if it is incorporeal, is liquid (like a water elemental or some oozes), or could otherwise escape without effort.",
+
+    brawling:
+      "The target must succeed at a Fortitude save against your class DC or be slowed 1 until the end of your next turn.",
+
+    club: "You knock the target away from you up to 10 feet (you choose the distance). This is forced movement.",
+
+    crossbow:
+      "The target takes 1d8 persistent bleed damage. You gain an item bonus to this bleed damage equal to the weapon's item bonus to attack rolls.",
+
+    dart: "The target takes 1d6 persistent bleed damage. You gain an item bonus to this bleed damage equal to the weapon's item bonus to attack rolls.",
+
+    firearm:
+      "The target must succeed at a Fortitude save against your class DC or be stunned 1.",
+
+    flail:
+      "The target is knocked prone unless they succeed at a Reflex save against your class DC.",
+
+    hammer:
+      "The target is knocked prone unless they succeed at a Fortitude save against your class DC.",
+
+    knife:
+      "The target takes 1d6 persistent bleed damage. You gain an item bonus to this bleed damage equal to the weapon's item bonus to attack rolls.",
+
+    pick: "The weapon viciously pierces the target, who takes 2 additional damage per weapon damage die.",
+
+    polearm:
+      "The target is moved 5 feet in a direction of your choice. This is forced movement.",
+
+    shield:
+      "You knock the target back from you 5 feet. This is forced movement.",
+
+    sling:
+      "The target must succeed at a Fortitude save against your class DC or be stunned 1.",
+
+    spear:
+      "The weapon pierces the target, weakening its attacks. The target is clumsy 1 until the start of your next turn.",
+
+    sword:
+      "The target is made off-balance by your attack, becoming off-guard until the start of your next turn.",
+  };
+
+  const description = specializations[group] || "";
+
+  return {
+    description: description,
+    group: group,
+    macros: [], // TODO add macros for certain specializations later
+  };
+}
+
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -6119,12 +6389,21 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         targetIsOffGuardDueToFlanking
       );
 
+      // Check if we have a critical specialization effect
+      const hasCriticalSpecialization = hasCriticalSpecializationEffect(
+        record,
+        weapon,
+        targetIsOffGuard
+      );
+
       const diceRoll = "1d20";
       const metadata = {
         attack: `${weapon.name}`,
         rollName: "Attack",
         tooltip: `Attack with ${weapon.name}`,
         weaponName: weapon.name,
+        weaponGroup: weaponGroup,
+        hasCriticalSpecialization: hasCriticalSpecialization,
         traits: traits,
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
@@ -6160,12 +6439,20 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       );
     }
   } else {
+    const hasCriticalSpecialization = hasCriticalSpecializationEffect(
+      record,
+      weapon,
+      false
+    );
+
     const metadata = {
       attack: `${weapon.name}`,
       rollName: "Attack",
       tooltip: `Attack with ${weapon.name}`,
       traits: traits,
       weaponName: weapon.name,
+      weaponGroup: weaponGroup,
+      hasCriticalSpecialization: hasCriticalSpecialization,
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
       damage: damage,

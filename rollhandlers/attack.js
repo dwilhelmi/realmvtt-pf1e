@@ -25,6 +25,10 @@ const isRanged = data?.roll?.metadata?.isRanged;
 const minRoll = data?.roll?.metadata?.minRoll;
 const wasOffGuard = data?.roll?.metadata?.isOffGuard;
 
+const weaponGroup = data?.roll?.metadata?.weaponGroup || "";
+const hasCriticalSpecialization =
+  data?.roll?.metadata?.hasCriticalSpecialization;
+
 // If it was a spell attack, we need to pass this along in damage metadata
 const isSpell = data?.roll?.metadata?.isSpell === true;
 
@@ -161,6 +165,17 @@ if (wasOffGuard) {
   });
 }
 
+// Add critical specialization tag if applicable
+if (isCritical && hasCriticalSpecialization && weaponGroup) {
+  const critSpecDetails = getCriticalSpecializationDetails(weaponGroup);
+  if (critSpecDetails.description) {
+    tags.push({
+      name: `${capitalize(critSpecDetails.group)} Critical Effect`,
+      tooltip: critSpecDetails.description,
+    });
+  }
+}
+
 // Get deadly die information from metadata
 const deadlyDie = data?.roll?.metadata?.deadlyDie;
 const fatalDie = data?.roll?.metadata?.fatalDie;
@@ -287,9 +302,17 @@ const allMacros = [];
 const effectMacros = effects.filter((macro) => macro).join("\n");
 const macros = allMacros.filter((macro) => macro).join("\n");
 
+// Add critical specialization message if applicable
+let critSpecMessage = "";
+if (isCritical && hasCriticalSpecialization && weaponGroup) {
+  critSpecMessage =
+    "\n\n**[center]Critical Specialization Effect can be Applied[/center]**";
+}
+
 message = `
   ${message}
-  
+  ${critSpecMessage}
+
   ${damageButton}
   ${macros}
   ${effectMacros}
