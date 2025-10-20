@@ -2505,9 +2505,10 @@ function updateAttribute({
     ac += bestArmor.shield.acBonus;
   }
   // Get proficiency bonus for this armor type
-  const armorProf = parseInt(
-    record?.data?.defenses?.[bestArmor.armor.armorCategory] || 0,
-    10
+  const armorProf = getProfiencyForArmor(
+    record,
+    bestArmor?.armor?.armorCategory,
+    bestArmor?.armor?.group
   );
   // Prof bonus is prof * 2 + level, if we're proficient, else we don't add level
   if (armorProf > 0) {
@@ -3327,8 +3328,13 @@ function updateProficiencies(record, valuesToSet) {
     featureProficiencies.forEach((proficiency) => {
       const name = (proficiency?.data?.name || "").toLowerCase();
       const rank = parseInt(proficiency?.data?.rank || "0", 10);
+      // Some proficiencies apply only to a specific group *by field* so we will not
+      // apply them here if field is set
+      const field = proficiency?.data?.field || "";
+      const setProfiency =
+        field === "" || field === null || field === undefined;
 
-      if (name && rank > 0) {
+      if (name && rank > 0 && setProfiency) {
         // Check if it's a saving throw
         if (name === "fortitude" || name === "reflex" || name === "will") {
           if (rank > proficiencies[name]) {
@@ -5484,6 +5490,122 @@ function activateSneakAttackIfConditionsMet(
   });
 }
 
+function collectFeatures(record) {
+  // Collect all features from ancestries, heritages, classes, feats, and inventory
+  const features = [];
+  const ancestries = record.data?.ancestries || [];
+  const heritages = record.data?.heritages || [];
+  const classes = record.data?.classes || [];
+  const feats = record.data?.feats || [];
+  const bonusFeats = record.data?.bonusFeats || [];
+  const characterFeatures = record.data?.features || [];
+
+  // Collect features from ancestries
+  for (const ancestry of ancestries) {
+    features.push(...(ancestry.data?.features || []));
+  }
+
+  // Collect features from heritages
+  for (const heritage of heritages) {
+    features.push(...(heritage.data?.features || []));
+  }
+
+  // Collect features from classes
+  for (const classObj of classes) {
+    const level = record.data?.level || 0;
+    const classFeatures = classObj.data?.features || [];
+    classFeatures.forEach((feature) => {
+      const featureLevel = feature.data?.level || 0;
+      if (featureLevel <= level) {
+        features.push(feature);
+      }
+    });
+  }
+
+  // Add feats and character features
+  features.push(...feats);
+  features.push(...bonusFeats);
+  features.push(...characterFeatures);
+
+  // Check equipped items for proficiency bonuses
+  const items = Array.isArray(record.data?.inventory)
+    ? record.data.inventory
+    : [];
+  const requiresInvestment = (item) => {
+    const traits = item.data?.traits || [];
+    return traits.map((trait) => trait.toLowerCase()).includes("invested");
+  };
+  const equippedItems = items.filter(
+    (item) =>
+      item.data?.carried === "equipped" &&
+      (!requiresInvestment(item) || item.data?.invested === "true")
+  );
+  features.push(...equippedItems);
+  return features;
+}
+
+function getProfiencyForArmor(record, armorCategory, armorGroup) {
+  // First check proficiency for the armor category
+  let armorProf = parseInt(record?.data?.defenses?.[armorCategory] || "0", 10);
+
+  const features = collectFeatures(record);
+
+  // Check all features for armor group-specific proficiencies
+  for (const feature of features) {
+    const featureProficiencies = feature.data?.proficiencies || [];
+    featureProficiencies.forEach((proficiency) => {
+      const name = (proficiency?.data?.name || "").toLowerCase();
+      const rank = parseInt(proficiency?.data?.rank || "0", 10);
+      const field = (proficiency?.data?.field || "").toLowerCase();
+
+      // Check if this proficiency matches the armor category and has a field matching the armor group
+      if (
+        name === armorCategory.toLowerCase() &&
+        field &&
+        field === armorGroup.toLowerCase() &&
+        rank > armorProf
+      ) {
+        armorProf = rank;
+      }
+    });
+  }
+
+  return armorProf;
+}
+
+function getProfiencyForWeapon(record, weaponCategory, weaponGroup) {
+  // First check proficiency for the weapon category
+  let weaponProficiency = parseInt(
+    record.data?.attacks?.[weaponCategory] || "0",
+    10
+  );
+
+  // Then check if we have any features or class features that provide a proficiency for this weapon group
+  const features = collectFeatures(record);
+
+  // Check all features for weapon group-specific proficiencies
+  for (const feature of features) {
+    const featureProficiencies = feature.data?.proficiencies || [];
+    featureProficiencies.forEach((proficiency) => {
+      const name = (proficiency?.data?.name || "").toLowerCase();
+      const rank = parseInt(proficiency?.data?.rank || "0", 10);
+      const field = (proficiency?.data?.field || "").toLowerCase();
+
+      // Check if this proficiency matches the weapon category and has a field matching the weapon group
+      if (
+        name === weaponCategory.toLowerCase() &&
+        field &&
+        field === weaponGroup.toLowerCase() &&
+        rank > weaponProficiency
+      ) {
+        weaponProficiency = rank;
+      }
+    });
+  }
+
+  return weaponProficiency;
+}
+
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -5711,10 +5833,12 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   // Determine base proficiency with weapon
   const weaponCategory = (weapon.data?.itemCategory || "simple").toLowerCase();
+  const weaponGroup = weapon.data?.group || "";
   // Check proficiency
-  const weaponProficiency = parseInt(
-    record.data?.attacks?.[weaponCategory] || "0",
-    10
+  const weaponProficiency = getProfiencyForWeapon(
+    record,
+    weaponCategory,
+    weaponGroup
   );
   const proficiencyNames = [
     "Untrained",
