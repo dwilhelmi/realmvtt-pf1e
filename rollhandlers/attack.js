@@ -166,8 +166,13 @@ if (wasOffGuard) {
 }
 
 // Add critical specialization tag if applicable
+let critSpecDetails = {
+  description: "",
+  group: "",
+  macros: [],
+};
 if (isCritical && hasCriticalSpecialization && weaponGroup) {
-  const critSpecDetails = getCriticalSpecializationDetails(weaponGroup);
+  critSpecDetails = getCriticalSpecializationDetails(weaponGroup);
   if (critSpecDetails.description) {
     tags.push({
       name: `${capitalize(critSpecDetails.group)} Critical Effect`,
@@ -295,8 +300,14 @@ const damageButton =
 const extraTags = [];
 const effects = [];
 const allMacros = [];
-// TODO get tags and macros, and effect macros for critical specializations for attack, if crit
 
+if (critSpecDetails.macros && critSpecDetails.macros.length > 0) {
+  critSpecDetails.macros.forEach((macro) => {
+    allMacros.push(macro);
+  });
+}
+
+// TODO get tags and macros, and effect macros for critical specializations for attack, if crit
 // TODO get tags and macros, and effect macros for armor spec for defender if they have it
 
 const effectMacros = effects.filter((macro) => macro).join("\n");
