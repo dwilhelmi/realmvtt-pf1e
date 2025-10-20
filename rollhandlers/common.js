@@ -5357,6 +5357,66 @@ function getWeaponDamageInfo(record, weapon) {
   };
 }
 
+/**
+ * Activates Sneak Attack modifiers if conditions are met.
+ * Sneak Attack applies when:
+ * - Target has the off-guard condition
+ * - AND you're using an agile/finesse melee weapon, agile/finesse unarmed attack,
+ *   ranged weapon attack, or ranged unarmed attack
+ *
+ * @param {Array} modifiers - Array of damage modifiers
+ * @param {Object} weapon - The weapon being used
+ * @param {boolean} targetIsOffGuard - Whether the target has the off-guard condition
+ * @returns {Array} - Modified array with sneak attack modifiers activated if conditions met
+ */
+function activateSneakAttackIfConditionsMet(
+  modifiers,
+  weapon,
+  targetIsOffGuard
+) {
+  if (!targetIsOffGuard) {
+    return modifiers; // No sneak attack if target is not off-guard
+  }
+
+  // Check weapon properties
+  const isMelee = (weapon.data?.range || 0) === 0;
+  const traits = weapon.data?.traits || [];
+
+  const hasAgileTrait = traits.some((trait) =>
+    trait.toLowerCase().includes("agile")
+  );
+  const hasFinesseTrait = traits.some((trait) =>
+    trait.toLowerCase().includes("finesse")
+  );
+
+  // Determine if sneak attack conditions are met
+  let sneakAttackApplies = false;
+
+  if (isMelee) {
+    // Melee: must have agile or finesse trait
+    sneakAttackApplies = hasAgileTrait || hasFinesseTrait;
+  } else {
+    // Ranged: always applies (ranged weapon or ranged unarmed)
+    sneakAttackApplies = true;
+  }
+
+  if (!sneakAttackApplies) {
+    return modifiers; // Conditions not met
+  }
+
+  // Activate all "sneak attack" modifiers
+  return modifiers.map((mod) => {
+    const modName = (mod.name || "").toLowerCase();
+    if (modName.includes("sneak attack")) {
+      return {
+        ...mod,
+        active: true,
+      };
+    }
+    return mod;
+  });
+}
+
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
   const isMelee = (weapon.data?.range || 0) === 0;
@@ -5856,6 +5916,13 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         targetIsOffGuard = targetIsOffGuardDueToFlanking;
       }
 
+      // Activate sneak attack modifiers if conditions are met
+      const finalDamageModifiers = activateSneakAttackIfConditionsMet(
+        allDamageModifiers,
+        weapon,
+        targetIsOffGuard
+      );
+
       let targetAc = getArmorClassForToken(
         target?.token,
         targetIsOffGuardDueToFlanking
@@ -5876,7 +5943,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         dc: targetAc,
         damage: damage,
         fatalDamageString: fatalDamageString,
-        damageModifiers: allDamageModifiers,
+        damageModifiers: finalDamageModifiers,
         damageIgnoresResistances: damageIgnoresResistances,
         damageIgnoresImmunities: damageIgnoresImmunities,
         damageIgnoresWeaknesses: damageIgnoresWeaknesses,
@@ -6086,8 +6153,25 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // Roll for each target or just once
   const targets = api.getTargets();
   const ourToken = api.getToken();
+  let targetIsOffGuard = false;
+
   if (targets.length > 0) {
     for (const target of targets) {
+      // Check if target is off-guard
+      targetIsOffGuard = isOffGuard(target?.token);
+
+      let targetIsOffGuardDueToFlanking = false;
+      if (isMelee && !isThrown && !targetIsOffGuard) {
+        const otherTokens = api.getOtherTokens();
+        targetIsOffGuardDueToFlanking = isOffGuardDueToFlanking({
+          sourceToken: ourToken,
+          sourceReach: getTokenReach(ourToken),
+          otherTokens: otherTokens,
+          target: target,
+        });
+        targetIsOffGuard = targetIsOffGuardDueToFlanking;
+      }
+
       // Get damage effects for the target
       const targetDamageEffects = getDamageEffectsForTarget(
         ourToken,
@@ -6101,6 +6185,14 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
       });
     }
   }
+
+  // Activate sneak attack modifiers if conditions are met
+  const finalDamageModifiers = activateSneakAttackIfConditionsMet(
+    filteredDamageModifiers,
+    weapon,
+    targetIsOffGuard
+  );
+
   const metadata = {
     attack: `${weapon.name}`,
     traits: traits,
@@ -6119,7 +6211,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   api.promptRoll(
     `${weapon.name} Damage`,
     damage,
-    filteredDamageModifiers,
+    finalDamageModifiers,
     metadata,
     "damage"
   );
