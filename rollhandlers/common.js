@@ -5200,6 +5200,73 @@ function getAnimationFor({
   return animation;
 }
 
+function useAction(action) {
+  const actionName = action?.name || "Unknown Action";
+  const actions = action?.data?.actions || "";
+  const actionType = action?.data?.actionType || "";
+  let actionIconFallback = "";
+  if (
+    actions === "free" ||
+    (actions === undefined && actionType === "action")
+  ) {
+    actionIconFallback = "free-action";
+  } else if (actions === "oneAction") {
+    actionIconFallback = "one-action";
+  } else if (actions === "twoActions") {
+    actionIconFallback = "two-actions";
+  } else if (actions === "threeActions") {
+    actionIconFallback = "three-actions";
+  } else if (actions === "oneToTwoActions") {
+    actionIconFallback = "1-to-2";
+  } else if (actions === "oneToThreeActions") {
+    actionIconFallback = "1-to-3";
+  } else if (actions === "reaction") {
+    actionIconFallback = "reaction";
+  }
+
+  const actionDescription = api.richTextToMarkdown(
+    action?.data?.description || ""
+  );
+
+  const actionIcon = action?.portrait
+    ? `![${actionName}](${assetUrl}${encodeURI(
+        action?.portrait
+      )}?width=40&height=40) `
+    : "";
+
+  let iconToUse = actionIcon;
+  if (
+    !actionIcon ||
+    ((actionIcon.includes("Action") || actionIcon.includes("Reaction")) &&
+      actionIconFallback !== "")
+  ) {
+    // If the portrait is not set or is a PF2e image icon, use the fallback icon if set
+    iconToUse = `:${actionIconFallback}:&nbsp;`;
+  }
+  if (!actionIcon && !actionIconFallback) {
+    iconToUse = "";
+  }
+
+  const message = `
+#### ${iconToUse}${actionName}
+
+---
+${actionDescription}
+`;
+
+  // Send the message
+  api.sendMessage(message, undefined, [], []);
+
+  // Play animation if needed
+  const ourToken = api.getToken();
+  const targets = api.getTargets();
+  const tokenId = ourToken?._id;
+  const targetId = targets.length > 0 ? targets[0]?.token?._id : null;
+  if (action?.data?.animation && tokenId) {
+    api.playAnimation(action?.data?.animation, tokenId, targetId);
+  }
+}
+
 /**
  * Helper function to get damage type, string, and modifiers for a weapon/spell/item
  * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, deadlyDie, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
