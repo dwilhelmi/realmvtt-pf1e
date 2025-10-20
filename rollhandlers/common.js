@@ -2259,29 +2259,30 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   // NPCs store in attributes.ac.value, PCs store in ac, fall back to 10 as the default
   let ac = tokenData?.attributes?.ac?.value || tokenData?.ac || 10;
 
-  // Add active modifiers to AC (only if it's from an EFFECT, items are already included)
+  // Check if there's already a circumstance penalty
+  const existingCircumstancePenalty = acModifiers.find(
+    (mod) => mod.modifierType === "circumstance" && mod.isPenalty
+  );
+
+  // Apply all modifiers from getEffectsAndModifiersForToken
+  // (already returns highest of each type)
   acModifiers.forEach((mod) => {
-    if (mod.valueType === "number" && mod.isEffect) {
+    if (typeof mod.value === "number") {
       ac += mod.value;
     }
   });
 
+  // Handle flanking: -2 circumstance penalty
   if (targetIsOffGuardDueToFlanking) {
-    // Add a circumstance penalty to the AC if there isn't one already
-    if (
-      !acModifiers.some(
-        (mod) => mod.modifierType === "circumstance" && mod.isPenalty
-      )
-    ) {
+    if (!existingCircumstancePenalty) {
+      // No circumstance penalty exists, add -2 for flanking
       ac -= 2;
+    } else if (existingCircumstancePenalty.value === -1) {
+      // Existing penalty is -1, but flanking is -2 (higher)
+      // Add an additional -1 to reach -2 total
+      ac -= 1;
     }
   }
-
-  acModifiers.forEach((mod) => {
-    if (mod.valueType === "number") {
-      ac += mod.value;
-    }
-  });
 
   return ac;
 }
