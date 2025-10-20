@@ -5635,7 +5635,7 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
   // Helper to check if item has a trait
   const hasItemTrait = (traitName) => {
     if (!item || !item.data) return false;
-    const traits = item.data.traits || [];
+    const traits = item.data?.traits || [];
     return traits.some((trait) =>
       trait.toLowerCase().includes(traitName.toLowerCase())
     );
@@ -5801,7 +5801,76 @@ function hasCriticalSpecializationEffect(
       // Check if this is a criticalSpecialization modifier
       if (modifierType.toLowerCase() === "criticalspecialization") {
         // Evaluate the predicate
-        if (evaluatePredicate(predicate, record, item, targetIsOffGuard)) {
+        // If the predicate is just a category or group that matches the item, return true
+        if (
+          predicate &&
+          (predicate.toLowerCase() === item.data?.group?.toLowerCase() ||
+            predicate.toLowerCase() === item.data?.itemCategory?.toLowerCase())
+        ) {
+          return true;
+        } else if (
+          predicate &&
+          // Otherwise evaluate the predicate
+          evaluatePredicate(predicate, record, item, targetIsOffGuard)
+        ) {
+          return true;
+        } else if (!predicate) {
+          // If we don't have a predicate just assume it's for all weapons
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if the character has a armor specialization effect for the given item.
+ * Armor specialization requires:
+ * - A feature with a "armorSpecialization" modifier
+ * - The modifier's field predicate must evaluate to true
+ *
+ * @param {Object} record - The character record
+ * @param {Object} item - The item (typically armor) that is equipped
+ * @returns {boolean} - True if critical specialization effect applies
+ */
+function hasArmorSpecializationEffect(record, item) {
+  const features = collectFeatures(record);
+
+  // Only applies to medium or heavy armor
+  if (
+    item.data?.itemCategory?.toLowerCase() !== "medium" &&
+    item.data?.itemCategory?.toLowerCase() !== "heavy"
+  ) {
+    return false;
+  }
+
+  // Check all features for criticalSpecialization modifiers
+  for (const feature of features) {
+    const modifiers = feature.data?.modifiers || [];
+    for (const modifier of modifiers) {
+      const modifierType = modifier.data?.type || "";
+      const predicate = modifier.data?.field || "";
+
+      // Check if this is a criticalSpecialization modifier
+      if (modifierType.toLowerCase() === "armorspecialization") {
+        // Evaluate the predicate
+        // If the predicate is just a category or group that matches the item, return true
+        if (
+          predicate &&
+          (predicate.toLowerCase() === item.data?.group?.toLowerCase() ||
+            predicate.toLowerCase() === item.data?.itemCategory?.toLowerCase())
+        ) {
+          return true;
+        } else if (
+          predicate &&
+          // Otherwise evaluate the predicate
+          evaluatePredicate(predicate, record, item)
+        ) {
+          return true;
+        } else if (!predicate) {
+          // If we don't have a predicate just assume it's for all weapons
           return true;
         }
       }
@@ -5865,6 +5934,46 @@ function getCriticalSpecializationDetails(weaponGroup) {
 
     sword:
       "The target is made off-balance by your attack, becoming off-guard until the start of your next turn.",
+  };
+
+  const description = specializations[group] || "";
+
+  return {
+    description: description,
+    group: group,
+    macros: [], // TODO add macros for certain specializations later
+  };
+}
+
+/**
+ * Gets the armor specialization effect details for an armor group.
+ *
+ * @param {string} armorGroup - The armor group name
+ * @returns {Object} - Object containing description, group name, and macros array
+ */
+function getArmorSpecializationDetails(armorGroup) {
+  const group = (armorGroup || "").toLowerCase();
+
+  const specializations = {
+    chain:
+      "The armor is so flexible it can bend with a critical hit and absorb some of the blow. Reduce the damage from critical hits by either 4 + the value of the armor's potency rune for medium armor, or 6 + the value of the armor's potency rune for heavy armor. This can't reduce the damage to less than the damage rolled for the hit before doubling for a critical hit.",
+
+    cloth:
+      "Clothing isn't armor, but if it has a Dex cap it can accept fundamental and property runes.",
+
+    composite:
+      "The numerous overlapping pieces of this armor protect you from piercing attacks. You gain resistance to piercing damage equal to 1 + the value of the armor's potency rune for medium armor, or 2 + the value of the armor's potency rune for heavy armor.",
+
+    leather:
+      "The thick second skin of the armor disperses blunt force to reduce bludgeoning damage. You gain resistance to bludgeoning damage equal to 1 + the value of the armor's potency rune for medium armor, or 2 + the value of the armor's potency rune for heavy armor.",
+
+    plate:
+      "The sturdy plate provides no purchase for a cutting edge. You gain resistance to slashing damage equal to 1 + the value of the armor's potency rune for medium armor, or 2 + the value of the armor's potency rune for heavy armor.",
+
+    skeletal:
+      "Armor made from the bone or exoskeleton of creatures as diverse as bears, insects, and coral, skeletal armor protects vital points from precision damage. You gain resistance to precision damage equal to 3 + the value of the armor's potency rune for medium armor, or 5 + the value of the armor's potency rune for heavy armor.",
+
+    wood: "Wood armor is generally flexible and light, but it can splinter as it breaks, throwing off shards and fragments that damage foes who deal you critical blows. If a foe critically hits you with a melee unarmed attack or critically hits you with any melee attack while adjacent to you, it takes piercing damage equal to 3 + the armor's potency rune value for medium armor, or 5 + the armor's potency rune value for heavy armor.",
   };
 
   const description = specializations[group] || "";
@@ -6696,10 +6805,10 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
 }
 
 // Helper function to get Immunities, Weaknesses, and Resistances for PF2e
-function getIWR(target) {
+function getIWR(target, armorSpecDetails = null) {
   const immunities = [];
-  const weaknesses = {};
-  const resistances = {};
+  const weaknessesMap = {};
+  const resistancesMap = {};
 
   // Parse immunities (simple array of types)
   const immunityArray = target.data?.immunities || [];
@@ -6710,6 +6819,7 @@ function getIWR(target) {
   });
 
   // Parse weaknesses (format: "Fire 5", "Cold 10", etc.)
+  // Keep the worst (highest) weakness for each type
   const weaknessArray = target.data?.weaknesses || [];
   weaknessArray.forEach((weakness) => {
     if (weakness) {
@@ -6717,12 +6827,16 @@ function getIWR(target) {
       if (match) {
         const type = match[1].toLowerCase().trim();
         const value = parseInt(match[2], 10);
-        weaknesses[type] = value;
+        // Only keep the worst (highest) weakness
+        if (!weaknessesMap[type] || value > weaknessesMap[type]) {
+          weaknessesMap[type] = value;
+        }
       }
     }
   });
 
   // Parse resistances (format: "Fire 5", "Physical 3", etc.)
+  // Keep the best (highest) resistance for each type
   const resistanceArray = target.data?.resistances || [];
   resistanceArray.forEach((resistance) => {
     if (resistance) {
@@ -6730,12 +6844,73 @@ function getIWR(target) {
       if (match) {
         const type = match[1].toLowerCase().trim();
         const value = parseInt(match[2], 10);
-        resistances[type] = value;
+        // Only keep the best (highest) resistance
+        if (!resistancesMap[type] || value > resistancesMap[type]) {
+          resistancesMap[type] = value;
+        }
       }
     }
   });
 
-  return { immunities, weaknesses, resistances };
+  // Add armor specialization resistances if applicable
+  if (armorSpecDetails) {
+    const { group, category, potency } = armorSpecDetails;
+    const categoryLower = (category || "").toLowerCase();
+    const potencyValue = parseInt(potency, 10) || 0;
+
+    // Calculate resistance value based on armor category
+    let resistanceValue = 0;
+    if (categoryLower === "medium") {
+      resistanceValue = 1 + potencyValue;
+    } else if (categoryLower === "heavy") {
+      resistanceValue = 2 + potencyValue;
+    }
+
+    // Add resistance based on armor group
+    if (group === "composite" && resistanceValue > 0) {
+      // Composite: piercing resistance
+      if (
+        !resistancesMap["piercing"] ||
+        resistanceValue > resistancesMap["piercing"]
+      ) {
+        resistancesMap["piercing"] = resistanceValue;
+      }
+    } else if (group === "leather" && resistanceValue > 0) {
+      // Leather: bludgeoning resistance
+      if (
+        !resistancesMap["bludgeoning"] ||
+        resistanceValue > resistancesMap["bludgeoning"]
+      ) {
+        resistancesMap["bludgeoning"] = resistanceValue;
+      }
+    } else if (group === "plate" && resistanceValue > 0) {
+      // Plate: slashing resistance
+      if (
+        !resistancesMap["slashing"] ||
+        resistanceValue > resistancesMap["slashing"]
+      ) {
+        resistancesMap["slashing"] = resistanceValue;
+      }
+    } else if (group === "skeletal") {
+      // Skeletal: precision resistance (different formula)
+      const skeletalValue =
+        categoryLower === "medium"
+          ? 3 + potencyValue
+          : categoryLower === "heavy"
+          ? 5 + potencyValue
+          : 0;
+      if (skeletalValue > 0) {
+        if (
+          !resistancesMap["precision"] ||
+          skeletalValue > resistancesMap["precision"]
+        ) {
+          resistancesMap["precision"] = skeletalValue;
+        }
+      }
+    }
+  }
+
+  return { immunities, weaknesses: weaknessesMap, resistances: resistancesMap };
 }
 
 /**
@@ -6847,7 +7022,48 @@ function applyDamage(record, roll, halfDamage = false) {
     if (target && target.data) {
       let damage = 0;
 
-      const IWR = getIWR(target);
+      // Check for armor specialization (only for characters)
+      // This needs to be done before getIWR so we can add armor spec resistances
+      let targetHasArmorSpecialization = false;
+      let targetArmorGroup = "";
+      let targetArmorItem = null;
+      let armorSpecDetails = null;
+
+      if (target.recordType === "characters") {
+        // Get best equipped armor
+        const bestArmor = getBestEquippedArmor(target);
+
+        // Find the armor item in inventory if it exists
+        if (bestArmor?.armor?.armorId) {
+          const inventory = target.data?.inventory || [];
+          targetArmorItem = inventory.find(
+            (item) => item._id === bestArmor.armor.armorId
+          );
+
+          if (targetArmorItem) {
+            targetArmorGroup = (
+              targetArmorItem.data?.group || ""
+            ).toLowerCase();
+
+            // Check if target has armor specialization for this armor
+            targetHasArmorSpecialization = hasArmorSpecializationEffect(
+              target,
+              targetArmorItem
+            );
+
+            // Get armor specialization details if applicable
+            if (targetHasArmorSpecialization) {
+              armorSpecDetails = {
+                group: targetArmorGroup,
+                category: targetArmorItem.data?.itemCategory || "",
+                potency: targetArmorItem.data?.runes?.potency || 0,
+              };
+            }
+          }
+        }
+      }
+
+      const IWR = getIWR(target, armorSpecDetails);
 
       // Check if target is immune to critical hits
       const immuneToCritical = IWR.immunities.some((immunity) =>
@@ -6864,6 +7080,14 @@ function applyDamage(record, roll, halfDamage = false) {
       // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
       // If target is immune to critical hits, treat as a normal hit
       const damageByType = {};
+
+      // Track pre-critical damage for Chain armor specialization
+      let preCriticalDamage = 0;
+
+      // Calculate pre-critical damage first
+      roll.types.forEach((type, index) => {
+        preCriticalDamage += type.value;
+      });
 
       // Process each damage type entry from the roll
       roll.types.forEach((type, index) => {
@@ -6927,6 +7151,35 @@ function applyDamage(record, roll, halfDamage = false) {
         baseDamage += damageByType[type];
       });
 
+      // Apply Chain Armor Specialization: Reduce critical hit damage
+      // This is applied after critical doubling but before halving and IWR
+      if (
+        isCritical &&
+        !immuneToCritical &&
+        targetHasArmorSpecialization &&
+        armorSpecDetails?.group === "chain"
+      ) {
+        const categoryLower = (armorSpecDetails.category || "").toLowerCase();
+        const potencyValue = parseInt(armorSpecDetails.potency, 10) || 0;
+
+        let chainReduction = 0;
+        if (categoryLower === "medium") {
+          chainReduction = 4 + potencyValue;
+        } else if (categoryLower === "heavy") {
+          chainReduction = 6 + potencyValue;
+        }
+
+        if (chainReduction > 0) {
+          // Apply the reduction
+          baseDamage -= chainReduction;
+
+          // Can't reduce damage below the pre-critical amount
+          if (baseDamage < preCriticalDamage) {
+            baseDamage = preCriticalDamage;
+          }
+        }
+      }
+
       // Apply half damage to the base if needed (e.g., successful basic save)
       let damageAfterHalf = baseDamage;
       if (halfDamage && baseDamage > 0) {
@@ -6968,6 +7221,7 @@ function applyDamage(record, roll, halfDamage = false) {
       });
 
       // Final damage = halved damage + IWR adjustments
+      // Note: Armor specialization resistances are already included in IWR
       damage = damageAfterHalf + iwrAdjustment;
 
       // We cannot deal negative damage
@@ -7122,11 +7376,26 @@ function applyDamage(record, roll, halfDamage = false) {
             )}); api.editMessage(null, \`~${message}~\`); } else { api.showNotification('Only the GM can undo damage.', 'yellow', 'Notice'); }\n\`\`\``
           : "";
 
+      // Build tags array for armor specialization
+      const tags = [];
+      if (targetHasArmorSpecialization && targetArmorGroup) {
+        const armorSpecDetails =
+          getArmorSpecializationDetails(targetArmorGroup);
+        if (armorSpecDetails.description) {
+          tags.push({
+            name: `Target Has ${capitalize(
+              armorSpecDetails.group
+            )} Specialization`,
+            tooltip: armorSpecDetails.description,
+          });
+        }
+      }
+
       api.sendMessage(
         `${message}${macro}`,
         undefined,
         undefined,
-        undefined,
+        tags.length > 0 ? tags : undefined,
         target
       );
     }
