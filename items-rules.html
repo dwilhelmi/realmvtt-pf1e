@@ -19,11 +19,43 @@
     }
   }
 
+  function onChangeRunes(value, field) {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = itemDataPath ? api.getValue(itemDataPath) : record;
+    const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+    const valuesToSet = {};
+
+    // Set item fields in case invested is required now
+    if (dataPath.includes("inventory")) {
+      setItemFields(item, itemDataPath, valuesToSet);
+
+      if (Object.keys(valuesToSet).length > 0) {
+        api.setValues(valuesToSet);
+      }
+    }
+  }
+
   function onChangeArmorValue(value, field) {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = itemDataPath ? api.getValue(itemDataPath) : record;
+    const dataPrefix = itemDataPath ? `${itemDataPath}.data` : "data";
+    const valuesToSet = {};
+
+    // Set item fields in case invested is required now
+    setItemFields(item, itemDataPath, valuesToSet);
+
     // If this is a nested item in an inventory, we adjust the parent's armor values
     if (dataPath.includes("inventory")) {
       // Update AC for the character
-      onAddEditFeature(record, undefined, true);
+      onAddEditFeature(
+        record,
+        () => {
+          if (Object.keys(valuesToSet).length > 0) {
+            api.setValues(valuesToSet);
+          }
+        },
+        true
+      );
     }
   }
 
@@ -149,9 +181,11 @@
       placeholder="Select Property Runes..."
       multiselect="4"
       searchable="true"
+      onchange="onChangeRunes(value, 'runes.property')"
       options='[
         {"label": "Ancestral Echoing", "value": "ancestralEchoing"},
         {"label": "Anchoring", "value": "anchoring"},
+        {"label": "Animated", "value": "animated"},
         {"label": "Ashen", "value": "ashen"},
         {"label": "Astral", "value": "astral"},
         {"label": "Authorized", "value": "authorized"},
@@ -166,7 +200,6 @@
         {"label": "Corrosive", "value": "corrosive"},
         {"label": "Crushing", "value": "crushing"},
         {"label": "Cunning", "value": "cunning"},
-        {"label": "Dancing", "value": "dancing"},
         {"label": "Decaying", "value": "decaying"},
         {"label": "Deathdrinking", "value": "deathdrinking"},
         {"label": "Demolishing", "value": "demolishing"},
@@ -220,14 +253,14 @@
         {"label": "Merciful", "value": "merciful"},
         {"label": "Nightmare", "value": "nightmare"},
         {"label": "Pacifying", "value": "pacifying"},
+        {"label": "Quickstrike", "value": "quickstrike"},
         {"label": "Returning", "value": "returning"},
         {"label": "Rooting", "value": "rooting"},
         {"label": "Serrating", "value": "serrating"},
         {"label": "Shifting", "value": "shifting"},
         {"label": "Shock", "value": "shock"},
         {"label": "Shockwave", "value": "shockwave"},
-        {"label": "Speed", "value": "speed"},
-        {"label": "Spell Storing", "value": "spellStoring"},
+        {"label": "Spell Reservoir", "value": "spellReservoir"},
         {"label": "Swarming", "value": "swarming"},
         {"label": "Thundering", "value": "thundering"},
         {"label": "Trudds Strength", "value": "truddsStrength"},
@@ -262,6 +295,7 @@
       field="runes.resilient"
       label="Resilient"
       placeholder="Select..."
+      onchange="onChangeRunes(value, 'runes.resilient')"
       options='[
         {"label": "Resilient", "value": "1"},
         {"label": "Greater Resilient", "value": "2"},

@@ -1,6 +1,7 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const rollName = data?.roll?.metadata?.rollName;
 const traits = data?.roll?.metadata?.traits || [];
+const propertyRunes = data?.roll?.metadata?.runes || [];
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
@@ -181,6 +182,19 @@ if (isCritical && hasCriticalSpecialization && weaponGroup) {
   }
 }
 
+// Add property runes tags to the roll message
+let propertyRuneDetails = [];
+propertyRunes.forEach((rune) => {
+  const runeDetails = getWeaponRuneDetails(rune);
+  if (runeDetails.description && runeDetails.displayName) {
+    propertyRuneDetails.push(runeDetails);
+    tags.push({
+      name: runeDetails.displayName,
+      tooltip: runeDetails.description,
+    });
+  }
+});
+
 // Get deadly die information from metadata
 const deadlyDie = data?.roll?.metadata?.deadlyDie;
 const fatalDie = data?.roll?.metadata?.fatalDie;
@@ -296,8 +310,7 @@ const damageButton =
   \`\`\``
     : "";
 
-// TODO get tags and macros, and effect macros for runes
-const extraTags = [];
+// Get tags and macros, and effect macros for runes
 const effects = [];
 const allMacros = [];
 
@@ -307,8 +320,15 @@ if (critSpecDetails.macros && critSpecDetails.macros.length > 0) {
   });
 }
 
-// TODO get tags and macros, and effect macros for critical specializations for attack, if crit
-// TODO get tags and macros, and effect macros for armor spec for defender if they have it
+if (propertyRuneDetails.length > 0) {
+  propertyRuneDetails.forEach((rune) => {
+    if (rune.macros && rune.macros.length > 0) {
+      rune.macros.forEach((macro) => {
+        allMacros.push(macro);
+      });
+    }
+  });
+}
 
 const effectMacros = effects.filter((macro) => macro).join("\n");
 const macros = allMacros.filter((macro) => macro).join("\n");
@@ -329,7 +349,7 @@ message = `
   ${effectMacros}
   `;
 
-api.sendMessage(message, modifiedRoll, [], [...tags, ...extraTags]);
+api.sendMessage(message, modifiedRoll, [], [...tags]);
 
 if (animation && animation.animationName) {
   if (

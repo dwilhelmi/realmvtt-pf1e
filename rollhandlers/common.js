@@ -1669,6 +1669,16 @@ function getEffectsAndModifiersForToken(
   // Helper function to check if an item requires investment
   const requiresInvestment = (item) => {
     const traits = item.data?.traits || [];
+    // Assume if there are property runes and it is armor it requires investment
+    const propertyRunes = item.data?.runes?.property || [];
+    const potencyRune = item.data?.runes?.potency || "";
+    const resilientRune = item.data?.runes?.resilient || "";
+    if (
+      (propertyRunes.length > 0 || !!potencyRune || !!resilientRune) &&
+      item.data?.type === "armor"
+    ) {
+      return true;
+    }
     return traits.map((trait) => trait.toLowerCase()).includes("invested");
   };
 
@@ -1677,7 +1687,11 @@ function getEffectsAndModifiersForToken(
       item.data?.carried === "equipped" &&
       (!requiresInvestment(item) || item.data?.invested === "true")
   );
-  [...features, ...equippedItems].forEach((feature) => {
+
+  // Get and modifiers from runes
+  const runeModifiers = getFeaturesFromRunes(equippedItems);
+
+  [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
     const toggleable = feature.data?.toggleable || false;
     modifiers.forEach((modifier) => {
@@ -1981,6 +1995,13 @@ function getItemFields(item) {
   const hasInvestedTrait = traits
     .map((trait) => trait.toLowerCase())
     .includes("invested");
+  const hasArmorPropertyRunes =
+    (item.data?.runes?.property || []).length > 0 &&
+    item.data?.type === "armor";
+  const hasArmorPotencyRune =
+    !!item.data?.runes?.potency && item.data?.type === "armor";
+  const hasArmorResilientRune =
+    !!item.data?.runes?.resilient && item.data?.type === "armor";
   const hasConsumableTrait = traits
     .map((trait) => trait.toLowerCase())
     .includes("consumable");
@@ -2026,7 +2047,13 @@ function getItemFields(item) {
   const requiresReload = (item.data?.reload || 0) > 0;
 
   return {
-    invested: { hidden: !hasInvestedTrait },
+    invested: {
+      hidden:
+        !hasInvestedTrait &&
+        !hasArmorPropertyRunes &&
+        !hasArmorPotencyRune &&
+        !hasArmorResilientRune,
+    },
     useBtn: { hidden: !isConsumable && !hasUseBtn },
     handBtn: { hidden: isTwoHanded },
     rangeToggleBtn: { hidden: !(isMelee && isThrown) },
@@ -2048,6 +2075,13 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   const hasInvestedTrait = traits
     .map((trait) => trait.toLowerCase())
     .includes("invested");
+  const hasArmorPropertyRunes =
+    (item.data?.runes?.property || []).length > 0 &&
+    item.data?.type === "armor";
+  const hasArmorPotencyRune =
+    !!item.data?.runes?.potency && item.data?.type === "armor";
+  const hasArmorResilientRune =
+    !!item.data?.runes?.resilient && item.data?.type === "armor";
   const hasConsumableTrait = traits
     .map((trait) => trait.toLowerCase())
     .includes("consumable");
@@ -2071,9 +2105,24 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   const requiresReload = (item.data?.reload || 0) > 0;
 
   // Set properties - only set hidden to false when needed (to unhide)
-  if (hasInvestedTrait && itemFields?.invested?.hidden !== false) {
+  if (
+    (hasInvestedTrait ||
+      hasArmorPropertyRunes ||
+      hasArmorPotencyRune ||
+      hasArmorResilientRune) &&
+    itemFields?.invested?.hidden !== false
+  ) {
     valuesToSet[`${itemDataPath}.fields.invested.hidden`] = false;
+  } else if (
+    !hasInvestedTrait &&
+    !hasArmorPropertyRunes &&
+    !hasArmorPotencyRune &&
+    !hasArmorResilientRune &&
+    itemFields?.invested?.hidden !== true
+  ) {
+    valuesToSet[`${itemDataPath}.fields.invested.hidden`] = true;
   }
+
   if ((isConsumable || hasUseBtn) && itemFields?.useBtn?.hidden !== false) {
     valuesToSet[`${itemDataPath}.fields.useBtn.hidden`] = false;
   }
@@ -5945,6 +5994,693 @@ function getCriticalSpecializationDetails(weaponGroup) {
   };
 }
 
+function getWeaponRuneDetails(runeName) {
+  const rune = (runeName || "").toLowerCase();
+
+  const runeData = {
+    ancestralechoing: {
+      displayName: "Ancestral Echoing",
+      description:
+        "The wisdom of this weapon's past owners flows into your mind, amplifying your own abilities with the weapon. Your proficiency rank with this weapon is one step higher than normal, to a maximum of the highest proficiency rank you have in any weapon. For instance, if you had master proficieny with martial weapons and expert proficiency with advanced weapons, you would have master proficiency with advanced weapon that had this rune.\n\nIn addition, while wielding the ancestral echoing weapon, you have expert proficiency in one Lore skill relevant to one or more of the weapon's previous owners. This is typically Dwarven Lore but is ultimately determined by the GM depending on the weapon's history.",
+      macros: [],
+      modifiers: [],
+    },
+    anchoring: {
+      displayName: "Anchoring",
+      description:
+        "This rune prevents enemies from escaping your grasp by fleeing to other planes. If you critically hit a target with an anchoring weapon, the weapon casts dimensional anchor on the target (DC 27, counteract modifier +17).",
+      macros: [],
+      modifiers: [],
+    },
+    animated: {
+      displayName: "Animated",
+      description:
+        "An animated weapon flies autonomously and strikes your foes.\n\nActivate—Set Free [two-actions] (concentrate, manipulate); Effect You Release the weapon and it flutters through the air, fighting on its own against the last enemy you attacked, or the nearest enemy to it if your target has been defeated. At the end of your turn each round, the weapon can Fly up to its fly Speed of 40 feet, and then can either Fly again or Strike one creature within its reach.\nThe weapon has a space of 5 feet, but it doesn't block or impede enemies attempting to move though that space, nor does it benefit from or provide flanking. The weapon can't move through an enemy's space. The weapon can't use reactions, and its Fly actions don't trigger reactions.\nWhile it's activated, an animated weapon makes Strikes with an attack modifier of +24 plus its item bonus to attack rolls. It uses the weapon's normal damage but has a +0 Strength modifier. The weapon's abilities that automatically trigger on a hit or critical hit still function, but the weapon can't be activated or benefit from any of your abilities while animated.\nEach round, when the weapon finishes using its actions, attempt a DC 6 flat check. On a failure, the activation ends. The weapon falls to the ground and can't be Set Free again for 10 minutes.",
+      macros: [],
+      modifiers: [],
+    },
+    ashen: {
+      displayName: "Ashen",
+      description:
+        "In his attempts to recreate the initial feeling of the object he encountered ages ago, the Ash Engineer discovered a different effect, one that would confound his enemies. Ashen weapons are typically coated in a thin layer of ash that gradually returns over the span of a day, even after wiping away. A creature hit by an attack from an ashen weapon becomes surrounded by burning ash, which deals 1d4 persistent fire damage. This ash clouds the senses, causing the creature to become confused for 1 round unless it succeeds at a DC 25 Will save.",
+      macros: [],
+      modifiers: [],
+    },
+    astral: {
+      displayName: "Astral",
+      description:
+        "Astral weapons command powerful spiritual energy from the Astral Plane. This rune has the same effects as a ghost touch rune, plus Strikes with it deal an extra 1d6 spirit damage. If used to attack a creature that's possessing another creature, this weapon deals no damage to the possessed creature. On a critical hit against a creature possessing another creature, the possessing creature must succeed at a DC 26 Will save or be expelled and unable to possess a creature for 1d4 rounds.",
+      macros: [],
+      modifiers: [],
+    },
+    authorized: {
+      displayName: "Authorized",
+      description:
+        "Sharp needles impale anyone who attempts to wield this weapon other than its rightful owner. Each authorized rune is etched with the blood of a specific creature. If any other creature wields the weapon, needles immediately erupt from the weapon's hilt or shaft, dealing 1d8 piercing damage plus 1d4 persistent bleed damage to the wielder. If the weapon has a striking rune, this damage increases to 1d8 per damage die and 1d4 persistent damage per damage die; this counts only the weapon's base die and dice from the striking rune. The persistent bleed damage can't end while the creature still holds the weapon. The spikes retract once the creature lets go.\n\nWhen the rune is crafted, the crafter can choose to broaden the criteria for who can safely wield the item, expanding the users to creatures with a particular bloodline, patron deity, or sanctification, as the crafter chooses. This criterion must be shared by the creature who contributed the blood for the rune.",
+      macros: [],
+      modifiers: [],
+    },
+    bane: {
+      displayName: "Bane",
+      description:
+        "A bane rune causes a weapon to grant you improved understanding of creatures of a particular type, allowing you to deal more damage to those creatures. The crafter chooses aberration, animal, beast, celestial, construct, dragon, elemental, fey, fiend, giant, monitor, ooze, or both fungus and plant. The weapon deals 1d6 additional damage of the weapon's damage type to creatures with the chosen trait or traits. The benefit doesn't apply against creatures of the chosen type disguised as other creatures. It's up to GM discretion whether the bane rune applies against a creature disguised as a creature of the chosen type.\n\nThe GM might allow bane runes for other creature traits, such as astral, dream, or demon. However, humanoids, undead, and specific types of humanoids (such as elves) are never a valid option.",
+      macros: [],
+      modifiers: [],
+    },
+    bloodbane: {
+      displayName: "Bloodbane",
+      description:
+        "A bloodbane clan dagger is especially vicious against the ancestral enemies of the clan. When you damage an appropriate type of creature with the weapon, that creature takes 1 persistent bleed damage. The type of creature depends on the clan that made the dagger, but is typically drow, duergar, giant, or orc.\n\nIn addition, whenever you inflict persistent bleed damage with a bloodbane weapon (whether from its innate ability or in some other way), the weapon leaves ragged wounds. The bleeding creature must succeed at a DC 25 Fortitude save or become sickened 1. The creature is then temporarily immune for 1 hour.",
+      macros: [],
+      modifiers: [],
+    },
+    bloodthirsty: {
+      displayName: "Bloodthirsty",
+      description:
+        "The magic in this rune sings in time with your attacks and coaxes you into finishing your opponent. When you critically hit a target that's taking persistent bleed damage, your target becomes drained 1.\n\nActivate [reaction] envision; Trigger You reduce a creature to 0 Hit Points with the weapon; Effect You gain a number of temporary Hit Points equal to twice the creature's level. These Hit Points remain for 1 minute.",
+      macros: [],
+      modifiers: [],
+    },
+    bolkasblessing: {
+      displayName: "Bolkas Blessing",
+      description:
+        "This filigree grants you a +1 item bonus to Diplomacy checks and to Perception checks to Sense Motive. Additionally, once per day, the filigree symbol can be activated for a healing effect.\n\nActivate—Gift of Life [one-action] (concentrate, healing, vitality); Frequency once per day; Effect You regain 3d10 Hit Points.",
+      macros: [],
+      modifiers: [],
+    },
+    brilliant: {
+      displayName: "Brilliant",
+      description:
+        "This rune causes a weapon to transform into pure, brilliant energy. The weapon deals an additional 1d4 fire damage on a successful Strike, as well as 1d4 spirit damage to fiends and 1d4 vitality damage to undead. On a critical hit, the target must succeed at a DC 29 Fortitude save or be blinded for 1 round.\n\nActivate—Shine Bright [one-action] (concentrate, light); Effect You plunge your weapon into darkness to return the light. Attempt a counteract check with a counteract rank of 5 and a +19 counteract modifier to end a magical darkness effect whose area is within reach of the weapon.",
+      macros: [],
+      modifiers: [],
+    },
+    called: {
+      displayName: "Called",
+      description:
+        "With this rune, you can instantly retrieve an item in your possession without digging around looking for it.\n\nActivate [one-action] command; Frequency once per hour; Requirements You have a free hand and the called item is in a bag, pack, pouch, or other container on your person, or unattended within 30 feet; Effect The item teleports to a free hand.",
+      macros: [],
+      modifiers: [],
+    },
+    coating: {
+      displayName: "Coating",
+      description:
+        "When etched, this rune creates an extradimensional space that links to the weapon that wields it. The space can hold up to 1 Bulk but can contain only poisons and magic oils that could be applied to the weapon. Stowing or retrieving an item in the space requires an Interact action, except when using the rune's activation.\n\nActivate [one-action] (concentrate); Requirements At least one magic oil or poison is stored inside the rune's extradimensional space; Effect For 1 minute, you can apply stored oils and poisons to the weapon without needing any hands free. Applying them takes the same number of actions as normal. An oil or poison applied this way pours directly from the extradimensional space onto the weapon, and when it's fully applied, its empty vial is ejected.",
+      macros: [],
+      modifiers: [],
+    },
+    conducting: {
+      displayName: "Conducting",
+      description:
+        "A conducting weapon can channel energy through it. The weapon gains the resonant weapon trait, except that when you Conduct Energy, the weapon deals an additional 1d8 damage of the selected type instead of 1 additional damage per die; if the weapon already had the resonant weapon trait, it deals 1d8 damage plus 1 damage per die instead. On a critical hit, the weapon deals 1d8 persistent damage of the same type.",
+      macros: [],
+      modifiers: [],
+    },
+    corrosive: {
+      displayName: "Corrosive",
+      description:
+        "Acid sizzles across the surface of the weapon etched with this rune. When you hit with the weapon, add 1d6 acid damage to the damage dealt. In addition, on a critical hit, the target's armor (if any) takes 3d6 acid damage (before applying Hardness); if the target has a shield raised, the shield takes this damage instead.",
+      macros: [],
+      modifiers: [],
+    },
+    crushing: {
+      displayName: "Crushing",
+      description:
+        "Weapons with this rune empower your strength, and attacks with these weapons leave your foe staggered. When you critically hit a target with this weapon, your target becomes clumsy 1 and enfeebled 1 until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    cunning: {
+      displayName: "Cunning",
+      description:
+        "The weapon performs divination magic on the blood of your foes, granting you insight into their abilities and weaknesses.\n\nActivate [free-action] envision; Frequency once per minute; Requirements On your previous action this turn, you used this weapon to hit and damage a creature that has blood or other vital fluids; Effect You learn the secrets the weapon gleaned from the creature's blood. Attempt to Recall Knowledge about the target of the required attack, gaining an item bonus to the Recall Knowledge skill check equal to the weapon's item bonus to attack rolls from its potency rune. If the required attack was a critical hit, you also gain a +2 circumstance bonus to this check.",
+      macros: [],
+      modifiers: [],
+    },
+    decaying: {
+      displayName: "Decaying",
+      description:
+        "Eerie waves of purplish energy dance across the surface of a weapon etched with this rune. When you hit with the weapon, add 1d4 void damage to the damage dealt. In addition, on a critical hit, the target takes 2d4 persistent void damage; if the target has a shield raised, the shield takes the same amount of persistent damage (its wielder rolls the flat check to see if the persistent damage ends, or the GM rolls if the shield is no longer in someone's possession). Unlike normal void damage, the void damage from a decaying rune damages objects, constructs, and the like by eroding them away.",
+      macros: [],
+      modifiers: [],
+    },
+    deathdrinking: {
+      displayName: "Deathdrinking",
+      description:
+        "A weapon etched with a deathdrinking rune shimmers with dark purple energy. When held by a living creature, the weapon causes twinges of hunger to manifest.\n\nWhile holding a deathdrinking weapon, you gain a +1 item bonus to saving throws against negative damage and death effects. When you critically hit a creature with a deathdrinking weapon, you inflict an additional 1d6 points of positive or negative damage to the creature— whichever type of damage would harm the creature. You also gain the following reaction when wielding a deathdrinking weapon.\n\nActivate [reaction] envision; Frequency once per day; Trigger you kill or destroy a creature with the deathdrinking weapon; Effect If the creature you killed was living, you gain a +1 item bonus to attack and damage rolls for 10 minutes. If the creature you destroyed was undead, you gain a number of temporary HP equal to twice your level for 10 minutes.",
+      macros: [],
+      modifiers: [],
+    },
+    demolishing: {
+      displayName: "Demolishing",
+      description:
+        "A demolishing weapon is made to destroy constructs. Damage inflicted on a construct with a demolishing weapon continues to spread throughout the creature—cracks form, linkages fail, surfaces erode—and otherwise dismantle its body. When you damage a construct using a demolishing weapon, you deal an extra 1d6 persistent force damage. On a critical hit, you deal an extra 1d12 persistent force damage instead.",
+      macros: [],
+      modifiers: [],
+    },
+    vitalizing: {
+      displayName: "Vitalizing",
+      description:
+        "A vitalizing weapon pulses with vital energy, dealing an extra 1d6 persistent vitality damage to undead. On a critical hit, the undead is also enfeebled 1 until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    earthbinding: {
+      displayName: "Earthbinding",
+      description:
+        "A weapon with this rune hums when touched to the ground.\n\nActivate [reaction] (concentrate); Frequency once per hour; Requirements You critically hit a flying creature with the etched weapon; Effect The rune casts a DC 20 earthbind spell on the flying creature.",
+      macros: [],
+      modifiers: [],
+    },
+    energizing: {
+      displayName: "Energizing",
+      description:
+        "A weapon with this rune can absorb energy damage to empower it.\n\nActivate [reaction] concentrate; Trigger You take acid, cold, electricity, fire, or sonic damage; Effect The weapon becomes imbued with the triggering energy type. It deals an additional 1d8 damage of the triggering type until the end of your next turn. As normal, if you use this reaction again during the duration, the damage doesn't combine; instead, change the 1d8 damage to the new triggering type of damage and change the duration to the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    extending: {
+      displayName: "Extending",
+      description:
+        "An extending rune allows you to extend your weapon to impossible lengths.\n\nActivate—Extend [two-actions] (manipulate); Effect You extend your weapon, giving you an impossible reach. You Strike with the weapon, and you have reach 60 feet for the Strike.",
+      macros: [],
+      modifiers: [],
+    },
+    fanged: {
+      displayName: "Fanged",
+      description:
+        "When etched with this rune, a weapon's hilt or haft becomes engraved with grooves that match the imprints of a wolf's teeth. By putting a fanged weapon in your mouth, you can transform into an animal.\n\nActivate [one-action] Interact (magical, polymorph, transmutation); Effect You transform into a Small or Medium animal that wields the fanged weapon in its jaws; the animal matches the animal you are most closely associated with (a lizardfolk would turn into a lizard, a kitsune into a fox, a deer instinct barbarian into a deer, etc.) or a wolf if no specific animal is applicable. While in this form, you can attack with the fanged weapon even though you don't have any hands. However, you can attack only with the fanged weapon and you don't have hands or the ability to hold items. For effects dependent on how many hands you are using to hold the item, such as the two-hand trait, you are holding the weapon in two hands. You can Dismiss this effect, and it ends automatically if you drop the fanged weapon (whether or not of your own volition).",
+      macros: [],
+      modifiers: [],
+    },
+    fearsome: {
+      displayName: "Fearsome",
+      description:
+        "When you critically hit with this weapon, the target becomes frightened 1.",
+      macros: [],
+      modifiers: [],
+    },
+    flaming: {
+      displayName: "Flaming",
+      description:
+        "A weapon with this rune is empowered by flickering flame. The weapon deals an additional 1d6 fire damage on a successful Strike, plus 1d10 persistent fire damage on a critical hit.",
+      macros: [],
+      modifiers: [],
+    },
+    flickering: {
+      displayName: "Flickering",
+      description:
+        "A flickering rune causes a weapon to shimmer, grow blurry and indistinct, and momentarily turn invisible at random intervals for a second or two. A flickering weapon adds its item bonus from its potency rune to the DC against attempts to Disarm or Steal it. On a critical hit, the weapon flashes bright pulses of color into the creature's eyes, dazzling the creature for 1 round (this effect has the visual trait).\n\nActivate [two-actions] envision, command; Frequency once per day; Effect The flickering weapon casts blur to your specification.",
+      macros: [],
+      modifiers: [],
+    },
+    flurrying: {
+      displayName: "Flurrying",
+      description:
+        "When you make a Flurry of Blows using the etched weapon and your first Strike reduces a creature to 0 Hit Points, you can make your second Strike with an echo of the weapon, increasing the reach to 30 feet.\n\nActivate [two-actions] (concentrate, force); Frequency once per day; Effect The weapon casts a spiritual weapon spell. The ghostly weapon looks like the etched weapon. Use your normal attack bonus and damage for the weapon instead of the damage listed in the spell, but use your Wisdom modifier instead of Strength when determining damage. You can choose to make a Flurry of Blows instead of a Strike when the spiritual weapon attacks; this still counts as your flourish for the turn. You can Sustain this activation in the same manner as the spell.",
+      macros: [],
+      modifiers: [],
+    },
+    frost: {
+      displayName: "Frost",
+      description:
+        "This weapon is empowered with freezing ice. It deals an additional 1d6 cold damage on a successful Strike. On a critical hit, the target is also slowed 1 until the end of your next turn unless it succeeds at a DC 24 Fortitude save.",
+      macros: [],
+      modifiers: [],
+    },
+    ghosttouch: {
+      displayName: "Ghost Touch",
+      description:
+        "A weapon etched with this rune can harm creatures without physical form. A ghost touch weapon is particularly effective against incorporeal creatures, which almost always have a specific vulnerability to ghost touch weapons. Incorporeal creatures can touch, hold, and wield ghost touch weapons (unlike most physical objects).",
+      macros: [],
+      modifiers: [],
+    },
+    giantkilling: {
+      displayName: "Giant Killing",
+      description:
+        "This weapon features stylized etchings of giants. A giant-killing weapon deals an additional 1d6 mental damage on a successful Strike against a giant. On a critical hit, the giant is also enfeebled 1 until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    greateranchoring: {
+      displayName: "Greater Anchoring",
+      description:
+        "This rune prevents enemies from escaping your grasp by fleeing to other planes. If you critically hit a target with an anchoring weapon, the weapon casts dimensional anchor on the target (DC 27, counteract modifier +17).\n\nWhen you critically hit a target with a weapon with the anchoring rune, the weapon casts 8th-level dimensional anchor on the target (DC 38, counteract modifier +28), except that if the target critically succeeds at its Will save, instead of having no effect, the dimensional anchor lasts for 1 round. When you hit a target with the weapon but don't critically hit, the target is affected by 4th-level dimensional anchor for 1 round without a save (this still uses a counteract modifier of +28).",
+      macros: [],
+      modifiers: [],
+    },
+    greaterashen: {
+      displayName: "Greater Ashen",
+      description:
+        "In his attempts to recreate the initial feeling of the object he encountered ages ago, the Ash Engineer discovered a different effect, one that would confound his enemies. Ashen weapons are typically coated in a thin layer of ash that gradually returns over the span of a day, even after wiping away. A creature hit by an attack from an ashen weapon becomes surrounded by burning ash, which deals 1d8 persistent fire damage. This ash clouds the senses, causing the creature to become confused for 1 minute unless it succeeds at a DC 35 Will save.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterastral: {
+      displayName: "Greater Astral",
+      description:
+        "Astral weapons command powerful spiritual energy from the Astral Plane. This rune has the same effects as a ghost touch rune, plus Strikes with it deal an extra 1d6 spirit damage. If used to attack a creature that's possessing another creature, this weapon deals no damage to the possessed creature. On a critical hit against a creature possessing another creature, the possessing creature must succeed at a DC 36 Will save or be expelled and unable to possess a creature for 1d4 rounds. Spirit damage dealt by this weapon ignores the target's spirit resistance.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterbloodbane: {
+      displayName: "Greater Bloodbane",
+      description:
+        "A bloodbane clan dagger is especially vicious against the ancestral enemies of the clan. When you damage an appropriate type of creature with the weapon, that creature takes 1 persistent bleed damage. The type of creature depends on the clan that made the dagger, but is typically drow, duergar, giant, or orc.\n\nIn addition, whenever you inflict persistent bleed damage with a bloodbane weapon (whether from its innate ability or in some other way), the weapon leaves ragged wounds. The bleeding creature must succeed at a DC 30 Fortitude save or become sickened 1. The creature is then temporarily immune for 1 hour. The weapon deals 1d4 bleed damage to creatures designated as the clan's enemy.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterbolkasblessing: {
+      displayName: "Greater Bolkas Blessing",
+      description:
+        "This filigree grants you a +2 item bonus to Diplomacy checks and to Perception checks to Sense Motive. Additionally, once per day, the filigree symbol can be activated for a healing effect.\n\nActivate—Gift of Life [one-action] (concentrate, healing, vitality); Frequency once per day; Effect You regain 6d10 Hit Points.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterbrilliant: {
+      displayName: "Greater Brilliant",
+      description:
+        "This rune causes a weapon to transform into pure, brilliant energy. The weapon deals an additional 1d4 fire damage on a successful Strike, as well as 1d4 spirit damage to fiends and 1d4 vitality damage to undead. On a critical hit, the target must succeed at a DC 41 Fortitude save or be blinded for 1 round.\n\nActivate—Shine Bright [one-action] (concentrate, light); Effect You plunge your weapon into darkness to return the light. Attempt a counteract check with a counteract rank of 9 and a +31 counteract modifier to end a magical darkness effect whose area is within reach of the weapon. Damage dealt by this weapon ignores the target's resistances to fire, spirit, and vitality.",
+      macros: [],
+      modifiers: [],
+    },
+    greatercorrosive: {
+      displayName: "Greater Corrosive",
+      description:
+        "Acid sizzles across the surface of the weapon etched with this rune. When you hit with the weapon, add 1d6 acid damage to the damage dealt. In addition, on a critical hit, the target's armor (if any) takes 6d6 acid damage (before applying Hardness); if the target has a shield raised, the shield takes this damage instead. The acid damage dealt by this weapon ignores the target's acid resistance.",
+      macros: [],
+      modifiers: [],
+    },
+    greatercrushing: {
+      displayName: "Greater Crushing",
+      description:
+        "Weapons with this rune empower your strength, and attacks with these weapons leave your foe staggered. When you critically hit a target with this weapon, your target becomes clumsy 2 and enfeebled 2 until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterdecaying: {
+      displayName: "Greater Decaying",
+      description:
+        "Eerie waves of purplish energy dance across the surface of a weapon etched with this rune. When you hit with the weapon, add 1d4 void damage to the damage dealt. In addition, on a critical hit, the target takes 4d4 persistent void damage; if the target has a shield raised, the shield takes the same amount of persistent damage (its wielder rolls the flat check to see if the persistent damage ends, or the GM rolls if the shield is no longer in someone's possession). Unlike normal void damage, the void damage from a decaying rune damages objects, constructs, and the like by eroding them away. The void damage dealt by this weapon ignores the target's void resistance or immunity.",
+      macros: [],
+      modifiers: [],
+    },
+    greatervitalizing: {
+      displayName: "Greater Vitalizing",
+      description:
+        "A vitalizing weapon pulses with vital energy, dealing an extra 2d6 persistent vitality damage to undead. On a critical hit, the undead creature is enfeebled 1 and stupefied 1 as long as it has the persistent damage from this rune.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterextending: {
+      displayName: "Greater Extending",
+      description:
+        "An extending rune allows you to extend your weapon to impossible lengths.\n\nActivate—Extend [two-actions] (manipulate); Effect You extend your weapon, giving you an impossible reach. You Strike with the weapon, and you have reach 120 feet for the Strike.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterfanged: {
+      displayName: "Greater Fanged",
+      description:
+        "When etched with this rune, a weapon's hilt or haft becomes engraved with grooves that match the imprints of a wolf's teeth. By putting a fanged weapon in your mouth, you can transform into an animal.\n\nActivate [one-action] Interact (magical, polymorph, transmutation); Effect You transform into a Small or Medium animal that wields the fanged weapon in its jaws; the animal matches the animal you are most closely associated with (a lizardfolk would turn into a lizard, a kitsune into a fox, a deer instinct barbarian into a deer, etc.) or a wolf if no specific animal is applicable. While in this form, you can attack with the fanged weapon even though you don't have any hands. However, you can attack only with the fanged weapon and you don't have hands or the ability to hold items. For effects dependent on how many hands you are using to hold the item, such as the two-hand trait, you are holding the weapon in two hands. You can Dismiss this effect, and it ends automatically if you drop the fanged weapon (whether or not of your own volition). In animal form, you gain low-light vision and a +5-foot item bonus to your Speed.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterfearsome: {
+      displayName: "Greater Fearsome",
+      description:
+        "When you critically hit with this weapon, the target becomes frightened 2.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterflaming: {
+      displayName: "Greater Flaming",
+      description:
+        "A weapon with this rune is empowered by flickering flame. The weapon deals an additional 1d6 fire damage on a successful Strike, plus 2d10 persistent fire damage on a critical hit. Fire damage dealt by this weapon (including the persistent fire damage) ignores the target's fire resistance.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterfrost: {
+      displayName: "Greater Frost",
+      description:
+        "This weapon is empowered with freezing ice. It deals an additional 1d6 cold damage on a successful Strike. On a critical hit, the target is also slowed 1 until the end of your next turn unless it succeeds at a DC 34 Fortitude save. Cold damage dealt by this weapon ignores the target's cold resistance.",
+      macros: [],
+      modifiers: [],
+    },
+    greatergiantkilling: {
+      displayName: "Greater Giant Killing",
+      description:
+        "This weapon features stylized etchings of giants. A giant-killing weapon deals an additional 2d6 mental damage on a successful Strike against a giant. On a critical hit, the giant must attempt a DC 34 Fortitude save with the following effects.\n\nCritical Success The giant is enfeebled 1 until the end of your next turn.\nSuccess The giant is enfeebled 2 until the end of your next turn and takes 1d10 additional mental damage.\nFailure The giant is enfeebled 2 for the next minute and takes 2d10 additional mental damage.\nCritical Failure The giant is enfeebled 4 for the next minute and takes 4d10 additional mental damage.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterhauling: {
+      displayName: "Greater Hauling",
+      description:
+        "Hauling weapons are adept at moving creatures around the battlefield after a successful attack.\n\nActivate [reaction] Command; Frequency once per hour; Trigger You succeed at an attack roll to Strike with a weapon with the hauling rune; Effect The target must succeed at a DC 28 Reflex save or be moved 10 feet in a direction you choose. This is forced movement.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterimpactful: {
+      displayName: "Greater Impactful",
+      description:
+        "This rune thrums with pure magical energy. Weapons with the rune deal an additional 1d6 force damage on a successful Strike. On a critical hit, you can choose to force the target to succeed at a DC 27 Fortitude save or be pushed 5 feet away from you.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterkolssoath: {
+      displayName: "Greater Kolss Oath",
+      description:
+        "This filigree grants you, as the clan dagger's owner, a +2 item bonus to Society checks and to Diplomacy checks to Request. Additionally, once per day, the filigree symbol can be activated to compel an enemy to act.\n\nActivate—Vow Unbreakable [one-action] (auditory, concentrate, linguistic, mental); Frequency once per day; Effect You command a creature within 30 feet to Stride away from you, drop prone, or release one item it's holding. The creature can choose to perform that action as the first action on its next turn; if it doesn't, it takes 8d6 mental damage (DC 28 basic Will save).",
+      macros: [],
+      modifiers: [],
+    },
+    greaterrooting: {
+      displayName: "Greater Rooting",
+      description:
+        "Small roots grow along the surface of the weapon, clinging tightly to its contours. On a critical hit with the weapon, roots grow from the target. It's immobilized for 1 round (Escape DC 28) and clumsy 1 for as long as the immobilization lasts.",
+      macros: [],
+      modifiers: [],
+    },
+    greatershock: {
+      displayName: "Greater Shock",
+      description:
+        "Electric arcs crisscross shock weapons, dealing an extra 1d6 electricity damage on a hit. On a critical hit, electricity arcs out to deal an equal amount of electricity damage to up to two other creatures of your choice within 10 feet of the target. Electricity damage dealt by this weapon ignores the target's electricity resistance (and the other creatures' on a critical hit).",
+      macros: [],
+      modifiers: [
+        {
+          _id: "shock",
+          value: "1d6 electricity",
+          type: "damageBonus",
+          valueType: "string",
+          field: "all",
+          active: true,
+          itemOnly: true,
+        },
+        {
+          _id: "shock-ignores",
+          value: "ignore electricity resistance",
+          type: "damageBonus",
+          valueType: "string",
+          field: "all",
+          active: true,
+          itemOnly: true,
+        },
+      ],
+    },
+    greaterthundering: {
+      displayName: "Greater Thundering",
+      description:
+        "A thundering weapon lets out a peal of thunder when it hits, dealing an extra 1d6 sonic damage on a successful Strike. On a critical hit, the target must succeed at a DC 34 Fortitude save or be deafened permanently. Sonic damage dealt by this weapon ignores the target's sonic resistance.",
+      macros: [],
+      modifiers: [],
+    },
+    greatertruddsstrength: {
+      displayName: "Greater Trudds Strength",
+      description:
+        "This filigree depiction of a warhammer in front of a kiteshaped shield grants you a +2 item bonus to Athletics checks and to Intimidation checks to Coerce. Additionally, once per day, the filigree symbol can be activated to protect your allies.\n\nActivate—Protect the Clan! [one-action] (concentrate); Frequency once per day; Effect Protective energy releases in a 10-foot emanation, granting a +2 status bonus to Armor Class to all allies within the area. The bonus lasts for 1 minute.",
+      macros: [],
+      modifiers: [],
+    },
+    grievous: {
+      displayName: "Grievous",
+      description:
+        "When your attack roll with this weapon is a critical hit and gains the critical specialization effect, you gain an additional benefit depending on the weapon group.\n\nAxe You can damage a third creature, with the same restrictions.\nBow The Athletics check to pull the missile free is DC 20.\nBrawling The target takes a –4 circumstance penalty to its save.\nClub You can knock the target up to 15 feet away.\nCrossbow If the target of the critical hit is adjacent to a surface, it gets stuck to that surface by the missile, as the bow critical specialization.\nDart The base persistent bleed damage increases to 2d6.\nFirearm The target takes a –4 circumstance penalty to its save.\nFlail You move the target 5 feet. You can't move it away from you, but you can move it in another direction of your choice.\nHammer You can also knock the target 5 feet away from you.\nKnife The target takes a –5-foot status penalty to its Speed while it has the persistent bleed damage.\nPick The extra damage from the critical specialization effect increases to 4 per weapon damage die.\nPolearm You can move the target up to 10 feet.\nShield You can knock the target up to 10 feet away.\nSling The target also takes a –10-foot status penalty to its Speed for 1 round if it fails the save.\nSpear The clumsy condition lasts for 2 rounds.\nSword The target is off-guard until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    hauling: {
+      displayName: "Hauling",
+      description:
+        "Hauling weapons are adept at moving creatures around the battlefield after a successful attack.\n\nActivate [reaction] Command; Frequency once per hour; Trigger You succeed at an attack roll to Strike with a weapon with the hauling rune; Effect The target must succeed at a DC 20 Reflex save or be moved 5 feet in a direction you choose. This is forced movement.",
+      macros: [],
+      modifiers: [],
+    },
+    holy: {
+      displayName: "Holy",
+      description:
+        "A holy weapon commands powerful celestial energy. Strikes made with it gain the holy trait and deal an extra 1d4 spirit damage, or an extra 2d4 against an unholy target. If you are unholy, you are enfeebled 2 while carrying or wielding this weapon.\n\nActivate—Holy Healing [reaction] concentrate, healing, vitality; Frequency once per day; Trigger You critically succeed at a Strike against an unholy creature with the weapon; Effect You regain HP equal to double the unholy creature's level",
+      macros: [],
+      modifiers: [],
+    },
+    hopeful: {
+      displayName: "Hopeful",
+      description:
+        "A weapon with a hopeful rune exudes positivity. On a critical hit with this weapon, you inspire your comrades, pushing them to fight harder and stand for your shared convictions. Allies within 30 feet that share at least one alignment component with you gain a +1 status bonus to attack rolls until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    hooked: {
+      displayName: "Hooked",
+      description:
+        "A hooked weapon extends hooks when it's used to attack. A hooked weapon gains the trip trait. If a hooked weapon normally has the trip trait, you can attempt to Trip a foe as a reaction when you critically hit it with the hooked weapon.",
+      macros: [],
+      modifiers: [],
+    },
+    impactful: {
+      displayName: "Impactful",
+      description:
+        "This rune thrums with pure magical energy. Weapons with the rune deal an additional 1d6 force damage on a successful Strike. On a critical hit, you can choose to force the target to succeed at a DC 37 Fortitude save or be pushed 10 feet away from you.",
+      macros: [],
+      modifiers: [],
+    },
+    impossible: {
+      displayName: "Impossible",
+      description:
+        "This rune makes a weapon capable of impossible offense and defense. The etched weapon is immune to dispel magic and similar effects that could counteract its magic. If it's a ranged weapon or thrown weapon, its range increment is doubled.\n\nActivate [two-actions] (concentrate, teleportation); Frequency once per hour; Effect You and the weapon flash to a perfect attacking position, then return to where you started. Make a Strike with the etched weapon against one creature you can see, even if the target is beyond the weapon's reach or range. On this Strike, ignore any circumstance penalty, status penalty, and range increment penalty.",
+      macros: [],
+      modifiers: [],
+    },
+    keen: {
+      displayName: "Keen",
+      description:
+        "The edges of a keen weapon are preternaturally sharp. Attacks with this weapon are a critical hit on a 19 on the die as long as that result is a success. This property has no effect on a 19 if the result would be a failure.",
+      macros: [],
+      modifiers: [],
+    },
+    kinwarding: {
+      displayName: "Kin Warding",
+      description:
+        "A kin-warding clan dagger can deflect attacks aimed at your allies. When you use the weapon's parry trait, you can point the clan dagger at an adjacent ally instead of defending yourself, creating a shield of runes around them. The runic barrier grants your ally the weapon's circumstance bonus to AC, but you do not gain the bonus yourself.",
+      macros: [],
+      modifiers: [],
+    },
+    kolssoath: {
+      displayName: "Kolss Oath",
+      description:
+        "This filigree grants you, as the clan dagger's owner, a +1 item bonus to Society checks and to Diplomacy checks to Request. Additionally, once per day, the filigree symbol can be activated to compel an enemy to act.\n\nActivate—Vow Unbreakable [one-action] (auditory, concentrate, linguistic, mental); Frequency once per day; Effect You command a creature within 30 feet to Stride away from you, drop prone, or release one item it's holding. The creature can choose to perform that action as the first action on its next turn; if it doesn't, it takes 4d6 mental damage (DC 20 basic Will save).",
+      macros: [],
+      modifiers: [],
+    },
+    majorfanged: {
+      displayName: "Major Fanged",
+      description:
+        "When etched with this rune, a weapon's hilt or haft becomes engraved with grooves that match the imprints of a wolf's teeth. By putting a fanged weapon in your mouth, you can transform into an animal.\n\nActivate [one-action] Interact (magical, polymorph, transmutation); Effect You transform into a Small or Medium animal that wields the fanged weapon in its jaws; the animal matches the animal you are most closely associated with (a lizardfolk would turn into a lizard, a kitsune into a fox, a deer instinct barbarian into a deer, etc.) or a wolf if no specific animal is applicable. While in this form, you can attack with the fanged weapon even though you don't have any hands. However, you can attack only with the fanged weapon and you don't have hands or the ability to hold items. For effects dependent on how many hands you are using to hold the item, such as the two-hand trait, you are holding the weapon in two hands. You can Dismiss this effect, and it ends automatically if you drop the fanged weapon (whether or not of your own volition). In animal form, you gain low-light vision, imprecise scent to a range of 30 feet, and a +10-foot item bonus to your Speed.",
+      macros: [],
+      modifiers: [],
+    },
+    majorrrooting: {
+      displayName: "Major Rooting",
+      description:
+        "Small roots grow along the surface of the weapon, clinging tightly to its contours. On a critical hit with the weapon, roots grow from the target. It's immobilized for 1 round (Escape DC 34) and clumsy 1 for as long as the immobilization lasts.",
+      macros: [],
+      modifiers: [],
+    },
+    merciful: {
+      displayName: "Merciful",
+      description:
+        "Merciful weapons are sheathed in an unmistakable wispy green aura recognized by both gladiators and guards around the world. A merciful weapon has the nonlethal trait and can't be used to make a lethal attack. Any persistent damage the weapon would deal is negated.\n\nOn a critical hit, a merciful weapon causes the target to become fascinated with the weapon's wielder for 1 minute, as the target is bombarded with feelings of guilt and remorse. This is a mental effect. If you have access to the weapon's critical specialization effect, you choose whether to use it or the merciful effect",
+      macros: [],
+      modifiers: [],
+    },
+    nightmare: {
+      displayName: "Nightmare",
+      description:
+        "A nightmare rune creates minor phantasmal alterations to a weapon's appearance so that those who look upon it see subtle reminders of their deepest fears. An arachnophobe might interpret the cross guard of a nightmare longsword to look like curving, twitching spider legs, for example, while someone who's afraid of sickness might see a nightmare club as a diseased length of bone crawling with flies. These images are all in the mind of the observer, but they also infuse the weapon with additional power. When you hit with a nightmare weapon, add 1d6 mental damage to the damage dealt. In addition, on a critical hit, the target becomes stupefied 1 by overwhelming visions in their mind of personal horrors that linger. If you critically hit a creature that's already stupefied, it becomes frightened 2 as well. These critical hit effects have the emotion, fear, and mental traits.\n\nActivate 10 minutes (envision, Interact); Frequency once per day; Effect The nightmare weapon casts nightmare to your specifications.",
+      macros: [],
+      modifiers: [],
+    },
+    pacifying: {
+      displayName: "Pacifying",
+      description:
+        "This rune turns weapons into instruments of peacemaking.\n\nActivate [reaction] (concentrate, mental); Trigger You damage a creature with the etched weapon; Effect The damaged creature must succeed at a DC 20 Will save or be pacified. A pacified creature takes a –2 penalty to attack rolls on any attacks that aren't nonlethal for 1 minute, and the creature also experiences a clear psychic warning that they should stop making attacks that could kill.",
+      macros: [],
+      modifiers: [],
+    },
+    quickstrike: {
+      displayName: "Quickstrike",
+      description:
+        "Attacks with a quickstrike weapon are supernaturally swift. While wielding a quickstrike weapon, you gain the quickened condition, but you can use the additional action granted only to make a Strike with the etched weapon.",
+      macros: [],
+      modifiers: [],
+    },
+    returning: {
+      displayName: "Returning",
+      description:
+        "When you make a thrown Strike with this weapon, it flies back to your hand after the Strike is complete. If your hands are full when the weapon returns, it falls to the ground in your space.",
+      macros: [],
+      modifiers: [],
+    },
+    rooting: {
+      displayName: "Rooting",
+      description:
+        "Small roots grow along the surface of the weapon, clinging tightly to its contours. On a critical hit with the weapon, roots grow from the target. It's immobilized for 1 round (Escape DC 23) and clumsy 1 for as long as the immobilization lasts.",
+      macros: [],
+      modifiers: [],
+    },
+    serrating: {
+      displayName: "Serrating",
+      description:
+        "A serrating weapon's bladed edge separates into jagged, swirling shards that spin along the blade. When dealing slashing damage, the weapon deals an additional 1d4 damage.\n\nActivate [one-action] Interact; Effect You brandish the weapon and focus its power, causing the serrated shards to buzz as they spin at a dizzying speed. On your next hit with the weapon this turn that deals slashing damage, the serrating rune adds an additional 1d12 damage instead of the additional 1d4 damage, and then the shards return to their usual speed.",
+      macros: [],
+      modifiers: [],
+    },
+    shifting: {
+      displayName: "Shifting",
+      description:
+        "With a moment of manipulation, you can shift this weapon into a different weapon with a similar form.\n\nActivate—Shift Weapon [one-action] (manipulate); Effect The weapon takes the shape of another melee weapon that requires the same number of hands to wield. The weapon's runes and any precious material it's made of apply to the weapon's new shape. Any property runes that can't apply to the new form are suppressed until the item takes a shape to which they can apply.\nThe weapons a shifting weapon can turn into are based on the base attributes of the weapon, so reference the weapon's Hands entry in the weapons table to see what it can turn into. For example, a bastard sword requires one hand, even though it gets a benefit in two hands from the two-hand trait. Therefore, a shifting bastard sword could turn into a longsword, but not a greatsword. Activating this rune doesn't change how many hands you're currently using to hold the weapon.",
+      macros: [],
+      modifiers: [],
+    },
+    shock: {
+      displayName: "Shock",
+      description:
+        "Electric arcs crisscross shock weapons, dealing an extra 1d6 electricity damage on a hit. On a critical hit, electricity arcs out to deal an equal amount of electricity damage to up to two other creatures of your choice within 10 feet of the target.",
+      macros: [],
+      modifiers: [
+        {
+          _id: "shock",
+          value: "1d6 electricity",
+          type: "damageBonus",
+          valueType: "string",
+          field: "all",
+          active: true,
+          itemOnly: true,
+        },
+      ],
+    },
+    shockwave: {
+      displayName: "Shockwave",
+      description:
+        "Shockwave weapons magically increase their density and momentum when swung, creating a thudding impact on those nearby. Strikes with this weapon deal bludgeoning splash damage equal to the number of weapon damage dice. You're immune to this splash damage.",
+      macros: [],
+      modifiers: [],
+    },
+    spellreservoir: {
+      displayName: "Spell Reservoir",
+      description:
+        "A spell reservoir rune creates a pool of eldritch energy within the etched weapon. A spellcaster can spend 1 minute to cast a spell of 3rd rank or lower into the weapon. The spell must require 2 actions or fewer to cast and must be able to target a creature other than the caster. The spell has no immediate effect—it is instead stored for later.\nWhen you wield a spell reservoir weapon, you immediately know the name and rank of the stored spell. A spell reservoir weapon found as treasure has a 50% chance of having a spell of the GM's choice stored in it.\n\nActivate—Channeled Release [two-actions] (concentrate); Requirements A spell is stored in the weapon; Effect Make a Strike with the weapon. You expend the stored spell as part of this Strike; this empties the spell from the weapon and allows a spell to be cast into it again. If the Strike hits, the spell targets the target of the attack. If the spell requires a spell attack roll, the result of your attack roll with the weapon determines the degree of success of the spell, and if the spell requires a saving throw, the DC is 30.\n\nActivate—Safe Release [one-action] (concentrate); Effect Harmlessly expend the stored spell. This frees the weapon to have a new spell cast into it.",
+      macros: [],
+      modifiers: [],
+    },
+    swarming: {
+      displayName: "Swarming",
+      description:
+        "Able to copy itself many times over when thrown until the air is filled with deadly blades, a swarming weapon turns a single weapon into a shower of devastation.\n\nActivate [two-actions] (concentrate); Frequency once per hour; Effect You fling your weapon and it multiplies as it flies through the air, filling a 30-foot cone. All creatures within the area take damage equal to double the weapon's number of damage dice, with a DC 27 basic Reflex save.",
+      macros: [],
+      modifiers: [],
+    },
+    thundering: {
+      displayName: "Thundering",
+      description:
+        "A thundering weapon lets out a peal of thunder when it hits, dealing an extra 1d6 sonic damage on a successful Strike. On a critical hit, the target must succeed at a DC 24 Fortitude save or be deafened for 1 minute (or 1 hour on a critical failure).",
+      macros: [],
+      modifiers: [],
+    },
+    truddsstrength: {
+      displayName: "Trudds Strength",
+      description:
+        "This filigree depiction of a warhammer in front of a kiteshaped shield grants you a +1 item bonus to Athletics checks and to Intimidation checks to Coerce. Additionally, once per day, the filigree symbol can be activated to protect your allies.\n\nActivate—Protect the Clan! [one-action] (concentrate); Frequency once per day; Effect Protective energy releases in a 10-foot emanation, granting a +1 status bonus to Armor Class to all allies within the area. The bonus lasts for 1 minute.",
+      macros: [],
+      modifiers: [],
+    },
+    truerooting: {
+      displayName: "True Rooting",
+      description:
+        "Small roots grow along the surface of the weapon, clinging tightly to its contours. On a critical hit with the weapon, roots grow from the target. It's immobilized for 1 round (Escape DC 41) and clumsy 1 for as long as the immobilization lasts.",
+      macros: [],
+      modifiers: [],
+    },
+    underwater: {
+      displayName: "Underwater",
+      description:
+        "This weapon works as well in water as it does on land. Attacks with the weapon don't take the normal penalties and restrictions for being used in water or underwater. If the weapon is capable of dealing fire damage, its fire functions underwater as well.",
+      macros: [],
+      modifiers: [],
+    },
+    unholy: {
+      displayName: "Unholy",
+      description:
+        "An unholy rune instills fiendish power into the etched weapon. Strikes made with it gain the unholy trait and deal an extra 1d4 spirit damage, or an extra 2d4 against a holy target. If you are holy, you are enfeebled 2 while carrying or wielding this weapon.\n\nActivate—Unholy Bloodshed [reaction] (concentrate); Frequency once per day; Trigger You critically succeed at an attack roll against a holy creature with the weapon; Effect The target takes persistent bleed damage equal to 1d8 per weapon damage die of the etched weapon.",
+      macros: [],
+      modifiers: [],
+    },
+    vorpal: {
+      displayName: "Vorpal",
+      description:
+        "Originally created as a means of slaying the legendary jabberwock, vorpal weapons prove equally effective against nearly any foe with a head.\n\nActivate—Snicker-Snack [reaction] (concentrate, death, incapacitation) ; Trigger You roll a natural 20 on a Strike with the weapon against a creature that has a head, critically succeed, and deal slashing damage; Effect The target must succeed at a DC 37 Fortitude save or be decapitated. This kills any creature except ones that don't require a head to live. For creatures with multiple heads, this usually kills the creature only if you sever its last head.",
+      macros: [],
+      modifiers: [],
+    },
+    wounding: {
+      displayName: "Wounding",
+      description:
+        "Weapons with wounding runes are said to thirst for blood. When you hit a creature with a wounding weapon, you deal an extra 1d6 persistent bleed damage.",
+      macros: [],
+      modifiers: [],
+    },
+  };
+
+  const details = runeData[rune] || {
+    displayName: "",
+    description: "",
+    macros: [],
+    modifiers: [],
+  };
+
+  return details;
+}
+
+function getArmorRuneDetails(runeName) {
+  // TODO
+  return {
+    displayName: "",
+    description: "",
+    macros: [],
+    modifiers: [],
+  };
+}
+
+// Returns the rune details above so we can collect their modifiers
+function getFeaturesFromRunes(items = []) {
+  const features = [];
+  items.forEach((item) => {
+    const propertyRunes = item.data?.runes?.property || [];
+
+    propertyRunes.forEach((rune) => {
+      const isWeapon = item.data?.type === "weapon";
+      const runeDetails = isWeapon
+        ? getWeaponRuneDetails(rune)
+        : getArmorRuneDetails(rune);
+      if (runeDetails?.modifiers && runeDetails.modifiers.length > 0) {
+        features.push({
+          // Use item ID since it came from this item
+          _id: item._id,
+          name: runeDetails.displayName,
+          data: {
+            modifiers: runeDetails.modifiers.map((modifier) => ({
+              data: {
+                ...modifier,
+              },
+            })),
+          },
+        });
+      }
+    });
+  });
+  return features;
+}
+
 /**
  * Gets the armor specialization effect details for an armor group.
  *
@@ -6004,6 +6740,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
+
+  // Create a list of all runes as tags that we'll add to the roll message
+  const runes = weapon.data?.runes?.property || [];
 
   // TODO make sure this is right for NPC's reach later
   let reach = record.data?.reach || 5;
@@ -6256,6 +6995,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     });
   }
 
+  // Get other bonuses and penalties
+  const otherBonusesAndPenalties = getEffectsAndModifiersForToken(
+    record,
+    ["attackBonus", "attackPenalty"],
+    isMelee ? "melee" : "ranged",
+    weapon._id
+  );
+  otherBonusesAndPenalties.forEach((mod) => {
+    modifiers.push(mod);
+  });
+
   // If this is the second or third attach we add MAP
   if (attackNumber === 2 || attackNumber === 3) {
     let mapPenalty = attackNumber === 2 ? -5 : -10;
@@ -6317,7 +7067,10 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   damageModifiers = damageModifiers.map((mod) => {
     return {
       ...mod,
-      type: damageType,
+      type:
+        getDamageType(mod?.value?.toString() || "") !== "untyped"
+          ? ""
+          : damageType,
       modifierType: mod.modifierType, // Preserve for potential future deduplication
     };
   });
@@ -6514,6 +7267,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         weaponGroup: weaponGroup,
         hasCriticalSpecialization: hasCriticalSpecialization,
         traits: traits,
+        runes: runes,
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
         tokenId: ourToken?._id,
@@ -6559,6 +7313,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       rollName: "Attack",
       tooltip: `Attack with ${weapon.name}`,
       traits: traits,
+      runes: runes,
       weaponName: weapon.name,
       weaponGroup: weaponGroup,
       hasCriticalSpecialization: hasCriticalSpecialization,
@@ -6619,7 +7374,10 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   damageModifiers = damageModifiers.map((mod) => {
     return {
       ...mod,
-      type: damageType,
+      type:
+        getDamageType(mod?.value?.toString() || "") !== "untyped"
+          ? ""
+          : damageType,
     };
   });
 
