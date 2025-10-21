@@ -1,4 +1,19 @@
 <script>
+  function onAddImmunity() {
+    const immunities = record?.data?.immunities;
+    const valuesToSet = {};
+    immunities.forEach((immunity, index) => {
+      if (immunity.fields?.valueBox?.hidden !== true) {
+        valuesToSet[`data.immunities.${index}.fields.valueBox.hidden`] = true;
+        valuesToSet[`data.immunities.${index}.fields.doubleVs.hidden`] = true;
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
   // TODO proper polymorph / shape-shifting for PF2e
   function onSelectShapeshifting(value, recordLink) {
     const npc = recordLink?.value;
@@ -390,36 +405,14 @@
   ></label>
 </div>
 
-<dropdown
-  width="100%"
-  multiselect="100"
-  combo="true"
-  field="resistances"
-  label="Resistances"
-  placeholder="None"
-  options="[]"
->
-</dropdown>
-<dropdown
-  width="100%"
-  multiselect="100"
-  combo="true"
+<list listtype="iwr_list" field="resistances" label="Resistances"></list>
+<list
+  listtype="iwr_list"
   field="immunities"
   label="Immunities"
-  placeholder="None"
-  options="[]"
->
-</dropdown>
-<dropdown
-  width="100%"
-  multiselect="100"
-  combo="true"
-  field="weaknesses"
-  label="Weaknesses"
-  placeholder="None"
-  options="[]"
->
-</dropdown>
+  onchange="onAddImmunity()"
+></list>
+<list listtype="iwr_list" field="weaknesses" label="Weaknesses"></list>
 
 <div style="margin-top: 8px">
   <label textalign="center" label="Proficiencies" variant="bold"></label>

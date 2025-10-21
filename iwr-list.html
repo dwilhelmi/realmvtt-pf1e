@@ -1,0 +1,63 @@
+<div style="display: flex; flex-direction: row; gap: 4px">
+  <div style="min-width: 100px">
+    <dropdown
+      size="xs"
+      field="type"
+      width="100%"
+      placeholder="Select Type..."
+      combo="true"
+      label="Type"
+      options='[{"label": "All Damage", "value": "all-damage"},
+        {"label": "Bludgeoning", "value": "bludgeoning"},
+        {"label": "Piercing", "value": "piercing"},
+        {"label": "Slashing", "value": "slashing"},
+        {"label": "Acid", "value": "acid"},
+        {"label": "Bleed", "value": "bleed"},
+        {"label": "Cold", "value": "cold"},
+        {"label": "Electricity", "value": "electricity"},
+        {"label": "Fire", "value": "fire"},
+        {"label": "Force", "value": "force"},
+        {"label": "Mental", "value": "mental"},
+        {"label": "Poison", "value": "poison"},
+        {"label": "Precision", "value": "precision"},
+        {"label": "Sonic", "value": "sonic"},
+        {"label": "Spirit", "value": "spirit"},
+        {"label": "Vitality", "value": "vitality"},
+        {"label": "Void", "value": "void"}]'
+    ></dropdown>
+  </div>
+
+  <box field="valueBox">
+    <div style="min-width: 60px">
+      <numberfield
+        width="100%"
+        size="xs"
+        field="value"
+        label="Value"
+        placeholder="0"
+      ></numberfield>
+    </div>
+  </box>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="exceptions"
+    combo="true"
+    multiselect="100"
+    label="Exceptions"
+    placeholder="None"
+    options="[]"
+  ></dropdown>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="doubleVs"
+    combo="true"
+    multiselect="100"
+    label="Double Vs"
+    placeholder="None"
+    options="[]"
+  ></dropdown>
+</div>
