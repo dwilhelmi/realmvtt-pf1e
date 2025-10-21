@@ -4064,30 +4064,98 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     valuesToSet[`data.traitsList`] = newTraitsList;
   }
 
-  // Check for Resistence, Weakness, Immunity
+  // Check for Resistance, Weakness, Immunity
   const resistanceBonus = getEffectsAndModifiersForToken(record, [
     "resistance",
   ]);
   const weaknessBonus = getEffectsAndModifiersForToken(record, ["weakness"]);
   const immunityBonus = getEffectsAndModifiersForToken(record, ["immunity"]);
-  const resistances = [];
-  const weaknesses = [];
-  const immunities = [];
+
+  // Start with existing IWR entries from the record
+  const resistances = [...(record.data?.resistances || [])];
+  const weaknesses = [...(record.data?.weaknesses || [])];
+  const immunities = [...(record.data?.immunities || [])];
 
   resistanceBonus.forEach((modifier) => {
-    const resistance = modifier.value || modifier.field || "";
-    resistances.push(resistance);
+    const fieldValue = modifier.value || "";
+
+    // Parse field value like "cold 10" into type and value
+    const parts = fieldValue.trim().split(/\s+/);
+    const type = parts[0] || "";
+    const value = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+    if (
+      type &&
+      !resistances.find((r) => r.data?.type === type && r.data?.value === value)
+    ) {
+      resistances.push({
+        _id: generateUuid(),
+        name: "IWR",
+        unidentifiedName: "IWR",
+        recordType: "records",
+        identified: true,
+        data: {
+          type: type,
+          value: value || undefined,
+        },
+      });
+    }
   });
 
   weaknessBonus.forEach((modifier) => {
-    const weakness = modifier.value || modifier.field || "";
-    weaknesses.push(weakness);
+    const fieldValue = modifier.value || "";
+
+    // Parse field value like "cold 10" into type and value
+    const parts = fieldValue.trim().split(/\s+/);
+    const type = parts[0] || "";
+    const value = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+    if (
+      type &&
+      !weaknesses.find((w) => w.data?.type === type && w.data?.value === value)
+    ) {
+      weaknesses.push({
+        _id: generateUuid(),
+        name: "IWR",
+        unidentifiedName: "IWR",
+        recordType: "records",
+        identified: true,
+        data: {
+          type: type,
+          value: value || undefined,
+        },
+      });
+    }
   });
 
   immunityBonus.forEach((modifier) => {
-    const immunity = modifier.value || modifier.field || "";
-    immunities.push(immunity);
+    const fieldValue = modifier.value || "";
+
+    // Parse field value - immunities should just be the type (e.g., "piercing")
+    const type = fieldValue.trim().split(/\s+/)[0] || "";
+
+    if (type && !immunities.find((i) => i.data?.type === type)) {
+      immunities.push({
+        _id: generateUuid(),
+        name: "IWR",
+        unidentifiedName: "IWR",
+        recordType: "records",
+        identified: true,
+        data: {
+          type: type,
+        },
+        fields: {
+          valueBox: {
+            hidden: true,
+          },
+          doubleVs: {
+            hidden: true,
+          },
+        },
+      });
+    }
   });
+
   if (
     JSON.stringify(resistances) !==
     JSON.stringify(record.data?.resistances || [])
@@ -6744,6 +6812,29 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   // Create a list of all runes as tags that we'll add to the roll message
   const runes = weapon.data?.runes?.property || [];
 
+  // Check if weapon has any runes, add "non-magical" trait if it does not or does not have a magic trait
+  const hasMagicalTrait = traits.some(
+    (trait) =>
+      trait.toLowerCase().includes("magical") ||
+      trait.toLowerCase().includes("arcane") ||
+      trait.toLowerCase().includes("divine") ||
+      trait.toLowerCase().includes("occult") ||
+      trait.toLowerCase().includes("primal")
+  );
+  const hasRunes =
+    runes.length > 0 ||
+    !!weapon.data?.runes?.potency ||
+    !!weapon.data?.runes?.striking;
+
+  if (!hasMagicalTrait && !hasRunes) {
+    traits.push("non-magical");
+  }
+
+  runes.forEach((rune) => {
+    // Format runes like "Ghost Touch" to "ghost-touch"
+    traits.push(rune.toLowerCase().replace(/ /g, "-"));
+  });
+
   // TODO make sure this is right for NPC's reach later
   let reach = record.data?.reach || 5;
   if (hasReachTrait) {
@@ -7357,9 +7448,35 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const isThrown = weaponDamageInfo.isThrown;
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
   const isSpell = weaponDamageInfo.isSpell;
+  const propertyRunes = weapon.data?.runes?.property || [];
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
+
+  // Check if weapon has any runes, add "non-magical" trait if it does not or does not have a magic trait
+  const hasMagicalTrait =
+    weapon.recordType === "spells" ||
+    traits.some(
+      (trait) =>
+        trait.toLowerCase().includes("magical") ||
+        trait.toLowerCase().includes("arcane") ||
+        trait.toLowerCase().includes("divine") ||
+        trait.toLowerCase().includes("occult") ||
+        trait.toLowerCase().includes("primal")
+    );
+  const hasRunes =
+    propertyRunes.length > 0 ||
+    !!weapon.data?.runes?.potency ||
+    !!weapon.data?.runes?.striking;
+
+  if (!hasMagicalTrait && !hasRunes) {
+    traits.push("non-magical");
+  }
+
+  propertyRunes.forEach((rune) => {
+    // Format runes like "Ghost Touch" to "ghost-touch"
+    traits.push(rune.toLowerCase().replace(/ /g, "-"));
+  });
 
   // TODO persistent / splash damage
 
@@ -7562,50 +7679,91 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   );
 }
 
+/**
+ * Helper function to check if a roll matches a condition string based on traits
+ * @param {Object} roll - The damage roll object with metadata.traits
+ * @param {string[]} conditionsArray - The array of condition strings (e.g., ["fire", "undead"])
+ * @returns {boolean} True if any trait matches the condition string
+ */
+function rollMatchesCondition(roll, conditionsArray) {
+  if (!conditionsArray || conditionsArray.length === 0) {
+    return false;
+  }
+
+  const traits = roll?.metadata?.traits || [];
+
+  // Check if any trait matches the condition
+  return conditionsArray.some((condition) =>
+    traits.some(
+      (trait) => trait.toLowerCase().trim() === condition.toLowerCase().trim()
+    )
+  );
+}
+
 // Helper function to get Immunities, Weaknesses, and Resistances for PF2e
 function getIWR(target, armorSpecDetails = null) {
-  const immunities = [];
+  const immunitiesMap = {};
   const weaknessesMap = {};
   const resistancesMap = {};
 
-  // Parse immunities (simple array of types)
+  // Parse immunities from new data structure
   const immunityArray = target.data?.immunities || [];
   immunityArray.forEach((immunity) => {
-    if (immunity) {
-      immunities.push(immunity.toLowerCase().trim());
-    }
-  });
+    if (immunity?.data?.type) {
+      const type = immunity.data.type.toLowerCase().trim();
+      const doubleVs = immunity.data?.doubleVs || null;
+      const exceptions = immunity.data?.exceptions || null;
 
-  // Parse weaknesses (format: "Fire 5", "Cold 10", etc.)
-  // Keep the worst (highest) weakness for each type
-  const weaknessArray = target.data?.weaknesses || [];
-  weaknessArray.forEach((weakness) => {
-    if (weakness) {
-      const match = weakness.match(/^(.+?)\s+(\d+)$/i);
-      if (match) {
-        const type = match[1].toLowerCase().trim();
-        const value = parseInt(match[2], 10);
-        // Only keep the worst (highest) weakness
-        if (!weaknessesMap[type] || value > weaknessesMap[type]) {
-          weaknessesMap[type] = value;
-        }
+      // Store immunity with full details
+      // If we already have this type, we don't need to duplicate (immunity is binary)
+      if (!immunitiesMap[type]) {
+        immunitiesMap[type] = {
+          type: type,
+          doubleVs: doubleVs,
+          exceptions: exceptions,
+        };
       }
     }
   });
 
-  // Parse resistances (format: "Fire 5", "Physical 3", etc.)
-  // Keep the best (highest) resistance for each type
+  // Parse weaknesses from new data structure
+  const weaknessArray = target.data?.weaknesses || [];
+  weaknessArray.forEach((weakness) => {
+    if (weakness?.data?.type) {
+      const type = weakness.data.type.toLowerCase().trim();
+      const value = parseInt(weakness.data.value || "0", 10);
+      const doubleVs = weakness.data?.doubleVs || null;
+      const exceptions = weakness.data?.exceptions || null;
+
+      // Keep the worst (highest) weakness for each type
+      if (!weaknessesMap[type] || value > weaknessesMap[type].value) {
+        weaknessesMap[type] = {
+          type: type,
+          value: value,
+          doubleVs: doubleVs,
+          exceptions: exceptions,
+        };
+      }
+    }
+  });
+
+  // Parse resistances from new data structure
   const resistanceArray = target.data?.resistances || [];
   resistanceArray.forEach((resistance) => {
-    if (resistance) {
-      const match = resistance.match(/^(.+?)\s+(\d+)$/i);
-      if (match) {
-        const type = match[1].toLowerCase().trim();
-        const value = parseInt(match[2], 10);
-        // Only keep the best (highest) resistance
-        if (!resistancesMap[type] || value > resistancesMap[type]) {
-          resistancesMap[type] = value;
-        }
+    if (resistance?.data?.type) {
+      const type = resistance.data.type.toLowerCase().trim();
+      const value = parseInt(resistance.data.value || "0", 10);
+      const doubleVs = resistance.data?.doubleVs || null;
+      const exceptions = resistance.data?.exceptions || null;
+
+      // Keep the best (highest) resistance for each type
+      if (!resistancesMap[type] || value > resistancesMap[type].value) {
+        resistancesMap[type] = {
+          type: type,
+          value: value,
+          doubleVs: doubleVs,
+          exceptions: exceptions,
+        };
       }
     }
   });
@@ -7629,25 +7787,40 @@ function getIWR(target, armorSpecDetails = null) {
       // Composite: piercing resistance
       if (
         !resistancesMap["piercing"] ||
-        resistanceValue > resistancesMap["piercing"]
+        resistanceValue > resistancesMap["piercing"].value
       ) {
-        resistancesMap["piercing"] = resistanceValue;
+        resistancesMap["piercing"] = {
+          type: "piercing",
+          value: resistanceValue,
+          doubleVs: null,
+          exceptions: null,
+        };
       }
     } else if (group === "leather" && resistanceValue > 0) {
       // Leather: bludgeoning resistance
       if (
         !resistancesMap["bludgeoning"] ||
-        resistanceValue > resistancesMap["bludgeoning"]
+        resistanceValue > resistancesMap["bludgeoning"].value
       ) {
-        resistancesMap["bludgeoning"] = resistanceValue;
+        resistancesMap["bludgeoning"] = {
+          type: "bludgeoning",
+          value: resistanceValue,
+          doubleVs: null,
+          exceptions: null,
+        };
       }
     } else if (group === "plate" && resistanceValue > 0) {
       // Plate: slashing resistance
       if (
         !resistancesMap["slashing"] ||
-        resistanceValue > resistancesMap["slashing"]
+        resistanceValue > resistancesMap["slashing"].value
       ) {
-        resistancesMap["slashing"] = resistanceValue;
+        resistancesMap["slashing"] = {
+          type: "slashing",
+          value: resistanceValue,
+          doubleVs: null,
+          exceptions: null,
+        };
       }
     } else if (group === "skeletal") {
       // Skeletal: precision resistance (different formula)
@@ -7660,15 +7833,24 @@ function getIWR(target, armorSpecDetails = null) {
       if (skeletalValue > 0) {
         if (
           !resistancesMap["precision"] ||
-          skeletalValue > resistancesMap["precision"]
+          skeletalValue > resistancesMap["precision"].value
         ) {
-          resistancesMap["precision"] = skeletalValue;
+          resistancesMap["precision"] = {
+            type: "precision",
+            value: skeletalValue,
+            doubleVs: null,
+            exceptions: null,
+          };
         }
       }
     }
   }
 
-  return { immunities, weaknesses: weaknessesMap, resistances: resistancesMap };
+  return {
+    immunities: immunitiesMap,
+    weaknesses: weaknessesMap,
+    resistances: resistancesMap,
+  };
 }
 
 /**
@@ -7824,10 +8006,16 @@ function applyDamage(record, roll, halfDamage = false) {
       const IWR = getIWR(target, armorSpecDetails);
 
       // Check if target is immune to critical hits
-      const immuneToCritical = IWR.immunities.some((immunity) =>
-        ["critical", "critical hits", "critical hit", "crits", "crit"].includes(
-          immunity.toLowerCase().trim()
-        )
+      const immuneToCritical = Object.keys(IWR.immunities).some(
+        (immunityType) =>
+          [
+            "critical",
+            "critical hits",
+            "critical-hits",
+            "critical hit",
+            "crits",
+            "crit",
+          ].includes(immunityType.toLowerCase().trim())
       );
 
       // Get list of critical-only dice that shouldn't be doubled (deadly/fatal)
@@ -7953,27 +8141,71 @@ function applyDamage(record, roll, halfDamage = false) {
       let iwrAdjustment = 0;
       Object.keys(damageByType).forEach((type) => {
         const lowerType = type.toLowerCase();
+        const damageOfThisType = damageByType[type];
 
         // Check Immunities first (all damage of this type is negated)
         if (!damageIgnoresImmunities.includes(lowerType)) {
-          if (IWR.immunities.includes(lowerType)) {
-            // Immune to this damage type - negate all damage
-            iwrAdjustment -= damageAfterHalf;
-            return; // Skip weakness/resistance for this type
+          const immunity = IWR.immunities[lowerType];
+          if (immunity) {
+            // Check if this immunity has an exception that matches the roll
+            if (
+              immunity.exceptions &&
+              rollMatchesCondition(roll, immunity.exceptions)
+            ) {
+              // Exception applies - ignore this immunity
+            } else {
+              // Immune to this damage type - negate damage of this type
+              iwrAdjustment -= damageOfThisType;
+              return; // Skip weakness/resistance for this type
+            }
           }
         }
 
         // Apply Weaknesses (add extra damage)
         if (!damageIgnoresWeaknesses.includes(lowerType)) {
-          if (IWR.weaknesses[lowerType]) {
-            iwrAdjustment += IWR.weaknesses[lowerType];
+          const weakness = IWR.weaknesses[lowerType];
+          if (weakness) {
+            // Check if this weakness has an exception that matches the roll
+            if (
+              weakness.exceptions &&
+              rollMatchesCondition(roll, weakness.exceptions)
+            ) {
+              // Exception applies - ignore this weakness
+            } else {
+              // Apply weakness value (double it if doubleVs condition matches)
+              let weaknessValue = weakness.value;
+              if (
+                weakness.doubleVs &&
+                rollMatchesCondition(roll, weakness.doubleVs)
+              ) {
+                weaknessValue = weaknessValue * 2;
+              }
+              iwrAdjustment += weaknessValue;
+            }
           }
         }
 
         // Apply Resistances (reduce damage)
         if (!damageIgnoresResistances.includes(lowerType)) {
-          if (IWR.resistances[lowerType]) {
-            iwrAdjustment -= IWR.resistances[lowerType];
+          const resistance = IWR.resistances[lowerType];
+          if (resistance) {
+            // Check if this resistance has an exception that matches the roll
+            if (
+              resistance.exceptions &&
+              rollMatchesCondition(roll, resistance.exceptions)
+            ) {
+              // Exception applies - ignore this resistance
+            } else {
+              // Apply resistance value (double it if doubleVs condition matches)
+              let resistanceValue = resistance.value;
+              if (
+                resistance.doubleVs &&
+                rollMatchesCondition(roll, resistance.doubleVs)
+              ) {
+                resistanceValue = resistanceValue * 2;
+              }
+              iwrAdjustment -= resistanceValue;
+            }
           }
         }
       });
