@@ -1,6 +1,7 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const rollName = data?.roll?.metadata?.rollName;
 const traits = data?.roll?.metadata?.traits || [];
+const damageCategories = data?.roll?.metadata?.damageCategories || [];
 const propertyRunes = data?.roll?.metadata?.runes || [];
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
@@ -290,6 +291,7 @@ const damageMetadata = {
   // This is so that our damage handler script can tell if it was from a critical hit
   critical: isCritical,
   traits,
+  damageCategories,
   // So we can tell the damage handler script if it was a spell-related damage
   isSpell: isSpell,
   damageIgnoresResistances: damageIgnoresResistances,

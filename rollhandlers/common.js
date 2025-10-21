@@ -6808,6 +6808,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
+  const damageCategories = [];
 
   // Create a list of all runes as tags that we'll add to the roll message
   const runes = weapon.data?.runes?.property || [];
@@ -6827,12 +6828,12 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     !!weapon.data?.runes?.striking;
 
   if (!hasMagicalTrait && !hasRunes) {
-    traits.push("non-magical");
+    damageCategories.push("non-magical");
   }
 
   runes.forEach((rune) => {
     // Format runes like "Ghost Touch" to "ghost-touch"
-    traits.push(rune.toLowerCase().replace(/ /g, "-"));
+    damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
   // TODO make sure this is right for NPC's reach later
@@ -7358,6 +7359,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         weaponGroup: weaponGroup,
         hasCriticalSpecialization: hasCriticalSpecialization,
         traits: traits,
+        damageCategories: damageCategories,
         runes: runes,
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
@@ -7404,6 +7406,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       rollName: "Attack",
       tooltip: `Attack with ${weapon.name}`,
       traits: traits,
+      damageCategories: damageCategories,
       runes: runes,
       weaponName: weapon.name,
       weaponGroup: weaponGroup,
@@ -7452,6 +7455,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
+  const damageCategories = [];
 
   // Check if weapon has any runes, add "non-magical" trait if it does not or does not have a magic trait
   const hasMagicalTrait =
@@ -7470,12 +7474,12 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     !!weapon.data?.runes?.striking;
 
   if (!hasMagicalTrait && !hasRunes) {
-    traits.push("non-magical");
+    damageCategories.push("non-magical");
   }
 
   propertyRunes.forEach((rune) => {
     // Format runes like "Ghost Touch" to "ghost-touch"
-    traits.push(rune.toLowerCase().replace(/ /g, "-"));
+    damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
   // TODO persistent / splash damage
@@ -7658,6 +7662,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const metadata = {
     attack: `${weapon.name}`,
     traits: traits,
+    damageCategories,
     rollName: "Damage",
     tooltip: `${weapon.name} Damage`,
     critical: isCritical,
@@ -7686,17 +7691,35 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
  * @returns {boolean} True if any trait matches the condition string
  */
 function rollMatchesCondition(roll, conditionsArray) {
-  if (!conditionsArray || conditionsArray.length === 0) {
+  // Handle null, undefined, or empty arrays
+  if (
+    !conditionsArray ||
+    (Array.isArray(conditionsArray) && conditionsArray.length === 0)
+  ) {
     return false;
   }
 
+  // Convert string to array for consistent processing
+  const conditionsToCheck = Array.isArray(conditionsArray)
+    ? conditionsArray
+    : [conditionsArray];
+
   const traits = roll?.metadata?.traits || [];
+  const damageCategories = roll?.metadata?.damageCategories || [];
 
   // Check if any trait matches the condition
-  return conditionsArray.some((condition) =>
-    traits.some(
-      (trait) => trait.toLowerCase().trim() === condition.toLowerCase().trim()
-    )
+  return conditionsToCheck.some(
+    (condition) =>
+      traits.some(
+        (trait) =>
+          trait.toLowerCase().trim().replace(/-/g, "").replace(/ /g, "") ===
+          condition.toLowerCase().trim().replace(/-/g, "").replace(/ /g, "")
+      ) ||
+      damageCategories.some(
+        (category) =>
+          category.toLowerCase().trim().replace(/-/g, "").replace(/ /g, "") ===
+          condition.toLowerCase().trim().replace(/-/g, "").replace(/ /g, "")
+      )
   );
 }
 
@@ -7710,7 +7733,11 @@ function getIWR(target, armorSpecDetails = null) {
   const immunityArray = target.data?.immunities || [];
   immunityArray.forEach((immunity) => {
     if (immunity?.data?.type) {
-      const type = immunity.data.type.toLowerCase().trim();
+      const type = immunity.data.type
+        .toLowerCase()
+        .trim()
+        .replace(/-/g, "")
+        .replace(/ /g, "");
       const doubleVs = immunity.data?.doubleVs || null;
       const exceptions = immunity.data?.exceptions || null;
 
@@ -8126,36 +8153,65 @@ function applyDamage(record, roll, halfDamage = false) {
         }
       }
 
-      // Apply half damage to the base if needed (e.g., successful basic save)
-      let damageAfterHalf = baseDamage;
+      // Apply half damage to each type proportionally if needed (e.g., successful basic save)
+      // This must be done BEFORE IWR
+      const damageByTypeAfterHalf = {};
       if (halfDamage && baseDamage > 0) {
-        damageAfterHalf = Math.floor(baseDamage / 2);
-        // Minimum 1 damage if there was any damage to begin with
-        if (damageAfterHalf < 1) {
-          damageAfterHalf = 1;
-        }
+        const halfTotal = Math.floor(baseDamage / 2);
+        const minDamage = Math.max(1, halfTotal); // Minimum 1 damage if there was any damage to begin with
+
+        // Distribute the halved damage proportionally across damage types
+        let remainingDamage = minDamage;
+        const types = Object.keys(damageByType);
+
+        types.forEach((type, index) => {
+          if (index === types.length - 1) {
+            // Last type gets all remaining damage to avoid rounding issues
+            damageByTypeAfterHalf[type] = remainingDamage;
+          } else {
+            // Proportional distribution
+            const proportion = damageByType[type] / baseDamage;
+            const thisDamage = Math.floor(minDamage * proportion);
+            damageByTypeAfterHalf[type] = thisDamage;
+            remainingDamage -= thisDamage;
+          }
+        });
+      } else {
+        // No halving needed, copy values
+        Object.keys(damageByType).forEach((type) => {
+          damageByTypeAfterHalf[type] = damageByType[type];
+        });
       }
 
       // PF2e: Apply Immunities, Weaknesses, and Resistances
       // These are applied AFTER halving
-      let iwrAdjustment = 0;
-      Object.keys(damageByType).forEach((type) => {
+      // Track final damage per type to ensure each type doesn't go below 0
+      const finalDamageByType = {};
+
+      Object.keys(damageByTypeAfterHalf).forEach((type) => {
         const lowerType = type.toLowerCase();
-        const damageOfThisType = damageByType[type];
+        let damageOfThisType = damageByTypeAfterHalf[type];
 
         // Check Immunities first (all damage of this type is negated)
         if (!damageIgnoresImmunities.includes(lowerType)) {
+          // Check for specific type immunity
           const immunity = IWR.immunities[lowerType];
-          if (immunity) {
+          // Check for "all damage" immunity
+          const allDamageImmunity =
+            IWR.immunities["all damage"] || IWR.immunities["all-damage"];
+
+          const applicableImmunity = immunity || allDamageImmunity;
+
+          if (applicableImmunity) {
             // Check if this immunity has an exception that matches the roll
             if (
-              immunity.exceptions &&
-              rollMatchesCondition(roll, immunity.exceptions)
+              applicableImmunity.exceptions &&
+              rollMatchesCondition(roll, applicableImmunity.exceptions)
             ) {
               // Exception applies - ignore this immunity
             } else {
               // Immune to this damage type - negate damage of this type
-              iwrAdjustment -= damageOfThisType;
+              finalDamageByType[type] = 0;
               return; // Skip weakness/resistance for this type
             }
           }
@@ -8163,61 +8219,76 @@ function applyDamage(record, roll, halfDamage = false) {
 
         // Apply Weaknesses (add extra damage)
         if (!damageIgnoresWeaknesses.includes(lowerType)) {
+          // Check for specific type weakness
           const weakness = IWR.weaknesses[lowerType];
-          if (weakness) {
+          // Check for "all damage" weakness
+          const allDamageWeakness =
+            IWR.weaknesses["all damage"] || IWR.weaknesses["all-damage"];
+
+          const applicableWeakness = weakness || allDamageWeakness;
+
+          if (applicableWeakness) {
             // Check if this weakness has an exception that matches the roll
             if (
-              weakness.exceptions &&
-              rollMatchesCondition(roll, weakness.exceptions)
+              applicableWeakness.exceptions &&
+              rollMatchesCondition(roll, applicableWeakness.exceptions)
             ) {
               // Exception applies - ignore this weakness
             } else {
               // Apply weakness value (double it if doubleVs condition matches)
-              let weaknessValue = weakness.value;
+              let weaknessValue = applicableWeakness.value;
               if (
-                weakness.doubleVs &&
-                rollMatchesCondition(roll, weakness.doubleVs)
+                applicableWeakness.doubleVs &&
+                rollMatchesCondition(roll, applicableWeakness.doubleVs)
               ) {
                 weaknessValue = weaknessValue * 2;
               }
-              iwrAdjustment += weaknessValue;
+              damageOfThisType += weaknessValue;
             }
           }
         }
 
         // Apply Resistances (reduce damage)
         if (!damageIgnoresResistances.includes(lowerType)) {
+          // Check for specific type resistance
           const resistance = IWR.resistances[lowerType];
-          if (resistance) {
+          // Check for "all damage" resistance
+          const allDamageResistance =
+            IWR.resistances["all damage"] || IWR.resistances["all-damage"];
+
+          const applicableResistance = resistance || allDamageResistance;
+
+          if (applicableResistance) {
             // Check if this resistance has an exception that matches the roll
             if (
-              resistance.exceptions &&
-              rollMatchesCondition(roll, resistance.exceptions)
+              applicableResistance.exceptions &&
+              rollMatchesCondition(roll, applicableResistance.exceptions)
             ) {
               // Exception applies - ignore this resistance
             } else {
               // Apply resistance value (double it if doubleVs condition matches)
-              let resistanceValue = resistance.value;
+              let resistanceValue = applicableResistance.value;
               if (
-                resistance.doubleVs &&
-                rollMatchesCondition(roll, resistance.doubleVs)
+                applicableResistance.doubleVs &&
+                rollMatchesCondition(roll, applicableResistance.doubleVs)
               ) {
                 resistanceValue = resistanceValue * 2;
               }
-              iwrAdjustment -= resistanceValue;
+              damageOfThisType -= resistanceValue;
             }
           }
         }
+
+        // Ensure this damage type doesn't go below 0
+        finalDamageByType[type] = Math.max(0, damageOfThisType);
       });
 
-      // Final damage = halved damage + IWR adjustments
-      // Note: Armor specialization resistances are already included in IWR
-      damage = damageAfterHalf + iwrAdjustment;
-
-      // We cannot deal negative damage
-      if (damage < 0) {
-        damage = 0;
-      }
+      // Calculate final damage by summing all damage types after IWR
+      // Each type has already been capped at 0, so total can't be negative
+      damage = Object.values(finalDamageByType).reduce(
+        (sum, dmg) => sum + dmg,
+        0
+      );
 
       var curhp = target.data?.curhp || 0;
       const maxHp = target.data?.hitpoints || 0;
