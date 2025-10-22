@@ -2279,6 +2279,7 @@ function getBestEquippedArmor(record) {
       speedPenalty: null,
       armorCategory: "unarmored",
       group: "",
+      propertyRunes: [],
     },
     shield: {
       shieldId: null,
@@ -2306,6 +2307,8 @@ function getBestEquippedArmor(record) {
         bestEquippedArmor.armor.strength = item?.data?.strength;
         bestEquippedArmor.armor.armorId = item?._id;
         bestEquippedArmor.armor.armorIndex = index;
+        bestEquippedArmor.armor.propertyRunes =
+          item?.data?.runes?.property || [];
         bestEquippedArmor.armor.armorCategory = (
           item?.data?.itemCategory || "unarmored"
         ).toLowerCase();
@@ -6710,13 +6713,425 @@ function getWeaponRuneDetails(runeName) {
 }
 
 function getArmorRuneDetails(runeName) {
-  // TODO
-  return {
-    displayName: "",
-    description: "",
-    macros: [],
-    modifiers: [],
+  const rune = (runeName || "").toLowerCase();
+
+  const runeData = {
+    acidresistant: {
+      displayName: "Acid Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 5 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    advancing: {
+      displayName: "Advancing",
+      description:
+        "This rune charges up as you defeat your foes, driving you forward across the battlefield with every victory.\n\nActivate [free-action] (concentrate); Requirements Your last action or activity reduced an enemy to 0 Hit Points; Effect You Stride up to 15 feet. This movement doesn't trigger reactions. You can Burrow, Climb, Fly, or Swim instead of Striding if you have the corresponding movement type.",
+      macros: [],
+      modifiers: [],
+    },
+    aimaiding: {
+      displayName: "Aim Aiding",
+      description:
+        "Armor etched with this rune aids in routing ranged attacks aimed at an enemy around you. You don't provide enemies cover against your allies' ranged attacks.",
+      macros: [],
+      modifiers: [],
+    },
+    antimagic: {
+      displayName: "Antimagic",
+      description:
+        "This intricate rune displaces spell energy, granting you a +1 status bonus to saving throws against magical effects.\n\nActivate—Antimagic Armor [reaction] (concentrate); Frequency once per day; Trigger A spell targets you or includes you in its area; Effect The armor attempts to counteract the triggering spell with the effect of a 7th-rank dispel magic spell and a counteract modifier of +26.",
+      macros: [],
+      modifiers: [],
+    },
+    assisting: {
+      displayName: "Assisting",
+      description:
+        "Your armor provides support for your joints or advanced prostheses for missing limbs, holding your body in place and easing physical symptoms. This replicates the benefits of any number of splints, supports, and prostheses. When you invest the armor, you determine how many such supports you want, and where on your body they assist you.\n\nIn addition, the extra support and structure provided by the armor allows you to transport more than you would otherwise normally be able to. You can carry Bulk equal to 6 + your Strength modifier before becoming encumbered, and you can hold and carry a total Bulk of up to 11 + your Strength modifier.",
+      macros: [],
+      modifiers: [],
+    },
+    bitter: {
+      displayName: "Bitter",
+      description:
+        "While you wear this acrid armor, any creature that Engulfs you or Swallows you Whole is sickened 1; if it spends an action retching to reduce the sickened condition, you can attempt to Escape as a reaction.",
+      macros: [],
+      modifiers: [],
+    },
+    coldresistant: {
+      displayName: "Cold Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 5 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    deathless: {
+      displayName: "Deathless",
+      description:
+        "These symbols fortify your body's grasp on your soul, keeping it tethered when death approaches.\n\nActivate [reaction] envision; Frequency once per day; Trigger You gain the doomed or wounded condition; Effect You reduce the value of the triggering condition by 1.",
+      macros: [],
+      modifiers: [],
+    },
+    electricityresistant: {
+      displayName: "Electricity Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 5 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    energyadaptive: {
+      displayName: "Energy Adaptive",
+      description:
+        "A complex pattern of protective symbols gives protection against various forms of energy, but only part of the runic structure can be active at a given time.\n\nActivate [reaction] (concentrate); Frequency once per hour; Trigger You take acid, cold, electricity, or fire damage; Effect You gain resistance 5 to the triggering damage type. This doesn't apply to the triggering damage. This resistance lasts until you Activate this rune again or the armor is no longer invested by you.",
+      macros: [],
+      modifiers: [],
+    },
+    ethereal: {
+      displayName: "Ethereal",
+      description:
+        "An ethereal rune replicates armor on the Ethereal Plane.\n\nActivate [one-action] command; Frequency once per day; Effect You gain the effects of an ethereal jaunt spell. This doesn't require concentration and lasts for 10 minutes or until you choose to return to material form as a free action.",
+      macros: [],
+      modifiers: [],
+    },
+    fireresistant: {
+      displayName: "Fire Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 5 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    fortification: {
+      displayName: "Fortification",
+      description:
+        "A fortification rune wards against the deadliest attacks. Each time you're critically hit while wearing the etched armor, attempt a DC 17 flat check. On a success, it becomes a normal hit. This property thickens the armor, increasing its Bulk by 1 and the Strength modifier require to reduce its penalties by 1.",
+      macros: [],
+      modifiers: [],
+    },
+    gliding: {
+      displayName: "Gliding",
+      description:
+        "The armor allows you to make a controlled descent.\n\nActivate [one-action] (concentrate); Effect You glide slowly toward the ground, 5 feet down and up to 25 feet forward through the air. Provided you spend at least 1 action gliding on your turn and haven't yet reached the ground, you remain in the air at the end of your turn. Otherwise, you fall.",
+      macros: [],
+      modifiers: [],
+    },
+    greateracidresistant: {
+      displayName: "Greater Acid Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 10 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    greateradvancing: {
+      displayName: "Greater Advancing",
+      description:
+        "This rune charges up as you defeat your foes, driving you forward across the battlefield with every victory.\n\nActivate [free-action] (concentrate); Requirements Your last action or activity reduced an enemy to 0 Hit Points; Effect You Stride up to your speed. This movement doesn't trigger reactions. You can Burrow, Climb, Fly, or Swim instead of Striding if you have the corresponding movement type.",
+      macros: [],
+      modifiers: [],
+    },
+    greatercoldresistant: {
+      displayName: "Greater Cold Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 10 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterdread: {
+      displayName: "Greater Dread",
+      description:
+        "Eerie symbols cover your armor, inspiring terror in your foes. Frightened enemies within 30 feet that can see you must attempt a DC 38 Will save at the end of their turn; on a failure, the value of their frightened condition doesn't decrease, no matter the value.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterelectricityresistant: {
+      displayName: "Greater Electricity Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 10 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterfireresistant: {
+      displayName: "Greater Fire Resistant",
+      description:
+        "These symbols convey protective forces from the Elemental Planes. You gain resistance 10 to acid, cold, electricity, or fire. The crafter chooses the damage type when creating the rune. Multiple energy-resistant runes can be etched onto a suit of armor; rather than using only the strongest effect, each must provide resistance to a different damage type. For instance, a +2 acid-resistant greater fire-resistant breastplate would give you acid resistance 5 and fire resistance 10.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterfortification: {
+      displayName: "Greater Fortification",
+      description:
+        "A fortification rune wards against the deadliest attacks. Each time you're critically hit while wearing the etched armor, attempt a DC 14 flat check. On a success, it becomes a normal hit. This property thickens the armor, increasing its Bulk by 1 and the Strength modifier require to reduce its penalties by 1.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterinvisibility: {
+      displayName: "Greater Invisibility",
+      description:
+        "Light seems to partially penetrate this armor.\n\nActivate—Go Invisible [one-action] (concentrate); Frequency 3 per day; Effect With a thought, you become invisible for 1 minute, gaining the effects of a 2nd-rank invisibility spell.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterready: {
+      displayName: "Greater Ready",
+      description:
+        "A ready rune draws component pieces of a suit of armor toward one another, making it extremely fast to get into. You can don any armor with this rune as a single action.",
+      macros: [],
+      modifiers: [],
+    },
+    greatershadow: {
+      displayName: "Greater Shadow",
+      description:
+        "Armor etched with this rune takes on a hazy black appearance. You gain a +2 item bonus to Stealth checks while wearing the armor.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterslick: {
+      displayName: "Greater Slick",
+      description:
+        "This property makes armor slippery, as though it were coated with a thin film of oil. You gain a +2 item bonus to Acrobatics checks to Escape and Squeeze.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterstanching: {
+      displayName: "Greater Stanching",
+      description:
+        "These symbols close bloody wounds. Armor with this rune reduces the DC of the flat check to end persistent bleed damage from 15 to 10 (5 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    greaterquenching: {
+      displayName: "Greater Quenching",
+      description:
+        "This rune counters burning and corrosive agents. Armor with this rune reduces the DC of the flat check to end persistent acid or fire damage affecting you from 15 to 10 (5 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    greaterswallowspike: {
+      displayName: "Greater Swallow Spike",
+      description:
+        "Your armor responds to your desire to break free of a creature grabbing you by growing spikes.\n\nActivate [reaction] (attack, concentrate); Trigger You become grabbed, restrained, or otherwise held immobilized in a creature's grasp, such as by being engulfed or swallowed; Effect Your armor suddenly grows spikes, attacking the triggering creature. The armor makes a melee attack with an attack modifier of +22 that deals 3d6 piercing damage. If the creature is swallowing or engulfing you, the attack deals an additional 2d6 damage, and damage from this attack can cut you free if it equals or exceeds the Rupture value of the immobilizing ability. This attack gets an item bonus to the attack roll equal to the armor's item bonus to your AC and an item bonus to damage equal to double that amount.\n\nActivate [one-action] (attack, concentrate); Requirements You're being held immobilized as described in the rune's other activation; Effect Your armor attacks the creature immobilizing you. The armor makes a melee attack against the creature, as described in the rune's other activation.",
+      macros: [],
+      modifiers: [],
+    },
+    greaterwinged: {
+      displayName: "Greater Winged",
+      description:
+        "This rune is a swirling glyph on the front of the armor. A large pair of transparent, ephemeral wings floats out from the back of the armor.\n\nActivate—Take to the Skies [two-actions] (concentrate, manipulate); Frequency once per hour; Effect You trace the rune on the front of the breastplate, and the armor's ephemeral wings grow tangible, granting you a fly Speed of 25 feet or your land Speed, whichever is slower. Once activated, the wings remain tangible indefinitely. You can Dismiss the activation if you choose, and you don't have to wait an hour to activate the rune again.",
+      macros: [],
+      modifiers: [],
+    },
+    immovable: {
+      displayName: "Immovable",
+      description:
+        "This rune utilizes magical principles to manipulate gravity and turn you into an immovable object.\n\nActivate [one-action] (manipulate); Frequency once per day; Effect Your armor anchors you in place, even defying gravity, rendering you immobilized until you Dismiss the Activation. while you're immobilized in this way, you can be moved only if a creature succeeds at a DC 40 Athletics check to Force Open your armor. You can also be moved if 8,000 pounds of pressure are placed upon you, though this is likely fatal.",
+      macros: [],
+      modifiers: [],
+    },
+    implacable: {
+      displayName: "Implacable",
+      description:
+        "This substantial rune makes you difficult to hold back. Whenever you are affected by an effect that lasts until you Escape (for instance, from the Grapple action or a tanglefoot bag), you become quickened. You can use the extra action each round only to Step or Escape.",
+      macros: [],
+      modifiers: [],
+    },
+    invisibility: {
+      displayName: "Invisibility",
+      description:
+        "Light seems to partially penetrate this armor.\n\nActivate—Go Invisible [one-action] (concentrate); Frequency once per day; Effect With a thought, you become invisible for 1 minute, gaining the effects of a 2nd-rank invisibility spell.",
+      macros: [],
+      modifiers: [],
+    },
+    lesserdread: {
+      displayName: "Lesser Dread",
+      description:
+        "Eerie symbols cover your armor, inspiring terror in your foes. Frightened enemies within 30 feet that can see you must attempt a DC 20 Will save at the end of their turn; on a failure, the value of their frightened condition doesn't decrease below 1 that turn.",
+      macros: [],
+      modifiers: [],
+    },
+    magnetizing: {
+      displayName: "Magnetizing",
+      description:
+        "This rune alters the magnetic polarity of your armor, making other metal items drawn to it ever so slightly. You can amplify the magnetic power of the armor to keep another creature from getting away from you.\n\nActivate [one-action] (concentrate); Frequency once per hour; Requirements A creature adjacent to you is made of metal or wearing metal armor; Effect You magnetize your armor. If you or the target attempt to move away from one another, treat each square as difficult terrain. This doesn't affect movement that keeps you the same distance from one another, so you could still Step if you remained adjacent to the target. This effect ends once either of you is no longer adjacent to the other at the end of an action.\n\nThis Activation might work on some creatures partially made of metal, such as those with metal scales, as determined by the GM. Likewise, the GM might determine some metal creatures are non-magnetic, depending on the metal they're made of.",
+      macros: [],
+      modifiers: [],
+    },
+    majorquenching: {
+      displayName: "Major Quenching",
+      description:
+        "This rune counters burning and corrosive agents. Armor with this rune reduces the DC of the flat check to end persistent acid or fire damage affecting you from 15 to 8 (3 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    majorshadow: {
+      displayName: "Major Shadow",
+      description:
+        "Armor etched with this rune takes on a hazy black appearance. You gain a +3 item bonus to Stealth checks while wearing the armor.",
+      macros: [],
+      modifiers: [],
+    },
+    majorslick: {
+      displayName: "Major Slick",
+      description:
+        "This property makes armor slippery, as though it were coated with a thin film of oil. You gain a +3 item bonus to Acrobatics checks to Escape and Squeeze.",
+      macros: [],
+      modifiers: [],
+    },
+    majorstanching: {
+      displayName: "Major Stanching",
+      description:
+        "These symbols close bloody wounds. Armor with this rune reduces the DC of the flat check to end persistent bleed damage from 15 to 8 (3 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    majorswallowspike: {
+      displayName: "Major Swallow Spike",
+      description:
+        "Your armor responds to your desire to break free of a creature grabbing you by growing spikes.\n\nActivate [reaction] (attack, concentrate); Trigger You become grabbed, restrained, or otherwise held immobilized in a creature's grasp, such as by being engulfed or swallowed; Effect Your armor suddenly grows spikes, attacking the triggering creature. The armor makes a melee attack with an attack modifier of +28 that deals 5d6 piercing damage. If the creature is swallowing or engulfing you, the attack deals an additional 3d6 damage, and damage from this attack can cut you free if it equals or exceeds the Rupture value of the immobilizing ability. This attack gets an item bonus to the attack roll equal to the armor's item bonus to your AC and an item bonus to damage equal to double that amount.\n\nActivate [one-action] (attack, concentrate); Requirements You're being held immobilized as described in the rune's other activation; Effect Your armor attacks the creature immobilizing you. The armor makes a melee attack against the creature, as described in the rune's other activation.",
+      macros: [],
+      modifiers: [],
+    },
+    malleable: {
+      displayName: "Malleable",
+      description:
+        "The metal of your armor can shift and rearrange at a moment's notice, allowing you to manipulate what kind of damage it resists.\n\nActivate—Reconfigure Armor [one-action] (manipulate); Effect The armor's composition shifts, changing its specialization group to a different one of your choice. This doesn't change what the armor is made of, and any runes or precious material it's made of apply to the new composition. Any property runes that can't apply to the new form are suppressed until the item takes a composition to which they can apply.",
+      macros: [],
+      modifiers: [],
+    },
+    misleading: {
+      displayName: "Misleading",
+      description:
+        "This rune attempts to obfuscate your location through illusory trickery. When you're concealed, the DC of the flat check to target you with an effect is 6 instead of 5.\n\nActivate [two-actions] (concentrate); Frequency once per day; Effect The armor casts mislead, affecting you. It lasts until the end of your next turn.",
+      macros: [],
+      modifiers: [],
+    },
+    moderatedread: {
+      displayName: "Moderate Dread",
+      description:
+        "Eerie symbols cover your armor, inspiring terror in your foes. Frightened enemies within 30 feet that can see you must attempt a DC 29 Will save at the end of their turn; on a failure, the value of their frightened condition doesn't decrease below 2 that turn.",
+      macros: [],
+      modifiers: [],
+    },
+    portable: {
+      displayName: "Portable",
+      description:
+        "This rune allows your armor to collapse into a disguised, portable form.\n\nActivate [three-actions] (concentrate, manipulate); Effect You doff your armor, which folds into another wearable object, such as a bangle or amulet with light Bulk. This wearable object has features that hint at the armor it hides. You aren't wearing the armor while it's in this form, but at the GM's discretion, you can still activate properties that might feasibly come from the wearable item the armor has become. If the armor is in its portable form, you can use this activation to revert it to armor, which you can don in 1 minute.",
+      macros: [],
+      modifiers: [],
+    },
+    quenching: {
+      displayName: "Quenching",
+      description:
+        "This rune counters burning and corrosive agents. Armor with this rune reduces the DC of the flat check to end persistent acid or fire damage affecting you from 15 to 12 (7 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    raiment: {
+      displayName: "Raiment",
+      description:
+        "This armor can be disguised with a mere thought.\n\nActivate—Costume Change [one-action] (concentrate); Effect You change the shape and appearance of this armor to appear as ordinary or fine clothes of your imagining. The armor's statistics don't change. Only a creature that's benefiting from truesight or a similar effect can attempt to disbelieve this illusion, with a DC of 25.",
+      macros: [],
+      modifiers: [],
+    },
+    ready: {
+      displayName: "Ready",
+      description:
+        "A ready rune draws component pieces of a suit of armor toward one another, making it extremely fast to get into. You can don light armor with a ready rune as a single action, or medium or heavy armor with a ready rune as a 2-action activity.",
+      macros: [],
+      modifiers: [],
+    },
+    rockbraced: {
+      displayName: "Rock Braced",
+      description:
+        "Rock-braced armor makes you as hard to move as a boulder. Whenever another creature attempts to forcibly move you from your space, you gain a +4 item bonus to your Fortitude DC against the check to move you. If the creature would not normally need to attempt a check to move you, then the creature must succeed at an Athletics check against your Fortitude DC (including the +4 item bonus) or you are unmoved.",
+      macros: [],
+      modifiers: [],
+    },
+    shadow: {
+      displayName: "Shadow",
+      description:
+        "Armor etched with this rune takes on a hazy black appearance. You gain a +1 item bonus to Stealth checks while wearing the armor.",
+      macros: [],
+      modifiers: [],
+    },
+    sinisterknight: {
+      displayName: "Sinister Knight",
+      description:
+        "Sinister knight armor shrouds the wearer's identity in secrecy, allowing Crimson Reclaimers to pass among foes without being immediately unmasked. The wearer gains a +1 item bonus to Deception checks.\n\nActivate [one-action] envision; Effect With a thought, the wearer activates a disguise. While the sinister knight armor's disguise is active, any identifying insignia or aesthetic of the armor is replaced by generic malevolent aesthetics such as spikes or demonic faces. While in the disguise, the wearer is always considered to be taking precautions against lifesense, and even a creature that successfully notices the wearer with its lifesense mistakes the wearer for an undead unless it critically succeeds at its Perception check or the wearer critically fails a Deception or Stealth check. Finally, while in the disguise, the rune attempts to counteract any effects that would reveal your alignment; on a successful counteract check, rather than negate the effect, the rune causes the effect to perceive your alignment as evil (maintaining any lawful or chaotic component of your alignment).\n\nThe wearer can Dismiss the disguise, and if the wearer's armor is removed, the disguise deactivates automatically.",
+      macros: [],
+      modifiers: [],
+    },
+    sizechanging: {
+      displayName: "Size Changing",
+      description:
+        "This armor can make itself and its wearer quickly change size.\n\nActivate—Change Size [one-action] (concentrate); Frequency once per day; Effect The armor casts your choice of enlarge or shrink on you.",
+      macros: [],
+      modifiers: [],
+    },
+    slick: {
+      displayName: "Slick",
+      description:
+        "This property makes armor slippery, as though it were coated with a thin film of oil. You gain a +1 item bonus to Acrobatics checks to Escape and Squeeze.",
+      macros: [],
+      modifiers: [],
+    },
+    soaring: {
+      displayName: "Soaring",
+      description:
+        "A set of soaring armor helps you fly faster and protects you and nearby allies from falling. While wearing soaring armor, you gain a +10-foot item bonus to your fly Speed, if you have one. As normal, if your fly Speed is based on your land Speed and you already have an item bonus to your land Speed, these bonuses aren't cumulative.\n\nActivate [reaction] command; Trigger You or a creature within 60 feet of you is falling; Effect You cast feather fall on the triggering creature.",
+      macros: [],
+      modifiers: [],
+    },
+    spellwatch: {
+      displayName: "Spellwatch",
+      description:
+        "Counter-runes chip away at unwanted magic that impedes you. You can attempt a new saving throw against one hostile spell affecting you at the start of each of your turns. If you succeed, the spell ends, and if you fail it continues unchanged, with no additional ill effect. If you're affected by multiple hostile spells, choose only one each turn to attempt the additional save against.",
+      macros: [],
+      modifiers: [],
+    },
+    stanching: {
+      displayName: "Stanching",
+      description:
+        "These symbols close bloody wounds. Armor with this rune reduces the DC of the flat check to end persistent bleed damage from 15 to 12 (7 with particularly effective assistance).",
+      macros: [],
+      modifiers: [],
+    },
+    swallowspike: {
+      displayName: "Swallow Spike",
+      description:
+        "Your armor responds to your desire to break free of a creature grabbing you by growing spikes.\n\nActivate [reaction] (attack, concentrate); Trigger You become grabbed, restrained, or otherwise held immobilized in a creature's grasp, such as by being engulfed or swallowed; Effect Your armor suddenly grows spikes, attacking the triggering creature. The armor makes a melee attack with an attack modifier of +14 that deals 2d6 piercing damage. If the creature is swallowing or engulfing you, the attack deals an additional 1d6 damage, and damage from this attack can cut you free if it equals or exceeds the Rupture value of the immobilizing ability. This attack gets an item bonus to the attack roll equal to the armor's item bonus to your AC and an item bonus to damage equal to double that amount.\n\nActivate [one-action] (attack, concentrate); Requirements You're being held immobilized as described in the rune's other activation; Effect Your armor attacks the creature immobilizing you. The armor makes a melee attack against the creature, as described in the rune's other activation.",
+      macros: [],
+      modifiers: [],
+    },
+    truequenching: {
+      displayName: "True Quenching",
+      description:
+        "This rune counters burning and corrosive agents. Armor with this rune reduces the DC of the flat check to end persistent acid or fire damage affecting you from 15 to 5 (particularly effective assistance automatically removes the persistent acid or fire damage).",
+      macros: [],
+      modifiers: [],
+    },
+    truestanching: {
+      displayName: "True Stanching",
+      description:
+        "These symbols close bloody wounds. Armor with this rune reduces the DC of the flat check to end persistent bleed damage from 15 to 5 (particularly effective assistance automatically removes the persistent bleed damage).",
+      macros: [],
+      modifiers: [],
+    },
+    winged: {
+      displayName: "Winged",
+      description:
+        "This rune is a swirling glyph on the front of the armor. A large pair of transparent, ephemeral wings floats out from the back of the armor.\n\nActivate—Take to the Skies [two-actions] (concentrate, manipulate); Frequency once per hour; Effect You trace the rune on the front of the breastplate, and the armor's ephemeral wings grow tangible, granting you a fly Speed of 25 feet or your land Speed, whichever is slower. This effect lasts for 5 minutes or until you Dismiss it. Once the effect ends, the wings disappear completely, reappearing in their ephemeral form 1 hour later.",
+      macros: [],
+      modifiers: [],
+    },
   };
+
+  return (
+    runeData[rune] || {
+      displayName: "",
+      description: "",
+      macros: [],
+      modifiers: [],
+    }
+  );
 }
 
 // Returns the rune details above so we can collect their modifiers
@@ -7995,10 +8410,12 @@ function applyDamage(record, roll, halfDamage = false) {
       let targetArmorGroup = "";
       let targetArmorItem = null;
       let armorSpecDetails = null;
+      let targetPropertyRunes = [];
 
       if (target.recordType === "characters") {
         // Get best equipped armor
         const bestArmor = getBestEquippedArmor(target);
+        targetPropertyRunes = bestArmor?.armor?.propertyRunes || [];
 
         // Find the armor item in inventory if it exists
         if (bestArmor?.armor?.armorId) {
@@ -8451,6 +8868,16 @@ function applyDamage(record, roll, halfDamage = false) {
           });
         }
       }
+
+      // Add tags for runes on the target's armor
+      targetPropertyRunes.forEach((rune) => {
+        tags.push({
+          name: `Target Has ${
+            getArmorRuneDetails(rune).displayName || ""
+          } Rune`,
+          tooltip: getArmorRuneDetails(rune).description || "",
+        });
+      });
 
       api.sendMessage(
         `${message}${macro}`,
