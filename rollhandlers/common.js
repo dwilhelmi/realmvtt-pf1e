@@ -2011,6 +2011,7 @@ function getItemFields(item) {
   const isThrown = traits
     .map((trait) => trait.toLowerCase())
     .includes("thrown"); // Only thrown weapons can be toggled melee/range
+  const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
   const hasVersatilePiercingProperty = traits
     .map((trait) => trait.toLowerCase())
@@ -2063,7 +2064,7 @@ function getItemFields(item) {
     ammo: { hidden: isMelee && !isThrown },
     reloadBtn: { hidden: !requiresReload },
     loadedAmmo: { hidden: !requiresReload },
-    ammoSelect: { hidden: isMelee || isThrown },
+    ammoSelect: { hidden: isMelee || isThrown || isBomb },
     ...versatileFields,
   };
 }
@@ -2091,6 +2092,7 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   const isThrown = traits
     .map((trait) => trait.toLowerCase())
     .includes("thrown"); // Only thrown weapons can be toggled melee/range
+  const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
   const hasVersatilePiercingProperty = traits
     .map((trait) => trait.toLowerCase())
@@ -2160,7 +2162,12 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   if (requiresReload && itemFields?.loadedAmmo?.hidden !== false) {
     valuesToSet[`${itemDataPath}.fields.loadedAmmo.hidden`] = false;
   }
-  if (!isMelee && itemFields?.ammoSelect?.hidden !== false) {
+  if (
+    !isMelee &&
+    !isBomb &&
+    !isThrown &&
+    itemFields?.ammoSelect?.hidden !== false
+  ) {
     valuesToSet[`${itemDataPath}.fields.ammoSelect.hidden`] = false;
   }
 
