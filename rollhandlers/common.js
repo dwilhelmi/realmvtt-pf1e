@@ -8101,7 +8101,8 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     rollName: "Damage",
     tooltip: `${weapon.name} Damage`,
     critical: isCritical,
-    splashDamage: `${splashDamage} ${damageType}`,
+    splashDamage: splashDamage,
+    damageType: damageType,
     damageIgnoresResistances: damageIgnoresResistances,
     damageIgnoresImmunities: damageIgnoresImmunities,
     damageIgnoresWeaknesses: damageIgnoresWeaknesses,
@@ -8385,10 +8386,17 @@ function getIWR(target, armorSpecDetails = null) {
  * };
  * applyDamage(null, roll, false);
  */
-function applyDamage(record, roll, halfDamage = false) {
+function applyDamage(record, roll, halfDamage = false, splashDamage = null) {
+  // If splashDamage is provided, we're applying splash damage directly
+  // splashDamage should be an object like: { type: "fire", value: 3 }
+  // We still use the roll object for metadata (traits, ignore resistances, etc.)
+  const isApplyingSplash = splashDamage !== null;
+
   // Extract values from metadata
-  const isCritical = roll.metadata?.critical === true;
-  const hasDeathTrait = roll.metadata?.hasDeathTrait === true;
+  // Splash damage is never a critical hit and never has death trait
+  const isCritical = !isApplyingSplash && roll.metadata?.critical === true;
+  const hasDeathTrait =
+    !isApplyingSplash && roll.metadata?.hasDeathTrait === true;
 
   // Parse damage ignore lists from metadata (comma-separated strings)
   const damageIgnoresResistances = (
@@ -8495,63 +8503,73 @@ function applyDamage(record, roll, halfDamage = false) {
       // Track pre-critical damage for Chain armor specialization
       let preCriticalDamage = 0;
 
-      // Calculate pre-critical damage first
-      roll.types.forEach((type, index) => {
-        preCriticalDamage += type.value;
-      });
+      // If applying splash damage, use the splash parameter instead of roll.types
+      if (isApplyingSplash) {
+        // Splash damage is simple: just the value and type, no doubling, no halving
+        const damageType = splashDamage.damageType || "untyped";
+        const damageValue = splashDamage.value || 0;
+        damageByType[damageType] = damageValue;
+        preCriticalDamage = damageValue;
+      } else {
+        // Normal damage calculation from roll.types
+        // Calculate pre-critical damage first
+        roll.types.forEach((type, index) => {
+          preCriticalDamage += type.value;
+        });
 
-      // Process each damage type entry from the roll
-      roll.types.forEach((type, index) => {
-        const damageType = type.type || "untyped";
-        let damageValue = type.value;
+        // Process each damage type entry from the roll
+        roll.types.forEach((type, index) => {
+          const damageType = type.type || "untyped";
+          let damageValue = type.value;
 
-        // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
-        // or target is immune to critical hits
-        if (isCritical && !immuneToCritical) {
-          damageValue *= 2; // Start by doubling everything
-        }
+          // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
+          // or target is immune to critical hits
+          if (isCritical && !immuneToCritical) {
+            damageValue *= 2; // Start by doubling everything
+          }
 
-        damageByType[damageType] =
-          (damageByType[damageType] || 0) + damageValue;
-      });
+          damageByType[damageType] =
+            (damageByType[damageType] || 0) + damageValue;
+        });
 
-      // Now subtract the doubled critical-only dice
-      // We need to process the roll types to find and "un-double" the deadly/fatal/splash damage
-      // Skip this if target is immune to critical hits (damage wasn't doubled)
-      if (
-        isCritical &&
-        !immuneToCritical &&
-        criticalOnlyDice.length > 0 &&
-        roll.types
-      ) {
-        // Create a working copy of criticalOnlyDice to track which we've found
-        const remainingCriticalDice = [...criticalOnlyDice];
-
-        // Process types from the end (deadly/fatal/splash are added last)
-        for (
-          let i = roll.types.length - 1;
-          i >= 0 && remainingCriticalDice.length > 0;
-          i--
+        // Now subtract the doubled critical-only dice
+        // We need to process the roll types to find and "un-double" the deadly/fatal/splash damage
+        // Skip this if target is immune to critical hits (damage wasn't doubled)
+        if (
+          isCritical &&
+          !immuneToCritical &&
+          criticalOnlyDice.length > 0 &&
+          roll.types
         ) {
-          const rollType = roll.types[i];
+          // Create a working copy of criticalOnlyDice to track which we've found
+          const remainingCriticalDice = [...criticalOnlyDice];
 
-          // Find a matching critical-only die
-          const matchIndex = remainingCriticalDice.findIndex(
-            (critDie) => critDie.dieType === rollType.die
-          );
+          // Process types from the end (deadly/fatal/splash are added last)
+          for (
+            let i = roll.types.length - 1;
+            i >= 0 && remainingCriticalDice.length > 0;
+            i--
+          ) {
+            const rollType = roll.types[i];
 
-          if (matchIndex >= 0) {
-            // Found a match - this die/damage shouldn't have been doubled
-            const critDie = remainingCriticalDice[matchIndex];
-            const damageType = critDie.damageType || "untyped";
+            // Find a matching critical-only die
+            const matchIndex = remainingCriticalDice.findIndex(
+              (critDie) => critDie.dieType === rollType.die
+            );
 
-            // Subtract the extra value (we doubled it, but should have only counted it once)
-            if (damageByType[damageType] !== undefined) {
-              damageByType[damageType] -= rollType.value;
+            if (matchIndex >= 0) {
+              // Found a match - this die/damage shouldn't have been doubled
+              const critDie = remainingCriticalDice[matchIndex];
+              const damageType = critDie.damageType || "untyped";
+
+              // Subtract the extra value (we doubled it, but should have only counted it once)
+              if (damageByType[damageType] !== undefined) {
+                damageByType[damageType] -= rollType.value;
+              }
+
+              // Remove this entry from the remaining list
+              remainingCriticalDice.splice(matchIndex, 1);
             }
-
-            // Remove this entry from the remaining list
-            remainingCriticalDice.splice(matchIndex, 1);
           }
         }
       }
@@ -8593,8 +8611,9 @@ function applyDamage(record, roll, halfDamage = false) {
 
       // Apply half damage to each type proportionally if needed (e.g., successful basic save)
       // This must be done BEFORE IWR
+      // Note: Splash damage is never halved
       const damageByTypeAfterHalf = {};
-      if (halfDamage && baseDamage > 0) {
+      if (halfDamage && !isApplyingSplash && baseDamage > 0) {
         const halfTotal = Math.floor(baseDamage / 2);
         const minDamage = Math.max(1, halfTotal); // Minimum 1 damage if there was any damage to begin with
 
@@ -8797,9 +8816,13 @@ function applyDamage(record, roll, halfDamage = false) {
         ? target.name || target.record.name
         : target.unidentifiedName || target.record.unidentifiedName;
 
-      let message = `${targetName} took ${damage} damage.`;
-      if (usedTempHp) {
+      let message = isApplyingSplash
+        ? `${targetName} took ${damage} splash damage.`
+        : `${targetName} took ${damage} damage.`;
+      if (usedTempHp && !isApplyingSplash) {
         message = `${targetName} took ${damage} damage after deducting Temp HP.`;
+      } else if (usedTempHp && isApplyingSplash) {
+        message = `${targetName} took ${damage} splash damage after deducting Temp HP.`;
       }
 
       // Handle death conditions

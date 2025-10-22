@@ -1,5 +1,7 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const traits = data.roll?.metadata?.traits || [];
+const splashDamage = data.roll?.metadata?.splashDamage || 0;
+const damageType = data.roll?.metadata?.damageType || "untyped";
 
 const tags = [
   {
@@ -156,10 +158,26 @@ applyDamage(null, ${JSON.stringify(data.roll)}, true);
 `
   : "";
 
+const splashDamageMetadata = {
+  value: splashDamage,
+  damageType: damageType,
+};
+const splashDamageMacro =
+  splashDamage > 0
+    ? `
+\`\`\`Apply_Splash_Damage
+applyDamage(null, ${JSON.stringify(data.roll)}, false, ${JSON.stringify(
+        splashDamageMetadata
+      )});
+\`\`\`
+`
+    : "";
+
 const message = `
 ${criticalDamageInfo}
 ${damageMacro}
 ${halfDamageMacro}
+${splashDamageMacro}
 `;
 
 // Use the modified roll with colored dice if we modified it, otherwise use original
