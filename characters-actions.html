@@ -1,50 +1,7 @@
 <script>
   function rollInitiative() {
     // Roll initiative for the character
-    // TODO Pf2e version - uses skill selection instead of dexterity
-
-    const roll = "1d20";
-
-    // Get modifiers for initiative, which is a dexterity check
-    const modifiers = [];
-
-    // Add dexterity modifier
-    const dexMod = parseInt(record.data?.dexterityMod || "0", 10);
-    modifiers.push({
-      name: "Dexterity",
-      value: dexMod,
-      active: true,
-    });
-
-    // Check effects for all initiative bonuses and penalties
-    const initiativeModifiers = getEffectsAndModifiers([
-      "initiativeBonus",
-      "initiativePenalty",
-    ]);
-    initiativeModifiers.forEach((modifier) => {
-      modifiers.push(modifier);
-    });
-
-    const dextertyCheckModifiers = getEffectsAndModifiers(
-      ["abilityBonus", "abilityPenalty"],
-      "dexterity"
-    );
-    dextertyCheckModifiers.forEach((modifier) => {
-      modifiers.push(modifier);
-    });
-
-    api.promptRoll(
-      "Initiative",
-      roll,
-      modifiers,
-      {
-        rollName: "Initiative",
-        tooltip: "Initiative Roll",
-        isCharacter: true,
-        dc: 0,
-      },
-      "initiative"
-    );
+    performInitiativeRoll(record);
   }
 </script>
 
@@ -57,7 +14,46 @@
     textalign="center"
   ></label>
 
-  <div style="width: 100%; display: flex; justify-content: flex-end">
+  <div
+    style="
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      align-items: center;
+    "
+  >
+    <label
+      size="xs"
+      variant="bold"
+      label="Initiative Skill"
+      textalign="right"
+    ></label>
+    <dropdown
+      field="initiativeSkill"
+      size="xs"
+      searchable="true"
+      defaultvalue="Perception"
+      placeholder="Perception"
+      options='[{"label": "Perception", "value": "Perception"}, 
+      {"label": "Acrobatics", "value": "Acrobatics"},
+      {"label": "Arcana", "value": "Arcana"},
+      {"label": "Athletics", "value": "Athletics"},
+      {"label": "Crafting", "value": "Crafting"},
+      {"label": "Deception", "value": "Deception"},
+      {"label": "Diplomacy", "value": "Diplomacy"},
+      {"label": "Intimidation", "value": "Intimidation"},
+      {"label": "Medicine", "value": "Medicine"},
+      {"label": "Nature", "value": "Nature"},
+      {"label": "Occultism", "value": "Occultism"},
+      {"label": "Performance", "value": "Performance"},
+      {"label": "Religion", "value": "Religion"},
+      {"label": "Society", "value": "Society"},
+      {"label": "Stealth", "value": "Stealth"},
+      {"label": "Survival", "value": "Survival"},
+      {"label": "Thievery", "value": "Thievery"}]'
+    >
+    </dropdown>
     <button
       field="rollInitBtn"
       size="xs"

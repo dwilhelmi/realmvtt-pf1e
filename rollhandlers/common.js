@@ -4507,7 +4507,9 @@ function rollSkill(
   loreSkillMod = 0,
   loreSkillTraining = 1,
   loreSkillStat = "int",
-  isMacro = false
+  isMacro = false,
+  isInitiative = false,
+  initiativeGroup = undefined
 ) {
   if (!record || !skillName) {
     console.error("rollSkill: Invalid record or skillName");
@@ -4572,6 +4574,15 @@ function rollSkill(
       skill
     );
   }
+  if (isInitiative) {
+    const initiativeMods = getEffectsAndModifiersForToken(record, [
+      "initiativeBonus",
+      "initiativePenalty",
+    ]);
+    initiativeMods.forEach((mod) => {
+      additionalMods.push(mod);
+    });
+  }
 
   // Determine the attribute for this skill
   let attribute = "";
@@ -4635,6 +4646,7 @@ function rollSkill(
     rollName: `${capitalize(skillName)}`,
     tooltip: `${capitalize(skillName)} Skill Check`,
     skillName: skill,
+    group: initiativeGroup,
   };
 
   if (isPerception) {
@@ -4654,7 +4666,7 @@ function rollSkill(
       "1d20",
       modifiers,
       metadata,
-      "skill"
+      isInitiative ? "initiative" : "skill"
     );
   } else {
     api.promptRoll(
@@ -4662,7 +4674,7 @@ function rollSkill(
       "1d20",
       modifiers,
       metadata,
-      "skill"
+      isInitiative ? "initiative" : "skill"
     );
   }
 }
@@ -9186,4 +9198,19 @@ function applyDamage(
       );
     }
   });
+}
+
+function performInitiativeRoll(record) {
+  const initiativeSkill = record.data?.initiativeSkill || "Perception";
+  rollSkill(
+    record,
+    initiativeSkill.toLowerCase(),
+    null,
+    false,
+    0,
+    1,
+    "int",
+    false,
+    true
+  );
 }
