@@ -34,6 +34,8 @@ const weaponGroup = data?.roll?.metadata?.weaponGroup || "";
 const hasCriticalSpecialization =
   data?.roll?.metadata?.hasCriticalSpecialization;
 
+const showShieldDamage = data?.roll?.metadata?.showShieldDamage;
+
 // If it was a spell attack, we need to pass this along in damage metadata
 const isSpell = data?.roll?.metadata?.isSpell === true;
 
@@ -299,6 +301,7 @@ const damageMetadata = {
   splashDamage: splashDamage,
   // So we can tell the damage handler script if it was a spell-related damage
   isSpell: isSpell,
+  showShieldDamage: showShieldDamage,
   damageIgnoresResistances: damageIgnoresResistances,
   damageIgnoresImmunities: damageIgnoresImmunities,
   damageIgnoresWeaknesses: damageIgnoresWeaknesses,

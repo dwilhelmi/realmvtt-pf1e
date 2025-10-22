@@ -58,9 +58,16 @@ if (shieldUp && token?.recordId) {
       }
     });
   } else if (token?.recordType === "npcs" && token?.recordId) {
-    api.setValuesOnTokenById(token?._id, token?.recordType, {
-      "data.shieldRaised": "false",
-      "data.ac": token?.data?.ac - 2,
-    });
+    api.setValuesOnTokenById(
+      token?._id,
+      token?.recordType,
+      {
+        "data.shieldRaised": "false",
+      },
+      (updatedToken) => {
+        // If update was successful, then recalc AC and  bonuses
+        onAddEditFeature(updatedToken, undefined, true);
+      }
+    );
   }
 }

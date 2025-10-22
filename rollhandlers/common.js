@@ -3945,6 +3945,8 @@ function setProvidedActions(record, callback = undefined) {
 }
 
 // This function is called after adding/editing a talent/feature or equipping an item
+// TODO make sure this works for NPCs, too (such as for shieldRaised) and
+// TODO make sure getBestArmor works for NPCs
 function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Calculate Pathfinder 2e ability boosts first
   const boostResults = calculateAbilityBoosts(record);
@@ -7448,6 +7450,11 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const deadlyDie = weaponDamageInfo.deadlyDie;
   const fatalDie = weaponDamageInfo.fatalDie;
 
+  let targetShieldRaised = false;
+  const damageIsPhysical = ["bludgeoning", "piercing", "slashing"].includes(
+    damageType.toLowerCase()
+  );
+
   // Check for persistent damage
   const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
   const persistentDie = weapon.data?.damage?.persistent?.faces
@@ -7698,6 +7705,11 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           : target?.token?.record?.name;
       const targetDistance = target?.distance || 0;
 
+      // Check if target has shield raised
+      if (target?.token?.data?.shieldRaised === "true") {
+        targetShieldRaised = true;
+      }
+
       // If this a ranged attack, add penalties based on range increment
       if (!isMelee || isThrown) {
         let rangePenalty = 0;
@@ -7832,6 +7844,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         autoCritical: autoCritical,
         dc: targetAc,
         damage: damage,
+        showShieldDamage: targetShieldRaised && damageIsPhysical,
         persistentDamage: persistentDamage,
         damageType: damageType,
         splashDamage: splashDamage,
@@ -7883,6 +7896,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damage: damage,
       persistentDamage: persistentDamage,
       damageType: damageType,
+      showShieldDamage: targetShieldRaised && damageIsPhysical,
       splashDamage: splashDamage,
       fatalDamageString: fatalDamageString,
       damageModifiers: filteredDamageModifiers,
@@ -8116,9 +8130,17 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const targets = api.getTargets();
   const ourToken = api.getToken();
   let targetIsOffGuard = false;
+  let targetShieldRaised = false;
+  const damageIsPhysical = ["bludgeoning", "piercing", "slashing"].includes(
+    damageType.toLowerCase()
+  );
 
   if (targets.length > 0) {
     for (const target of targets) {
+      // Check if target has shield raised
+      if (target?.token?.data?.shieldRaised === "true") {
+        targetShieldRaised = true;
+      }
       // Check if target is off-guard
       targetIsOffGuard = isOffGuard(target?.token);
 
@@ -8168,6 +8190,8 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     damageIgnoresResistances: damageIgnoresResistances,
     damageIgnoresImmunities: damageIgnoresImmunities,
     damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+    // If the target has the shield raised and damage is physical, can block
+    showShieldDamage: targetShieldRaised && damageIsPhysical,
     isRanged: !isMelee || isThrown,
     isSpell: isSpell,
     hasDeathTrait: hasDeathTrait,
@@ -8499,7 +8523,13 @@ function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
  * };
  * applyDamage(null, roll, false);
  */
-function applyDamage(record, roll, halfDamage = false, splashDamage = null) {
+function applyDamage(
+  record,
+  roll,
+  halfDamage = false,
+  splashDamage = null,
+  shieldDamage = true
+) {
   // If splashDamage is provided, we're applying splash damage directly
   // splashDamage should be an object like: { type: "fire", value: 3 }
   // We still use the roll object for metadata (traits, ignore resistances, etc.)
@@ -8860,6 +8890,48 @@ function applyDamage(record, roll, halfDamage = false, splashDamage = null) {
         0
       );
 
+      // Handle shield damage if shieldDamage is true and shield is raised
+      let shieldAbsorbed = 0;
+      let shieldDamaged = false;
+      let shieldData = null;
+      if (shieldDamage && damage > 0) {
+        // Get the best equipped shield (works for both characters and NPCs)
+        const bestArmor = getBestEquippedArmor(target);
+        const shield = bestArmor?.shield;
+
+        if (shield && shield.shieldId && shield.shieldIndex !== null) {
+          const hardness = shield.hardness || 0;
+          const currentShieldHp = shield.hp.value || 0;
+          const maxShieldHp = shield.hp.max || 0;
+
+          // Shield blocks damage equal to its hardness
+          shieldAbsorbed = Math.min(hardness, damage);
+          damage = Math.max(0, damage - hardness);
+
+          // Apply remaining damage to the shield's HP
+          const shieldDamageAmount = damage;
+          const newShieldHp = Math.max(0, currentShieldHp - shieldDamageAmount);
+
+          // Calculate broken threshold (half of max HP)
+          const brokenThreshold = Math.floor(maxShieldHp / 2);
+          const wasShieldBroken = target.data?.shieldBroken === true;
+          const isShieldBroken = newShieldHp <= brokenThreshold;
+
+          if (shieldDamageAmount > 0 || isShieldBroken !== wasShieldBroken) {
+            shieldDamaged = true;
+            shieldData = {
+              shieldIndex: shield.shieldIndex,
+              newShieldHp,
+              isShieldBroken,
+              wasShieldBroken,
+              shieldDamageAmount,
+              brokenThreshold,
+              maxShieldHp,
+            };
+          }
+        }
+      }
+
       var curhp = target.data?.curhp || 0;
       const maxHp = target.data?.hitpoints || 0;
       const oldTempHp = parseInt(target.data?.tempHp || "0", 10);
@@ -8924,6 +8996,33 @@ function applyDamage(record, roll, halfDamage = false, splashDamage = null) {
 
       valuesToSet["data.curhp"] = curhp;
 
+      // Apply shield damage updates if shield was damaged
+      if (shieldDamaged && shieldData) {
+        // Get the best equipped shield again to access original values
+        const bestArmor = getBestEquippedArmor(target);
+        const shield = bestArmor?.shield;
+
+        // Update shield HP on both the item and the character/NPC record
+        valuesToSet[`data.inventory.${shieldData.shieldIndex}.data.hp.value`] =
+          shieldData.newShieldHp;
+        valuesToSet["data.shieldHp"] = shieldData.newShieldHp;
+
+        // Update broken status if it changed
+        if (shieldData.isShieldBroken !== shieldData.wasShieldBroken) {
+          valuesToSet["data.shieldBroken"] = shieldData.isShieldBroken;
+        }
+
+        // Store old values for undo
+        if (shield) {
+          oldValues[`data.inventory.${shieldData.shieldIndex}.data.hp.value`] =
+            shield.hp.value;
+          oldValues["data.shieldHp"] = target.data?.shieldHp || 0;
+          if (shieldData.isShieldBroken !== shieldData.wasShieldBroken) {
+            oldValues["data.shieldBroken"] = shieldData.wasShieldBroken;
+          }
+        }
+      }
+
       const unIdentified = target.identified === false;
       const targetName = !unIdentified
         ? target.name || target.record.name
@@ -8936,6 +9035,19 @@ function applyDamage(record, roll, halfDamage = false, splashDamage = null) {
         message = `${targetName} took ${damage} damage after deducting Temp HP.`;
       } else if (usedTempHp && isApplyingSplash) {
         message = `${targetName} took ${damage} splash damage after deducting Temp HP.`;
+      }
+
+      // Add shield damage message if shield was damaged
+      if (shieldDamaged && shieldData) {
+        if (shieldAbsorbed > 0) {
+          message += `\n**Shield blocked ${shieldAbsorbed} damage** (Hardness)`;
+        }
+        if (shieldData.shieldDamageAmount > 0) {
+          message += `\n**Shield took ${shieldData.shieldDamageAmount} damage** (${shieldData.newShieldHp}/${shieldData.maxShieldHp} HP remaining)`;
+        }
+        if (shieldData.isShieldBroken && !shieldData.wasShieldBroken) {
+          message += `\n**[color=orange]Shield is now BROKEN![/color]**`;
+        }
       }
 
       // Handle death conditions

@@ -6,6 +6,7 @@ const tokenId = data.roll?.metadata?.tokenId || "";
 const tokenName = data.roll?.metadata?.tokenName || "";
 const isPersistant = data.roll?.metadata?.isPersistant === true;
 const persistentPartIndex = data.roll?.metadata?.persistentPartIndex || 0;
+const showShieldDamage = data.roll?.metadata?.showShieldDamage;
 
 let persistentDamage = data.roll?.metadata?.persistentDamage || "";
 
@@ -204,6 +205,14 @@ api.promptRoll("Recovery", "1d20", [], { dc: 15, rollName: "Persistent Damage Fl
 `
     : "";
 
+const shieldDamageMacro = showShieldDamage
+  ? `
+\`\`\`Apply_Damage_to_Shield
+applyDamage(null, ${JSON.stringify(data.roll)}, false, undefined, true);
+\`\`\`
+`
+  : "";
+
 const message = `
 ${criticalDamageInfo}
 ${damageMacro}
@@ -211,6 +220,7 @@ ${halfDamageMacro}
 ${splashDamageMacro}
 ${persistentDamageMacro}
 ${persistentRecoveryMacro}
+${shieldDamageMacro}
 `;
 
 // Use the modified roll with colored dice if we modified it, otherwise use original
