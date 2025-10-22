@@ -7,7 +7,7 @@ const tokenName = data.roll?.metadata?.tokenName || "";
 const isPersistant = data.roll?.metadata?.isPersistant === true;
 const persistentPartIndex = data.roll?.metadata?.persistentPartIndex || 0;
 
-const persistentDamage = data.roll?.metadata?.persistentDamage || "";
+let persistentDamage = data.roll?.metadata?.persistentDamage || "";
 
 const tags = [
   {
@@ -35,6 +35,11 @@ const showHalf = true;
 const isCritical = data.roll?.metadata?.critical === true;
 const criticalOnlyDice = data.roll?.metadata?.criticalOnlyDice || [];
 let criticalDamageInfo = "";
+
+// If it's critical and there is persistent damage, we double the persistent damage
+if (isCritical && persistentDamage && persistentDamage !== "") {
+  persistentDamage = doubleDamageDice(persistentDamage);
+}
 
 // Set up the roll so we can color deadly/fatal dice
 let roll = {
@@ -182,7 +187,7 @@ applyDamage(null, ${JSON.stringify(data.roll)}, false, ${JSON.stringify(
 const persistentDamageMacro =
   persistentDamage && persistentDamage !== ""
     ? `
-\`\`\`Apply_Persistent_Damage
+\`\`\`${persistentDamage.replace(/ /g, "_")}_Persistent_Damage
 applyPersistentDamage("${persistentDamage}", "${tokenId}", "${tokenName}");
 \`\`\`
 `
