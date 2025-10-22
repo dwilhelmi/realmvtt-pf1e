@@ -6,6 +6,7 @@ const propertyRunes = data?.roll?.metadata?.runes || [];
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
+const persistentDamage = data?.roll?.metadata?.persistentDamage || "";
 let damageModifiers = data?.roll?.metadata?.damageModifiers || [];
 let splashDamage = data?.roll?.metadata?.splashDamage || 0;
 let damageType = data?.roll?.metadata?.damageType || "untyped";
@@ -301,6 +302,7 @@ const damageMetadata = {
   damageIgnoresResistances: damageIgnoresResistances,
   damageIgnoresImmunities: damageIgnoresImmunities,
   damageIgnoresWeaknesses: damageIgnoresWeaknesses,
+  persistentDamage: persistentDamage,
   hasDeathTrait: hasDeathTrait,
   criticalOnlyDice: criticalOnlyDice,
 };

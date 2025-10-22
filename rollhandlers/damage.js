@@ -2,11 +2,17 @@
 const traits = data.roll?.metadata?.traits || [];
 const splashDamage = data.roll?.metadata?.splashDamage || 0;
 const damageType = data.roll?.metadata?.damageType || "untyped";
+const tokenId = data.roll?.metadata?.tokenId || "";
+const tokenName = data.roll?.metadata?.tokenName || "";
+const isPersistant = data.roll?.metadata?.isPersistant === true;
+const persistentPartIndex = data.roll?.metadata?.persistentPartIndex || 0;
+
+const persistentDamage = data.roll?.metadata?.persistentDamage || "";
 
 const tags = [
   {
-    name: "Damage",
-    tooltip: "Damage Roll",
+    name: isPersistant ? "Persistent Damage" : "Damage",
+    tooltip: isPersistant ? "Persistent Damage Roll" : "Damage Roll",
   },
 ];
 
@@ -173,11 +179,33 @@ applyDamage(null, ${JSON.stringify(data.roll)}, false, ${JSON.stringify(
 `
     : "";
 
+const persistentDamageMacro =
+  persistentDamage && persistentDamage !== ""
+    ? `
+\`\`\`Apply_Persistent_Damage
+applyPersistentDamage("${persistentDamage}", "${tokenId}", "${tokenName}");
+\`\`\`
+`
+    : "";
+
+// Flat Check for Persistent Damage Recovery DC 15
+// After you take persistent damage, roll a DC 15 flat check to see if you recover from the persistent damage. If you succeed, the condition ends.
+const persistentRecoveryMacro =
+  isPersistant && persistentPartIndex >= 0
+    ? `
+\`\`\`Roll_Recovery
+api.promptRoll("Recovery", "1d20", [], { dc: 15, rollName: "Persistent Damage Flat Check", tooltip: "Flat Check to Recover from Persistent Damage", isPersistent: true, persistentPartIndex: ${persistentPartIndex} }, "flatCheck");
+\`\`\`
+`
+    : "";
+
 const message = `
 ${criticalDamageInfo}
 ${damageMacro}
 ${halfDamageMacro}
 ${splashDamageMacro}
+${persistentDamageMacro}
+${persistentRecoveryMacro}
 `;
 
 // Use the modified roll with colored dice if we modified it, otherwise use original

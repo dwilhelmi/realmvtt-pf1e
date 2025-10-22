@@ -1891,6 +1891,36 @@ function updateAllAttributes(record, callback = undefined) {
   }
 }
 
+// Gets macros for all effects that an ability can apply
+function getEffectMacrosFor(effects = []) {
+  let effectButtons = "";
+  const ourToken = api.getToken();
+  const ourTokenId = ourToken?._id || "";
+  let ourTokenName = ourToken?.name || ourToken?.record?.name || "";
+  if (ourToken?.identified === false) {
+    ourTokenName =
+      ourToken?.unidentifiedName || ourToken?.record?.unidentifiedName;
+  }
+  ourTokenName = ourTokenName.replace(/'/g, "\\'"); // First escape single quotes
+  effects.forEach((effectJson) => {
+    const effect = JSON.parse(effectJson);
+    const effectName = effect?.name || "";
+    const effectID = effect?._id || "";
+    const effectTitle = `Apply_${effectName.replace(/ /g, "_")}`;
+    if (effectButtons !== "") {
+      effectButtons += "\n";
+    }
+    effectButtons += `\`\`\`${effectTitle}
+let targets = api.getSelectedOrDroppedToken();
+targets.forEach(target => {
+const ourToken = '${ourTokenId}' ? {_id: '${ourTokenId}', name: '${ourTokenName}'} : undefined;
+api.addEffectById('${effectID}', target, undefined, ourToken);
+});
+\`\`\``;
+  });
+  return effectButtons;
+}
+
 function useItem() {
   // Deduct count by 1, delete item if count is 0,
   // and output the description to Chat
@@ -7418,6 +7448,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const deadlyDie = weaponDamageInfo.deadlyDie;
   const fatalDie = weaponDamageInfo.fatalDie;
 
+  // Check for persistent damage
+  const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
+  const persistentDie = weapon.data?.damage?.persistent?.faces
+    ? `d${weapon.data?.damage?.persistent?.faces}`
+    : "";
+  const persistentType = weapon.data?.damage?.persistent?.type || "acid";
+  const persistentDamage =
+    persistentDamageNumber > 0
+      ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+      : "";
+
   // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
   let damageMod = {
     ...weaponDamageInfo.damageMod,
@@ -7791,6 +7832,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         autoCritical: autoCritical,
         dc: targetAc,
         damage: damage,
+        persistentDamage: persistentDamage,
         damageType: damageType,
         splashDamage: splashDamage,
         fatalDamageString: fatalDamageString,
@@ -7839,6 +7881,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
       damage: damage,
+      persistentDamage: persistentDamage,
       damageType: damageType,
       splashDamage: splashDamage,
       fatalDamageString: fatalDamageString,
@@ -7885,6 +7928,17 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
   const isSpell = weaponDamageInfo.isSpell;
   const propertyRunes = weapon.data?.runes?.property || [];
+
+  // Check for persistent damage
+  const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
+  const persistentDie = weapon.data?.damage?.persistent?.faces
+    ? `d${weapon.data?.damage?.persistent?.faces}`
+    : "";
+  const persistentType = weapon.data?.damage?.persistent?.type || "acid";
+  const persistentDamage =
+    persistentDamageNumber > 0
+      ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+      : "";
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
@@ -8110,6 +8164,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     critical: isCritical,
     splashDamage: splashDamage,
     damageType: damageType,
+    persistentDamage: persistentDamage,
     damageIgnoresResistances: damageIgnoresResistances,
     damageIgnoresImmunities: damageIgnoresImmunities,
     damageIgnoresWeaknesses: damageIgnoresWeaknesses,
@@ -8322,6 +8377,46 @@ function getIWR(target, armorSpecDetails = null) {
     weaknesses: weaknessesMap,
     resistances: resistancesMap,
   };
+}
+
+/**
+ * Applies persistent damage to the target.
+ * @param {Object} persistentDamage - The persistent damage string which will be set as the effect value.
+ * @param {string} tokenId - The ID of the token that is applying the persistent damage.
+ * @param {string} tokenName - The name of the token that is applying the persistent damage.
+ * @returns {void}
+ */
+function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
+  const targets = api.getSelectedOrDroppedToken();
+  targets.forEach((target) => {
+    // Check if we already have the effect, if so, we update the value
+    const effects = target?.effects || [];
+    const effectValues = target?.effectValues || {};
+    const persistentDamageEffect = effects.find(
+      (effect) => effect.name === "Persistent Damage"
+    );
+    const existingValue = persistentDamageEffect
+      ? effectValues[persistentDamageEffect?._id]
+      : undefined;
+    if (existingValue && existingValue.value) {
+      // New value concats both
+      const newValue = `${existingValue.value} + ${persistentDamage}`;
+      api.removeEffectById(persistentDamageEffect?._id, target, () => {
+        api.addEffect("Persistent Damage", target, undefined, {
+          value: newValue,
+          _id: tokenId,
+          name: tokenName,
+        });
+      });
+    } else {
+      // Else we add the effect with the value
+      api.addEffect("Persistent Damage", target, undefined, {
+        value: persistentDamage,
+        _id: tokenId,
+        name: tokenName,
+      });
+    }
+  });
 }
 
 /**
