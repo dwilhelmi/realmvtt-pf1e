@@ -91,10 +91,21 @@
     // Update all weapons using the same ammo AND the ammo item's count
     const weaponDataPath = getNearestParentDataPath(dataPath);
     const weapon = api.getValue(weaponDataPath);
-    const ammoSelected = weapon?.data?.ammoSelect;
+    let ammoSelected = weapon?.data?.ammoSelect;
     const newAmmoCount = weapon?.data?.ammo;
 
-    if (!ammoSelected) return;
+    // Bombs and thrown weapons don't use ammo select
+    const isBomb = weapon?.data?.group?.toLowerCase() === "bomb";
+    const isThrown = weapon?.data?.traits?.some((trait) =>
+      trait.toLowerCase().includes("thrown")
+    );
+
+    // If we need ammo select, and we don't have it, return
+    if (!ammoSelected && !isBomb && !isThrown) return;
+    else if (isBomb || isThrown) {
+      // In this case, we just use the weapon itself as the ammo selected
+      ammoSelected = weapon._id;
+    }
 
     const inventory = record.data?.inventory || [];
     const valuesToSet = {};
