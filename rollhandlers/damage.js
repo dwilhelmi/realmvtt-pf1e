@@ -44,30 +44,30 @@ if (isCritical && roll?.types && roll?.dice) {
   let totalNormalDamage = 0;
   let totalCritOnlyDamage = 0;
 
-  // First, identify which dice values are critical-only by matching them from the end
-  const critOnlyDiceIndices = new Set();
+  // First, identify which types values are critical-only by matching them from the end
+  const critOnlyTypeIndices = new Set();
 
   if (criticalOnlyDice.length > 0) {
     const remainingCriticalDice = [...criticalOnlyDice];
 
-    // Process dice from the end (deadly dice are added last)
+    // Process types from the end (deadly/fatal/splash are added last)
     for (
-      let i = roll.dice.length - 1;
+      let i = roll.types.length - 1;
       i >= 0 && remainingCriticalDice.length > 0;
       i--
     ) {
-      const die = roll.dice[i];
+      const rollType = roll.types[i];
 
       // Find a matching critical-only die
       const matchIndex = remainingCriticalDice.findIndex(
-        (critDie) => critDie.dieType === die.type
+        (critDie) => critDie.dieType === rollType.die
       );
 
       if (matchIndex >= 0) {
-        critOnlyDiceIndices.add(i);
-        // Color this die orange to indicate it's not doubled
-        roll.dice[i] = {
-          ...roll.dice[i],
+        critOnlyTypeIndices.add(i);
+        // Color this type orange to indicate it's not doubled
+        roll.types[i] = {
+          ...roll.types[i],
           customColor: "orange",
         };
         remainingCriticalDice.splice(matchIndex, 1);
@@ -75,61 +75,40 @@ if (isCritical && roll?.types && roll?.dice) {
     }
   }
 
-  // Calculate the total value of critical-only dice
-  let critOnlyDiceTotal = 0;
-  roll.dice.forEach((die, index) => {
-    if (critOnlyDiceIndices.has(index)) {
-      critOnlyDiceTotal += die.value;
-    }
-  });
+  // Also color the corresponding dice entries for visual consistency
+  // Map types indices to dice indices
+  if (roll.dice) {
+    let diceIndex = 0;
+    roll.types.forEach((rollType, typeIndex) => {
+      if (rollType.die && diceIndex < roll.dice.length) {
+        if (critOnlyTypeIndices.has(typeIndex)) {
+          roll.dice[diceIndex] = {
+            ...roll.dice[diceIndex],
+            customColor: "orange",
+          };
+        }
+        diceIndex++;
+      }
+    });
+  }
 
-  // Color the types array entries that correspond to deadly/fatal dice
-  // We need to map dice to types based on their order
-  let diceIndexInTypes = 0;
-  roll.types = roll.types.map((type) => {
-    // Check if this type entry corresponds to a critical-only die
-    // Types array usually has one entry per die/modifier combination
-    const isCritOnlyType =
-      type.die && critOnlyDiceIndices.has(diceIndexInTypes);
-
-    if (type.die) {
-      diceIndexInTypes++;
-    }
-
-    if (isCritOnlyType) {
-      return {
-        ...type,
-        customColor: "orange",
-      };
-    }
-    return type;
-  });
-
-  // Calculate total damage from all types
-  let totalDamageFromTypes = 0;
-  roll.types.forEach((type) => {
-    totalDamageFromTypes += type.value;
-  });
-
-  // Normal damage is everything except the critical-only dice
-  const normalDamage = totalDamageFromTypes - critOnlyDiceTotal;
-
-  // Now process damage by type
-  roll.types.forEach((type) => {
-    const damageType = type.type || "untyped";
+  // Process damage by type, separating normal (doubled) and critical-only damage
+  roll.types.forEach((rollType, index) => {
+    const damageType = rollType.type || "untyped";
 
     damageByType[damageType] = damageByType[damageType] || {
       doubled: 0,
       critOnly: 0,
     };
 
-    // For simplicity, put all doubled damage under the first type
-    // and all critical-only under the same type
-    if (!totalNormalDamage) {
-      damageByType[damageType].doubled = normalDamage * 2;
-      damageByType[damageType].critOnly = critOnlyDiceTotal;
-      totalNormalDamage = normalDamage;
-      totalCritOnlyDamage = critOnlyDiceTotal;
+    if (critOnlyTypeIndices.has(index)) {
+      // This is critical-only damage (deadly, fatal, splash)
+      damageByType[damageType].critOnly += rollType.value;
+      totalCritOnlyDamage += rollType.value;
+    } else {
+      // This is normal damage that gets doubled
+      damageByType[damageType].doubled += rollType.value * 2;
+      totalNormalDamage += rollType.value;
     }
   });
 
@@ -147,7 +126,7 @@ if (isCritical && roll?.types && roll?.dice) {
     const total = doubled + critOnly;
 
     if (total > 0) {
-      formulaParts.push(`${total} ${type}`);
+      formulaParts.push(`${total} :${type}:`);
     }
   });
 

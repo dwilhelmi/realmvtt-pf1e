@@ -7,6 +7,8 @@ const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
 let damageModifiers = data?.roll?.metadata?.damageModifiers || [];
+let splashDamage = data?.roll?.metadata?.splashDamage || 0;
+let damageType = data?.roll?.metadata?.damageType || "untyped";
 const damageIgnoresResistances =
   data?.roll?.metadata?.damageIgnoresResistances || "";
 const damageIgnoresImmunities =
@@ -207,6 +209,14 @@ const fatalDie = data?.roll?.metadata?.fatalDie;
 // - Major Striking (3): 3 deadly dice
 let criticalOnlyDice = [];
 
+if (splashDamage && splashDamage !== "") {
+  criticalOnlyDice.push({
+    dieType: 0, // Flat damage, not a die
+    damageType: damageType.toLowerCase(),
+    flatDamage: splashDamage,
+  });
+}
+
 if (isCritical && deadlyDie && damage) {
   // Determine number of deadly dice based on striking runes
   // We need to find the striking rune value from the damage modifiers
@@ -229,10 +239,6 @@ if (isCritical && deadlyDie && damage) {
 
   // Number of deadly dice = 1 + striking rune level
   const numDeadlyDice = 1 + strikingRuneLevel;
-
-  // Determine the damage type from the base damage string
-  const damageTypeMatch = damage.match(/\s+(\w+)$/);
-  const damageType = damageTypeMatch ? damageTypeMatch[1] : "untyped";
 
   // Add deadly dice modifier
   const deadlyMod = {
@@ -262,9 +268,6 @@ if (isCritical && deadlyDie && damage) {
 }
 // On critical hits, add fatal dice to damage modifiers
 if (isCritical && fatalDie) {
-  // Determine the damage type from the base damage string
-  const damageTypeMatch = damage.match(/\s+(\w+)$/);
-  const damageType = damageTypeMatch ? damageTypeMatch[1] : "untyped";
   damage = fatalDamageString;
 
   // Add modifier for the fatal die
@@ -292,6 +295,7 @@ const damageMetadata = {
   critical: isCritical,
   traits,
   damageCategories,
+  splashDamage: splashDamage,
   // So we can tell the damage handler script if it was a spell-related damage
   isSpell: isSpell,
   damageIgnoresResistances: damageIgnoresResistances,
@@ -303,10 +307,13 @@ const damageMetadata = {
 
 // Add damage button to message
 const dmgRollName = isCritical ? "Roll_Critical_Damage" : "Roll_Damage";
+const damageRollString = splashDamage
+  ? `${damage} + ${splashDamage} ${damageType}`
+  : damage;
 const damageButton =
   damage && damage !== ""
     ? `\`\`\`${dmgRollName}
-  api.promptRoll(\`${attack} Damage\`, '${damage}', ${JSON.stringify(
+  api.promptRoll(\`${attack} Damage\`, '${damageRollString}', ${JSON.stringify(
         damageModifiers
       )}, ${JSON.stringify(damageMetadata)}, 'damage')
   \`\`\``

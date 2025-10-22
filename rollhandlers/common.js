@@ -5463,6 +5463,7 @@ function getWeaponDamageInfo(record, weapon) {
   }
 
   let damageType = weapon.data?.damage.damageType;
+  let splashDamage = weapon.data?.splashDamage || 0;
 
   // If this is a versatile weapon and we have a different type, use that
   if (weapon.data?.versatilePiercing) {
@@ -5537,6 +5538,7 @@ function getWeaponDamageInfo(record, weapon) {
     damageType,
     damageString,
     damageMod,
+    splashDamage,
     strikingRuneMod,
     deadlyDie,
     fatalDie,
@@ -7402,6 +7404,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
   const damage = weaponDamageInfo.damageString;
+  const splashDamage = weaponDamageInfo.splashDamage;
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
@@ -7435,8 +7438,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const animation = weapon?.data?.animation?.animationName
     ? weapon?.data?.animation
     : undefined;
-
-  // TODO persistent / splash damage
 
   // Check attackCalculation modifier to see if we use a differenet stat
   const attackCalculationMod = getEffectsAndModifiersForToken(
@@ -7783,6 +7784,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         autoCritical: autoCritical,
         dc: targetAc,
         damage: damage,
+        damageType: damageType,
+        splashDamage: splashDamage,
         fatalDamageString: fatalDamageString,
         damageModifiers: finalDamageModifiers,
         damageIgnoresResistances: damageIgnoresResistances,
@@ -7829,6 +7832,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
       damage: damage,
+      damageType: damageType,
+      splashDamage: splashDamage,
       fatalDamageString: fatalDamageString,
       damageModifiers: filteredDamageModifiers,
       damageIgnoresResistances: damageIgnoresResistances,
@@ -7856,7 +7861,13 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // Get weapon damage info using helper function
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
+  const splashDamage = weaponDamageInfo.splashDamage;
   let damage = weaponDamageInfo.damageString;
+
+  if (splashDamage > 0) {
+    damage = `${damage} + ${splashDamage} ${damageType}`;
+  }
+
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const damageMod = weaponDamageInfo.damageMod;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
@@ -7930,6 +7941,15 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // On critical hits, add deadly dice to damage modifiers
   // The number of deadly dice depends on striking runes
   let criticalOnlyDice = [];
+
+  // Track splash damage so it doesn't get doubled on critical hits
+  if (splashDamage > 0) {
+    criticalOnlyDice.push({
+      dieType: 0, // Flat damage, not a die
+      damageType: damageType.toLowerCase(),
+      flatDamage: splashDamage,
+    });
+  }
 
   if (isCritical && deadlyDie) {
     // Determine number of deadly dice based on striking runes
@@ -8081,6 +8101,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     rollName: "Damage",
     tooltip: `${weapon.name} Damage`,
     critical: isCritical,
+    splashDamage: `${splashDamage} ${damageType}`,
     damageIgnoresResistances: damageIgnoresResistances,
     damageIgnoresImmunities: damageIgnoresImmunities,
     damageIgnoresWeaknesses: damageIgnoresWeaknesses,
@@ -8495,38 +8516,38 @@ function applyDamage(record, roll, halfDamage = false) {
       });
 
       // Now subtract the doubled critical-only dice
-      // We need to process the raw roll dice to find and "un-double" the deadly dice
+      // We need to process the roll types to find and "un-double" the deadly/fatal/splash damage
       // Skip this if target is immune to critical hits (damage wasn't doubled)
       if (
         isCritical &&
         !immuneToCritical &&
         criticalOnlyDice.length > 0 &&
-        roll.dice
+        roll.types
       ) {
         // Create a working copy of criticalOnlyDice to track which we've found
         const remainingCriticalDice = [...criticalOnlyDice];
 
-        // Process dice from the end (deadly dice are added last)
+        // Process types from the end (deadly/fatal/splash are added last)
         for (
-          let i = roll.dice.length - 1;
+          let i = roll.types.length - 1;
           i >= 0 && remainingCriticalDice.length > 0;
           i--
         ) {
-          const die = roll.dice[i];
+          const rollType = roll.types[i];
 
           // Find a matching critical-only die
           const matchIndex = remainingCriticalDice.findIndex(
-            (critDie) => critDie.dieType === die.type
+            (critDie) => critDie.dieType === rollType.die
           );
 
           if (matchIndex >= 0) {
-            // Found a match - this die shouldn't have been doubled
+            // Found a match - this die/damage shouldn't have been doubled
             const critDie = remainingCriticalDice[matchIndex];
             const damageType = critDie.damageType || "untyped";
 
             // Subtract the extra value (we doubled it, but should have only counted it once)
             if (damageByType[damageType] !== undefined) {
-              damageByType[damageType] -= die.value;
+              damageByType[damageType] -= rollType.value;
             }
 
             // Remove this entry from the remaining list
@@ -8861,9 +8882,7 @@ function applyDamage(record, roll, halfDamage = false) {
           getArmorSpecializationDetails(targetArmorGroup);
         if (armorSpecDetails.description) {
           tags.push({
-            name: `Target Has ${capitalize(
-              armorSpecDetails.group
-            )} Specialization`,
+            name: `${capitalize(armorSpecDetails.group)} Specialization`,
             tooltip: armorSpecDetails.description,
           });
         }
@@ -8872,9 +8891,7 @@ function applyDamage(record, roll, halfDamage = false) {
       // Add tags for runes on the target's armor
       targetPropertyRunes.forEach((rune) => {
         tags.push({
-          name: `Target Has ${
-            getArmorRuneDetails(rune).displayName || ""
-          } Rune`,
+          name: getArmorRuneDetails(rune).displayName || "",
           tooltip: getArmorRuneDetails(rune).description || "",
         });
       });
