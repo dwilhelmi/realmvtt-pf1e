@@ -2323,6 +2323,7 @@ function getBestEquippedArmor(record) {
       shieldIndex: null,
       acBonus: 0,
       hardness: 0,
+      traits: [],
       hp: {
         value: 0,
         max: 0,
@@ -2373,6 +2374,7 @@ function getBestEquippedArmor(record) {
         bestEquippedArmor.shield.speedPenalty = item?.data?.speedPenalty;
         bestEquippedArmor.shield.shieldId = item?._id;
         bestEquippedArmor.shield.shieldIndex = index;
+        bestEquippedArmor.shield.traits = item?.data?.traits || [];
       }
     }
   });
@@ -8900,7 +8902,38 @@ function applyDamage(
         const shield = bestArmor?.shield;
 
         if (shield && shield.shieldId && shield.shieldIndex !== null) {
-          const hardness = shield.hardness || 0;
+          let hardness = shield.hardness || 0;
+
+          // Check for Deflecting trait
+          // Deflecting trait increases shield hardness by 2 against specific damage types
+          const shieldTraits = shield.traits || [];
+          const damageType = (roll.metadata?.damageType || "")
+            .toLowerCase()
+            .trim();
+
+          if (damageType) {
+            // Look for Deflecting traits (e.g., "Deflecting Bludgeoning")
+            const deflectingTrait = shieldTraits.find((trait) => {
+              const traitName = trait.toLowerCase().trim();
+              return traitName.startsWith("deflecting");
+            });
+
+            if (deflectingTrait) {
+              // Extract the damage type from the trait name
+              // e.g., "Deflecting Bludgeoning" -> "bludgeoning"
+              const traitName = deflectingTrait.toLowerCase().trim();
+              const deflectingType = traitName
+                .split(" ")?.[1]
+                ?.toLowerCase()
+                ?.trim();
+
+              // If the deflecting type matches the damage type, add 2 to hardness
+              if (deflectingType === damageType) {
+                hardness += 2;
+              }
+            }
+          }
+
           const currentShieldHp = shield.hp.value || 0;
           const maxShieldHp = shield.hp.max || 0;
 
