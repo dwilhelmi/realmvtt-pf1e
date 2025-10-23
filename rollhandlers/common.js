@@ -1928,18 +1928,24 @@ function useItem() {
   const itemDataPath = dataPath.replace(".data.useBtn", "");
   const itemName = api.getValue(`${itemDataPath}.name`);
   const itemCount = api.getValue(`${itemDataPath}.data.count`);
+  const item = api.getValue(itemDataPath);
+
   const indexValue = parseInt(itemDataPath.split(".").pop());
-  const isConsumable = api.getValue(`${itemDataPath}.data.consumable`) || false;
+
+  const traits = item.data?.traits || [];
+  const hasConsumableTrait = traits
+    .map((trait) => trait.toLowerCase())
+    .includes("consumable");
+  const isConsumable = item.data?.type === "consumable" || hasConsumableTrait;
 
   // Output the description to Chat
   const description = api.getValue(`${itemDataPath}.data.description`) || "";
-  const effects = api.getValue(`${itemDataPath}.data.effects`) || [];
-  const healing = api.getValue(`${itemDataPath}.data.healing`);
-  const damage = api.getValue(`${itemDataPath}.data.useDamage`);
-  const portrait = encodeURI(api.getValue(`${itemDataPath}.portrait`));
+
+  const portrait = encodeURI(item?.portrait || "");
   const itemIcon = portrait
     ? `![${itemName}](${assetUrl}${portrait}?width=40&height=40) `
     : "";
+
   const itemDescription = api.richTextToMarkdown(description || "");
   let markdownDescription = `
 #### ${itemIcon}${itemName}
@@ -1967,28 +1973,16 @@ ${itemDescription}
     }
   }
 
-  // If we're using a potion with an effect or healing, add the buttons
-  if (effects) {
-    // Create macros for all effects that this action can apply
-    let effectButtons = getEffectMacrosFor(effects);
+  const hasDamage =
+    !!item.data?.damage?.formula ||
+    !!item.data?.damage?.dice ||
+    !!item.data?.damage?.persistent?.number;
+  const isHealing = item.data?.damage?.kind === "healing";
 
-    markdownDescription += `\n${effectButtons}`;
-  }
-
-  if (healing) {
-    const escapedName = itemName.replace(/'/g, "\\'");
-    const escapedHealing = healing.replace(/'/g, "\\'");
-    const healingButton = `\`\`\`Roll_Healing
-api.promptRoll('${escapedName} Healing', '${escapedHealing}', [], {}, 'healing')
-\`\`\``;
-    markdownDescription += `\n${healingButton}`;
-  }
-
-  if (damage) {
-    const escapedName = itemName.replace(/'/g, "\\'");
-    const escapedDamage = damage.replace(/'/g, "\\'");
-    const damageButton = `\`\`\`Roll_Damage
-api.promptRoll('${escapedName} Damage', '${escapedDamage}', [], {}, 'damage')
+  if (hasDamage) {
+    let kind = isHealing ? "Healing" : "Damage";
+    const damageButton = `\`\`\`Roll_${kind}
+performDamageRollForSpellOrItem("${record._id}","${record.recordType}", "${itemDataPath}");
 \`\`\``;
     markdownDescription += `\n${damageButton}`;
   }
@@ -1997,26 +1991,57 @@ api.promptRoll('${escapedName} Damage', '${escapedDamage}', [], {}, 'damage')
 
   // If consumable, deduct count by 1, delete item if count is 0
   if (isConsumable) {
+    // Auto destroy if true and not ammo or thrown weapon
+    let autoDestroy = item.data?.uses?.autoDestroy || false;
+    const isAmmo = item?.data?.itemCategory?.toLowerCase() === "ammo";
+    const isThrown = item?.data?.traits?.some((trait) =>
+      trait.toLowerCase().includes("thrown")
+    );
+    const isBomb = item?.data?.group?.toLowerCase() === "bomb";
+
     const count = parseFloat(itemCount || "0");
-    if (count - 1 > 0) {
-      api.setValue(`${itemDataPath}.data.count`, count - 1);
-    } else if (!isNaN(indexValue)) {
-      api.removeValue(`data.inventory`, indexValue);
+    const newCount = count - 1;
+
+    const valuesToSet = {
+      [`${itemDataPath}.data.count`]: newCount,
+    };
+
+    if (isAmmo || isThrown || isBomb) {
+      autoDestroy = false;
+    }
+
+    // Determine if any ammo values need adjusting (if it's ammo, a thrown weapon, or a bomb)
+    if (isAmmo) {
+      const inventory = record?.data?.inventory || [];
+      inventory.forEach((inventoryItem, index) => {
+        if (inventoryItem.data?.ammoSelect === item._id) {
+          valuesToSet[`data.inventory.${index}.data.ammo`] = newCount;
+        }
+      });
+    } else if (isThrown || isBomb) {
+      valuesToSet[`${itemDataPath}.data.ammo`] = newCount;
+    }
+
+    if ((newCount >= 0 && !autoDestroy) || (autoDestroy && newCount > 0)) {
+      api.setValues(valuesToSet, () => {
+        // Re-query the record to get the latest data
+        api.getRecord(record.recordType, record._id, (updatedRecord) => {
+          updateTotalBulk(updatedRecord, true);
+        });
+      });
+    } else if (autoDestroy && !isNaN(indexValue) && newCount <= 0) {
+      api.removeValue(`data.inventory`, indexValue, () => {
+        // Re-query the record to get the latest data
+        api.getRecord(record.recordType, record._id, (updatedRecord) => {
+          updateTotalBulk(updatedRecord, true);
+        });
+      });
     }
   }
 }
 
 function onItemInvested() {
-  const itemDataPath = dataPath.replace(".data.invested", "");
-  const item = api.getValue(itemDataPath);
-  const valuesToSet = {};
-
-  // TODO UPDATE FOR PF2E
-  // updateAttributes(item, valuesToSet);
-
-  if (Object.keys(valuesToSet).length > 0) {
-    api.setValues(valuesToSet);
-  }
+  onAddEditFeature(record, undefined, true);
 }
 
 // Returns the proper fields object for the given item
@@ -5586,7 +5611,9 @@ function getWeaponDamageInfo(record, weapon) {
     }
   }
 
-  let damageType = weapon.data?.damage.damageType;
+  let damageType =
+    weapon.data?.damage.damageType || weapon.data?.damage.type || "";
+  let kind = weapon.data?.damage.kind || "damage";
   let splashDamage = weapon.data?.splashDamage || 0;
 
   // If this is a versatile weapon and we have a different type, use that
@@ -5645,21 +5672,25 @@ function getWeaponDamageInfo(record, weapon) {
     };
   }
 
-  // TODO if this is a spell or item, get damage from formula
-
+  const damageFormula = weapon.data?.damage?.formula;
   let damageDie = weapon.data?.damage.die;
   if (twoHandDie && weapon.data?.handBtn === "two") {
     damageDie = twoHandDie;
   }
   let numDice = weapon.data?.damage.dice;
 
-  const damageString = `${numDice}${damageDie} ${damageType}`;
+  let damageString = `${numDice}${damageDie} ${damageType}`;
   const fatalDamageString = fatalDie
     ? `${numDice}${fatalDie} ${damageType}`
     : null;
 
+  if (!numDice && damageFormula) {
+    damageString = damageFormula;
+  }
+
   return {
     damageType,
+    damageKind: kind,
     damageString,
     damageMod,
     splashDamage,
@@ -8005,10 +8036,38 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 }
 
-// Perform a damage roll with the given weapon (or ability)
+function performDamageRollForSpellOrItem(recordId, recordType, weaponDataPath) {
+  if (!recordId || !recordType || !weaponDataPath) {
+    console.error(
+      `Invalid parameters for performDamageRollForSpellOrItem: recordId: ${recordId}, recordType: ${recordType}, weaponDataPath: ${weaponDataPath}`
+    );
+    return;
+  }
+
+  // Requery the record first
+  api.getRecord(recordType, recordId, (updatedRecord) => {
+    const weapon = api.getValueOnRecord(updatedRecord, weaponDataPath);
+    if (!weapon) {
+      console.error(`Weapon not found for data path: ${weaponDataPath}`);
+      return;
+    } else {
+      // Call preformDamage again with the record and weapon
+      performDamageRoll(updatedRecord, weapon, weaponDataPath, false);
+    }
+  });
+}
+
+// Perform a damage roll with the given weapon (or ability/item)
 function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
+  // If weapon is undefined get by dataPath
+  if (!weapon) {
+    console.error(`Weapon not found for data path: ${weaponDataPath}`);
+    return;
+  }
+
   // Get weapon damage info using helper function
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
+  const damageKind = weaponDamageInfo.damageKind;
   const damageType = weaponDamageInfo.damageType;
   const splashDamage = weaponDamageInfo.splashDamage;
   let damage = weaponDamageInfo.damageString;
@@ -8068,15 +8127,34 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
-  // TODO persistent / splash damage
-
   // Get damage modifiers
-  let damageModifiers = getEffectsAndModifiersForToken(
-    record,
-    ["damageBonus", "damagePenalty"],
-    isMelee ? "melee" : "ranged",
-    weapon._id
-  );
+  let damageModifiers = [];
+  if (!weaponDamageInfo.isItem) {
+    if (weaponDamageInfo.isSpell) {
+      const isCantrip = weapon.data?.traits?.some((trait) =>
+        trait.toLowerCase().includes("cantrip")
+      );
+      let types = isCantrip
+        ? ["cantripDamageBonus", "cantripDamagePenalty"]
+        : ["spellDamageBonus", "spellDamagePenalty"];
+      if (damageKind === "healing") {
+        types = ["healingBonus", "healingPenalty"];
+      }
+      damageModifiers = getEffectsAndModifiersForToken(
+        record,
+        types,
+        isMelee ? "melee" : "ranged",
+        weapon._id
+      );
+    } else {
+      damageModifiers = getEffectsAndModifiersForToken(
+        record,
+        ["damageBonus", "damagePenalty"],
+        isMelee ? "melee" : "ranged",
+        weapon._id
+      );
+    }
+  }
 
   damageModifiers = damageModifiers.map((mod) => {
     return {
@@ -8266,8 +8344,10 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     attack: `${weapon.name}`,
     traits: traits,
     damageCategories,
-    rollName: "Damage",
-    tooltip: `${weapon.name} Damage`,
+    rollName: damageKind === "healing" ? "Healing" : "Damage",
+    tooltip: `${weapon.name} ${
+      damageKind === "healing" ? "Healing" : "Damage"
+    }`,
     critical: isCritical,
     splashDamage: splashDamage,
     damageType: damageType,
@@ -8284,11 +8364,11 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   };
 
   api.promptRoll(
-    `${weapon.name} Damage`,
+    `${weapon.name} ${damageKind === "healing" ? "Healing" : "Damage"}`,
     damage,
     finalDamageModifiers,
     metadata,
-    "damage"
+    damageKind === "healing" ? "healing" : "damage"
   );
 }
 
