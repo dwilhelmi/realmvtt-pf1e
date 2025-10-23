@@ -8542,7 +8542,7 @@ function applyDamage(
   roll,
   halfDamage = false,
   splashDamage = null,
-  shieldDamage = true
+  shieldDamage = false
 ) {
   // If splashDamage is provided, we're applying splash damage directly
   // splashDamage should be an object like: { type: "fire", value: 3 }
@@ -9155,7 +9155,26 @@ function applyDamage(
 
       // Apply all value changes in a single batch
       if (Object.keys(valuesToSet).length > 0) {
-        api.setValuesOnTokenById(target._id, target.recordType, valuesToSet);
+        api.setValuesOnTokenById(
+          target._id,
+          target.recordType,
+          valuesToSet,
+          () => {
+            // After applying damage, check if token was reduced to 0 HP
+            // If so, move their initiative to directly before the current turn
+            if (curhp <= 0 && damage > 0) {
+              api.getCombatTracker((combatTracker) => {
+                if (combatTracker && combatTracker.initiative !== undefined) {
+                  const newInitiative =
+                    Math.floor(combatTracker.initiative) + 1;
+                  api.setValuesOnTokenById(target._id, target.recordType, {
+                    "data.initiative": newInitiative,
+                  });
+                }
+              });
+            }
+          }
+        );
       }
 
       // Build undo macro with all old values as a single batch operation
