@@ -1,0 +1,212 @@
+<script>
+  // TODO add things for other types such as Focus points
+  // TODO in onEditFeature we need to set these values
+
+  function deleteSpellcastingEntry() {
+    const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
+    const indexValue = parseInt(spellcastingEntryDataPath.split(".").pop(), 10);
+
+    if (isNaN(indexValue) || indexValue < 0) {
+      return;
+    }
+
+    api.showConfirm(
+      "Delete Spellcasting Entry",
+      "Are you sure you want to delete this spellcasting entry?",
+      "Yes",
+      "No",
+      () => {
+        api.removeValue("data.spells", indexValue);
+      }
+    );
+  }
+
+  function onChangeValue() {
+    const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
+    const spellcastingEntry = api.getValue(spellcastingEntryDataPath);
+
+    updateSpellcastingEntry(
+      record,
+      spellcastingEntry,
+      spellcastingEntryDataPath
+    );
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border: 1px solid var(--mantine-color-default-border);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+    align-items: center;
+  "
+>
+  <namefield
+    variant="unstyled"
+    field="namefield"
+    placeholder="Enter Spellcasting Entry Name..."
+    size="xs"
+    width="100%"
+  ></namefield>
+  <div style="margin-left: auto">
+    <div style="display: flex; flex-direction: row; gap: 4px">
+      <!-- Popover to set settings for this spellcasting entry -->
+      <popover position="bottom" offset="4" witharrow="true">
+        <popover.target>
+          <iconbutton
+            hideonlocked="true"
+            field="editBtn"
+            size="sm"
+            variant="subtle"
+            color="default"
+            options='[{"icon": "IconEdit", "label": "Edit Settings", "value": "edit"}]'
+          ></iconbutton>
+        </popover.target>
+        <popover.dropdown>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              width: 200px;
+              max-width: 200px;
+            "
+          >
+            <label
+              size="xs"
+              variant="bold"
+              label="Spellcasting Entry Settings"
+            ></label>
+            <dropdown
+              size="xs"
+              field="type"
+              placeholder="Select Type..."
+              defaultvalue="prepared"
+              width="100%"
+              onchange="onChangeValue();"
+              label="Spellcasting Type"
+              options='[{"label": "Prepared", "value": "prepared"},
+              {"label": "Spontaneous", "value": "spontaneous"},
+              {"label": "Innate", "value": "innate"},
+              {"label": "Focus", "value": "focus"}]'
+            ></dropdown>
+            <divider></divider>
+            <dropdown
+              size="xs"
+              field="proficiency"
+              placeholder="Select Proficiency..."
+              width="100%"
+              onchange="onChangeValue();"
+              label="Proficiency"
+              options='[{"label": "Spell Attack Modifiers & DCs", "value": "spell"},
+              {"label": "Class DC", "value": "class"}]'
+            ></dropdown>
+            <dropdown
+              size="xs"
+              field="tradition"
+              placeholder="Select Magic Tradition..."
+              width="100%"
+              onchange="onChangeValue();"
+              label="Magic Tradition"
+              options='[{"label": "Arcane", "value": "Arcane"},
+            {"label": "Divine", "value": "Divine"},
+            {"label": "Occult", "value": "Occult"},
+            {"label": "Primal", "value": "Primal"}]'
+            ></dropdown>
+            <dropdown
+              size="xs"
+              field="attribute"
+              onchange="onChangeValue();"
+              placeholder="Select Attribute..."
+              width="100%"
+              label="Key Attribute"
+              options='[{"label": "Strength", "value": "str"},
+            {"label": "Dexterity", "value": "dex"},
+            {"label": "Constitution", "value": "con"},
+            {"label": "Intelligence", "value": "int"},
+            {"label": "Wisdom", "value": "wis"},
+            {"label": "Charisma", "value": "cha"}]'
+            ></dropdown>
+          </div>
+        </popover.dropdown>
+      </popover>
+      <iconbutton
+        field="deleteBtn"
+        size="sm"
+        hideonlocked="true"
+        variant="subtle"
+        color="default"
+        options='[{"icon": "IconTrash", "label": "Delete", "value": "delete"}]'
+        onclick="deleteSpellcastingEntry();"
+      ></iconbutton>
+    </div>
+  </div>
+</div>
+
+<!-- Show DC / To Hit Modifier and Training Level -->
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
+  "
+>
+  <label label="Spell DC" size="xs" variant="bold" color="primary"></label>
+  <div style="min-width: 24px; width: 24px; margin-bottom: 2px">
+    <numberfield
+      field="dc"
+      width="100%"
+      placeholder="0"
+      bold="true"
+      textalign="center"
+      variant="unstyled"
+      hidecontrols="true"
+      size="xs"
+    ></numberfield>
+  </div>
+  <label label="Modifier" size="xs" variant="bold" color="primary"></label>
+  <div style="min-width: 24px; width: 24px; margin-bottom: 2px">
+    <numberfield
+      field="mod"
+      width="100%"
+      placeholder="0"
+      bold="true"
+      textalign="center"
+      variant="unstyled"
+      hidecontrols="true"
+      showsign="true"
+      size="xs"
+    ></numberfield>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      margin-left: auto;
+      align-items: center;
+    "
+  >
+    <label field="tradition" color="primary" size="xs" variant="bold"></label>
+    <dropdown
+      size="xs"
+      field="training"
+      width="110px"
+      textalign="center"
+      placeholder="Untrained"
+      defaultvalue="1"
+      onchange="onChangeValue();"
+      options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+    ></dropdown>
+  </div>
+</div>

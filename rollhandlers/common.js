@@ -1989,7 +1989,7 @@ performDamageRollForSpellOrItem("${record._id}","${record.recordType}", "${itemD
 
   api.sendMessage(markdownDescription, undefined, recordLinks);
 
-  // If consumable, deduct count by 1, delete item if count is 0
+  // If consumable, deduct uses first, then count
   if (isConsumable) {
     // Auto destroy if true and not ammo or thrown weapon
     let autoDestroy = item.data?.uses?.autoDestroy || false;
@@ -2000,36 +2000,61 @@ performDamageRollForSpellOrItem("${record._id}","${record.recordType}", "${itemD
     const isBomb = item?.data?.group?.toLowerCase() === "bomb";
 
     const count = parseFloat(itemCount || "0");
-    const newCount = count - 1;
+    const currentUses = parseFloat(item.data?.uses?.value || "0");
+    const maxUses = parseFloat(item.data?.uses?.max || "0");
 
-    const valuesToSet = {
-      [`${itemDataPath}.data.count`]: newCount,
-    };
+    const valuesToSet = {};
+
+    // Check if the item has a uses system (maxUses > 0)
+    if (maxUses > 0) {
+      // Deduct uses first
+      const newUses = currentUses - 1;
+
+      if (newUses > 0) {
+        // Still have uses remaining
+        valuesToSet[`${itemDataPath}.data.uses.value`] = newUses;
+      } else if (newUses <= 0 && count > 1) {
+        // Uses depleted, deduct count and reset uses
+        valuesToSet[`${itemDataPath}.data.uses.value`] = maxUses;
+        valuesToSet[`${itemDataPath}.data.count`] = count - 1;
+      } else {
+        // Uses and count both depleted
+        valuesToSet[`${itemDataPath}.data.uses.value`] = 0;
+        valuesToSet[`${itemDataPath}.data.count`] = 0;
+      }
+    } else {
+      // No uses system, deduct count directly
+      const newCount = count - 1;
+      valuesToSet[`${itemDataPath}.data.count`] = newCount;
+    }
 
     if (isAmmo || isThrown || isBomb) {
       autoDestroy = false;
     }
 
     // Determine if any ammo values need adjusting (if it's ammo, a thrown weapon, or a bomb)
+    const finalCount = valuesToSet[`${itemDataPath}.data.count`] ?? count;
     if (isAmmo) {
       const inventory = record?.data?.inventory || [];
       inventory.forEach((inventoryItem, index) => {
         if (inventoryItem.data?.ammoSelect === item._id) {
-          valuesToSet[`data.inventory.${index}.data.ammo`] = newCount;
+          valuesToSet[`data.inventory.${index}.data.ammo`] = finalCount;
         }
       });
     } else if (isThrown || isBomb) {
-      valuesToSet[`${itemDataPath}.data.ammo`] = newCount;
+      valuesToSet[`${itemDataPath}.data.ammo`] = finalCount;
     }
 
-    if ((newCount >= 0 && !autoDestroy) || (autoDestroy && newCount > 0)) {
+    const shouldDestroy = autoDestroy && finalCount <= 0;
+
+    if (!shouldDestroy || finalCount > 0) {
       api.setValues(valuesToSet, () => {
         // Re-query the record to get the latest data
         api.getRecord(record.recordType, record._id, (updatedRecord) => {
           updateTotalBulk(updatedRecord, true);
         });
       });
-    } else if (autoDestroy && !isNaN(indexValue) && newCount <= 0) {
+    } else if (shouldDestroy && !isNaN(indexValue)) {
       api.removeValue(`data.inventory`, indexValue, () => {
         // Re-query the record to get the latest data
         api.getRecord(record.recordType, record._id, (updatedRecord) => {
@@ -9383,4 +9408,95 @@ function performInitiativeRoll(record) {
     false,
     true
   );
+}
+
+function updateSpellcastingEntry(
+  record,
+  spellcastingEntry,
+  spellcastingEntryDataPath
+) {
+  // Reclaculate the DC and Modifier based on the new values
+  const tradition = spellcastingEntry.data?.tradition || "Arcane";
+  const type = spellcastingEntry.data?.type || "prepared";
+
+  const proficiency = spellcastingEntry.data?.proficiency || "spell";
+  const attribute = spellcastingEntry.data?.attribute || "int";
+  const training = parseInt(spellcastingEntry.data?.training || "0", 10);
+
+  const name = `${tradition} ${capitalize(type)} Spells`;
+
+  // Get current spellcasting training level
+  const currentTraining =
+    proficiency === "spell"
+      ? `${record.data?.spellcasting || "0"}`
+      : `${record.data?.classDCProficiency || "0"}`;
+  const newTraining = Math.max(parseInt(currentTraining, 10), training);
+
+  const proficiencyBonus = calculateProficiencyBonus(record, newTraining);
+  const attributeScore = record.data?.[`${attribute}`] || 0;
+
+  // Set the DC and Modifier based on the proficiency
+  const mod = attributeScore + proficiencyBonus;
+  const dc = 10 + mod;
+
+  const valuesToSet = {
+    [`${spellcastingEntryDataPath}.name`]: name,
+    [`${spellcastingEntryDataPath}.data.dc`]: dc,
+    [`${spellcastingEntryDataPath}.data.mod`]: mod,
+    [`${spellcastingEntryDataPath}.data.training`]: newTraining,
+  };
+
+  api.setValues(valuesToSet);
+}
+
+function addSpellcastingEntry(record) {
+  // Add a new spellcasting entry to the list
+  // First requery to get selected values for the new entry
+  api.getRecord(record.recordType, record._id, (updatedRecord) => {
+    // Set name based on the first spellcasting entry
+    const tradition = updatedRecord.data?.addTradition || "Arcane";
+    const proficiency = updatedRecord.data?.addProficiency || "spell";
+    const attribute = updatedRecord.data?.addAttribute || "int";
+    const type = updatedRecord.data?.addType || "prepared";
+
+    const name = `${tradition} ${capitalize(type)} Spells`;
+
+    // Get current spellcasting training level
+    const training =
+      proficiency === "spell"
+        ? `${updatedRecord.data?.spellcasting || "0"}`
+        : `${updatedRecord.data?.classDCProficiency || "0"}`;
+    const proficiencyBonus = calculateProficiencyBonus(record, training);
+    const attributeScore = updatedRecord.data?.[`${attribute}`] || 0;
+    // Set the DC and Modifier based on the proficiency
+    const mod = attributeScore + proficiencyBonus;
+    const dc = 10 + mod;
+
+    api.addValue(
+      "data.spells",
+      {
+        name: name,
+        unidentifiedName: "Spellcasting Entry",
+        identified: true,
+        data: {
+          type: type,
+          proficiency: proficiency,
+          tradition: tradition,
+          attribute: attribute,
+          training: training,
+          dc: dc,
+          mod: mod,
+        },
+      },
+      () => {
+        // Reset the values
+        api.setValues({
+          "data.addTradition": "",
+          "data.addProficiency": "",
+          "data.addAttribute": "",
+          "data.addType": "",
+        });
+      }
+    );
+  });
 }
