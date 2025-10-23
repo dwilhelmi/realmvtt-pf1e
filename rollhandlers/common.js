@@ -3864,6 +3864,74 @@ function calculateAbilityBoosts(record) {
   return boostResults;
 }
 
+// This function collects all `providesAttacks` from feats and features and adds them to the character
+function setProvidedAttacks(record, callback = undefined) {
+  const feats = record.data?.feats || [];
+  const bonusFeats = record.data?.bonusFeats || [];
+  const features = record.data?.features || [];
+  const ancestries = record.data?.ancestries || [];
+  const ancestryFeatures = ancestries
+    .map((ancestry) => ancestry.data?.features || [])
+    .flat();
+  const heritages = record.data?.heritages || [];
+  const heritageFeatures = heritages
+    .map((heritage) => heritage.data?.features || [])
+    .flat();
+  const classes = record.data?.classes || [];
+  const classFeatures = classes
+    .map((classObj) => classObj.data?.features || [])
+    .flat();
+
+  const attacksProvided = [];
+  const seenAttackIds = new Set();
+
+  for (const feature of [
+    ...feats,
+    ...bonusFeats,
+    ...ancestryFeatures,
+    ...heritageFeatures,
+    ...classFeatures,
+    ...features,
+  ]) {
+    if (
+      feature.data?.providesAttacks &&
+      feature.data?.providesAttacks.length > 0
+    ) {
+      for (const attack of feature.data?.providesAttacks) {
+        // Only add if we haven't seen this attack ID before
+        if (!seenAttackIds.has(attack._id)) {
+          seenAttackIds.add(attack._id);
+          attacksProvided.push(attack);
+        }
+      }
+    }
+  }
+
+  const inventoryItems = record.data?.inventory || [];
+  const inventoryItemsToAdd = [];
+  for (const attack of attacksProvided) {
+    if (!inventoryItems.find((i) => i.data?.fromId === attack._id)) {
+      inventoryItemsToAdd.push({
+        ...attack,
+        _id: generateUuid(),
+        data: {
+          ...attack.data,
+          carried: "equipped",
+          fromId: attack._id,
+        },
+      });
+    }
+  }
+
+  if (inventoryItemsToAdd.length > 0) {
+    api.addValues("data.inventory", inventoryItemsToAdd, callback);
+  } else {
+    if (callback) {
+      callback(record);
+    }
+  }
+}
+
 // Sequentially query for and add actions
 function queryAndAddActions(actions, index, callback) {
   // If we're done, call the callback
@@ -3941,7 +4009,7 @@ function setProvidedActions(record, callback = undefined) {
     queryAndAddActions(actionsToAdd, 0, callback);
   } else {
     if (callback) {
-      callback();
+      callback(record);
     }
   }
 }
@@ -4225,8 +4293,11 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // to make sure it matches
   setFeatSlots(record, valuesToSet);
 
+  // We'll set actions and then provided attacks
   const setActionsCallback = () => {
-    setProvidedActions(record, callback);
+    setProvidedActions(record, () => {
+      setProvidedAttacks(record, callback);
+    });
   };
 
   if (Object.keys(valuesToSet).length > 0) {
