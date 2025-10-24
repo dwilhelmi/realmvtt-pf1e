@@ -9463,6 +9463,70 @@ function updateSpellcastingEntry(
     [`${spellcastingEntryDataPath}.fields.focusPoolMax.hidden`]: !isFocus,
   };
 
+  // Go through all the number of spells in each category and add spell slots until we have enough
+  // Do not remove spells that are set (data.type !== "slot")
+  const fields = [
+    { name: "cantrips", level: 0 },
+    { name: "spells1", level: 1 },
+    { name: "spells2", level: 2 },
+    { name: "spells3", level: 3 },
+    { name: "spells4", level: 4 },
+    { name: "spells5", level: 5 },
+    { name: "spells6", level: 6 },
+    { name: "spells7", level: 7 },
+    { name: "spells8", level: 8 },
+    { name: "spells9", level: 9 },
+    { name: "spells10", level: 10 },
+  ];
+
+  for (const field of fields) {
+    const fieldName = field.name;
+    const rank = field.level;
+    const isCantrip = rank === 0;
+    const numSpells = parseInt(
+      spellcastingEntry.data?.[`num${capitalize(fieldName)}`] || "0",
+      10
+    );
+    const currentSpells = spellcastingEntry.data?.[fieldName] || [];
+
+    // Keep all spells that are NOT empty slots (type !== "slot")
+    const filledSpells = currentSpells.filter(
+      (spell) => spell.data?.type !== "slot"
+    );
+
+    // Count how many slots we need to add
+    const slotsNeeded = Math.max(0, numSpells - filledSpells.length);
+
+    // Create new empty spell slots
+    const newSlots = [];
+    for (let i = 0; i < slotsNeeded; i++) {
+      newSlots.push({
+        _id: generateUuid(),
+        name: isCantrip ? "Cantrip Slot" : `Rank ${rank} Spell Slot`,
+        recordType: "spells",
+        unidentifiedName: isCantrip
+          ? "Cantrip Slot"
+          : `Rank ${rank} Spell Slot`,
+        data: {
+          type: "slot",
+          description: "",
+          level: rank,
+          slotOrder: filledSpells.length + i,
+        },
+        fields: {
+          spellDetails: { hidden: true },
+          spellSlot: { hidden: false },
+        },
+      });
+    }
+
+    // Combine filled spells with new empty slots
+    valuesToSet[`${spellcastingEntryDataPath}.data.${fieldName}`] = [
+      ...filledSpells,
+      ...newSlots,
+    ];
+  }
+
   // Get which ones are shown, if none are set, we always show cantrips and spells1
   const shownSpells =
     spellcastingEntry.data?.shownSpells === undefined
