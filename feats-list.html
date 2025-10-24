@@ -93,33 +93,43 @@
     const dataPathToFeat = getNearestParentDataPath(dataPath);
     const featSlot = api.getValue(dataPathToFeat);
 
-    if (featSlot.data?.type !== "slot") {
-      const valuesToSet = {};
-      valuesToSet[`${dataPathToFeat}`] = {
-        name: capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
-        unidentifiedName:
-          capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
-        _id: featSlot?._id,
-        data: {
-          type: "slot",
-          description: "",
-          level: featSlot?.data?.level,
-          featSlotType: featSlot?.data?.featSlotType,
-          slotOrder: featSlot?.data?.slotOrder,
-          modifiers: [],
-          item: [],
-          choices: [],
-          proficiencies: [],
-        },
-        fields: {
-          featDetails: { hidden: true },
-          featSlot: { hidden: false },
-        },
-      };
-      api.setValues(valuesToSet, (updatedRecord) => {
-        onAddEditFeature(updatedRecord);
-      });
-    }
+    onDeleteFeat = () => {
+      if (featSlot.data?.type !== "slot") {
+        const valuesToSet = {};
+        valuesToSet[`${dataPathToFeat}`] = {
+          name: capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
+          unidentifiedName:
+            capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
+          _id: featSlot?._id,
+          data: {
+            type: "slot",
+            description: "",
+            level: featSlot?.data?.level,
+            featSlotType: featSlot?.data?.featSlotType,
+            slotOrder: featSlot?.data?.slotOrder,
+            modifiers: [],
+            item: [],
+            choices: [],
+            proficiencies: [],
+          },
+          fields: {
+            featDetails: { hidden: true },
+            featSlot: { hidden: false },
+          },
+        };
+        api.setValues(valuesToSet, (updatedRecord) => {
+          onAddEditFeature(updatedRecord);
+        });
+      }
+    };
+
+    api.showConfirm(
+      "Remove Feat",
+      `Are you sure you want to remove ${featSlot.name}?`,
+      "Yes",
+      "No",
+      onDeleteFeat
+    );
   }
 
   function showFeatSlotOptions() {
@@ -302,7 +312,71 @@
         </div>
       </div>
     </accordion.control>
-    <div style="margin-top: 4px">
+
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 4px;
+        background-color: rgb(
+          from var(--mantine-color-primary-filled) r g b / 0.25
+        );
+        border-radius: 4px;
+        margin-bottom: 4px;
+        align-items: center;
+      "
+    >
+      <label
+        field="namefield"
+        placeholder="New Feat"
+        size="sm"
+        variant="bold"
+      ></label>
+      <iconbutton
+        field="actions"
+        size="sm"
+        variant="subtle"
+        color="default"
+        disablediflocked="true"
+        hidden="true"
+        width="max-content"
+        options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+  {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+  {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+  {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
+  {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
+  {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+  {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+      ></iconbutton>
+      <div style="margin-left: auto">
+        <label
+          hidden="true"
+          field="levelLabel"
+          size="sm"
+          variant="bold"
+        ></label>
+      </div>
+    </div>
+
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <list
+          width="100%"
+          hidewhenidentified="false"
+          listtype="traits_list"
+          field="traitsList"
+        ></list>
+      </div>
+
       <richtextfield
         disablecontrols="true"
         field="description"

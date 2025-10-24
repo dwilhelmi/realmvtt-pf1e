@@ -9424,6 +9424,7 @@ function updateSpellcastingEntry(
   const training = parseInt(spellcastingEntry.data?.training || "0", 10);
 
   const name = `${tradition} ${capitalize(type)} Spells`;
+  const isFocus = type === "focus";
 
   // Get current spellcasting training level
   const currentTraining =
@@ -9444,9 +9445,67 @@ function updateSpellcastingEntry(
     [`${spellcastingEntryDataPath}.data.dc`]: dc,
     [`${spellcastingEntryDataPath}.data.mod`]: mod,
     [`${spellcastingEntryDataPath}.data.training`]: newTraining,
+    // If not in shownSpells, hide them
+    [`${spellcastingEntryDataPath}.fields.cantripsBox.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells1Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells2Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells3Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells4Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells5Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells6Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells7Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells8Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells9Box.hidden`]: true,
+    [`${spellcastingEntryDataPath}.fields.spells10Box.hidden`]: true,
+    // For focus spells
+    [`${spellcastingEntryDataPath}.fields.focusPoolLabel.hidden`]: !isFocus,
+    [`${spellcastingEntryDataPath}.fields.focusPool.hidden`]: !isFocus,
+    [`${spellcastingEntryDataPath}.fields.focusPoolMax.hidden`]: !isFocus,
   };
 
+  // Get which ones are shown, if none are set, we always show cantrips and spells1
+  const shownSpells =
+    spellcastingEntry.data?.shownSpells === undefined
+      ? ["cantrips", "spells1"]
+      : spellcastingEntry.data?.shownSpells;
+  for (const spell of shownSpells) {
+    valuesToSet[
+      `${spellcastingEntryDataPath}.fields.${spell}Box.hidden`
+    ] = false;
+  }
+
   api.setValues(valuesToSet);
+}
+
+function moveUpSpellcastingEntry(dataPath) {
+  const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
+  const spellcastingEntry = api.getValue(spellcastingEntryDataPath);
+  const allSpellcastingEntries = [...(record.data?.spells || [])];
+
+  const index = parseInt(spellcastingEntryDataPath.split(".").pop(), 10);
+  if (index > 0) {
+    // Swap the current entry with the one above it
+    allSpellcastingEntries[index] = allSpellcastingEntries[index - 1];
+    allSpellcastingEntries[index - 1] = spellcastingEntry;
+
+    // Update button visibility: entry at position 0 should have hidden up button
+    allSpellcastingEntries[0].fields = allSpellcastingEntries[0].fields || {};
+    allSpellcastingEntries[0].fields.moveUpBtn =
+      allSpellcastingEntries[0].fields.moveUpBtn || {};
+    allSpellcastingEntries[0].fields.moveUpBtn.hidden = true;
+
+    // Entry that moved from position 0 should now show its up button
+    if (allSpellcastingEntries.length > 1) {
+      allSpellcastingEntries[1].fields = allSpellcastingEntries[1].fields || {};
+      allSpellcastingEntries[1].fields.moveUpBtn =
+        allSpellcastingEntries[1].fields.moveUpBtn || {};
+      allSpellcastingEntries[1].fields.moveUpBtn.hidden = false;
+    }
+
+    api.setValues({
+      "data.spells": allSpellcastingEntries,
+    });
+  }
 }
 
 function addSpellcastingEntry(record) {
@@ -9472,6 +9531,9 @@ function addSpellcastingEntry(record) {
     const mod = attributeScore + proficiencyBonus;
     const dc = 10 + mod;
 
+    const isFocus = type === "focus";
+    const index = (updatedRecord.data?.spells || []).length || 0;
+
     api.addValue(
       "data.spells",
       {
@@ -9486,6 +9548,29 @@ function addSpellcastingEntry(record) {
           training: training,
           dc: dc,
           mod: mod,
+          shownSpells: ["cantrips", "spells1"],
+          focusPoolMax: 1,
+        },
+        // By default, we show these
+        fields: {
+          cantripsBox: {
+            hidden: false,
+          },
+          spells1Box: {
+            hidden: false,
+          },
+          focusPoolLabel: {
+            hidden: !isFocus,
+          },
+          focusPool: {
+            hidden: !isFocus,
+          },
+          focusPoolMax: {
+            hidden: !isFocus,
+          },
+          moveUpBtn: {
+            hidden: index === 0,
+          },
         },
       },
       () => {

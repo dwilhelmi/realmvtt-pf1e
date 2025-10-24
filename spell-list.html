@@ -1,0 +1,1063 @@
+<script>
+  // Goes through the effects of the attacker and determiners
+  // if we need to apply any modifiers
+  function getSpellAttackModifiers(spell) {
+    // It could be a numerical modifier, or a die we are adding
+    let attackModifiers = [];
+
+    const spellModBonus = parseInt(
+      api.getValue("data.spellModBonus") || "0",
+      10
+    );
+
+    if (spell?.data?.isAttack) {
+      const attackAbility = spell?.data?.ability || "strength";
+      const attackAbilityMod = parseInt(
+        api.getValue(`data.${attackAbility}Mod`) || "0",
+        10
+      );
+      // Add proficiency bonus to attack modifier
+      const proficiencyBonus =
+        api.getValue("data.proficiencyBonus") !== undefined
+          ? parseInt(api.getValue("data.proficiencyBonus"), 10)
+          : 2;
+      attackModifiers.push({
+        name: capitalize(attackAbility),
+        value: attackAbilityMod,
+        active: true,
+      });
+      attackModifiers.push({
+        name: "Spellcasting Proficiency",
+        value: proficiencyBonus,
+        active: true,
+      });
+      if (spellModBonus > 0) {
+        attackModifiers.push({
+          name: "Additional Spell Modifier Bonus",
+          value: spellModBonus,
+          active: true,
+        });
+      }
+    }
+
+    // Get effects
+    const effectModifiers = getEffectsAndModifiers([
+      "attackBonus",
+      "attackPenalty",
+      "spellAttackBonus",
+      "spellAttackPenalty",
+    ]);
+    effectModifiers.forEach((modifier) => {
+      attackModifiers.push(modifier);
+    });
+
+    return attackModifiers;
+  }
+
+  function castSpell() {
+    // Get the spell by path to ensure most up-to-date value
+    const spellDataPath = dataPath.replace(".data.castBtn", "");
+    const spell = api.getValue(spellDataPath);
+
+    const spellName = spell?.name || "Unknown Spell";
+    const spellDescription = api.richTextToMarkdown(
+      spell?.data?.description || ""
+    );
+    const spellIcon = spell?.portrait
+      ? `![${spellName}](${assetUrl}${spell?.portrait}?width=40&height=40) `
+      : "";
+
+    // Get and additional modifiers from spell caster settings
+    const spellDCBonus = parseInt(api.getValue("data.spellDCBonus") || "0", 10);
+
+    // Modifiers for Damage and Healing
+    let damageModifiers = [];
+    let primaryDamageType = "untyped";
+    let healingModifiers = [];
+    if (
+      spell?.data?.damage ||
+      (spell?.data?.healing && spell?.data?.addAbilityHealing)
+    ) {
+      // Get the ability score modifier for the spell
+      const ability = spell?.data?.ability || "strength";
+      const abilityMod = api.getValue(`data.${ability}Mod`) || 0;
+      // Safely parse the damage type from the damage string, handling potential null values and irregular spacing
+      const damageString = spell?.data?.damage || "";
+      const damageParts = damageString.trim().split(/\s+/); // Split by one or more spaces
+      const damageType = damageParts.length > 1 ? damageParts[1] : "untyped";
+      primaryDamageType = damageType;
+      if (spell?.data?.damage && spell?.data?.addAbility) {
+        damageModifiers.push({
+          name: capitalize(ability),
+          type: spell?.data?.damage ? primaryDamageType : "untyped",
+          value: abilityMod,
+          active: true,
+        });
+      }
+      if (spell?.data?.healing && spell?.data?.addAbilityHealing) {
+        healingModifiers.push({
+          name: capitalize(ability),
+          type: spell?.data?.healing.includes("temp") ? "temp" : undefined,
+          value: abilityMod,
+          active: true,
+        });
+      }
+    }
+
+    if (spell?.data?.damage || spell?.data?.damage2) {
+      // Get damage modifiers
+      let moreDamageModifiers =
+        spell?.data?.level?.toLowerCase() === "cantrip"
+          ? getEffectsAndModifiers(
+              ["cantripDamageBonus", "cantripDamagePenalty"],
+              spell?.data?.isAttack ? "attack" : "all"
+            )
+          : getEffectsAndModifiers(
+              ["spellDamageBonus", "spellDamagePenalty"],
+              spell?.data?.isAttack ? "attack" : "all"
+            );
+      // Filter attack modifiers if not attack spell
+      if (!spell?.data?.isAttack) {
+        moreDamageModifiers = moreDamageModifiers.filter(
+          (mod) => (mod?.field || "") !== "attack"
+        );
+      }
+      moreDamageModifiers.forEach((modifier) => {
+        damageModifiers.push({
+          ...modifier,
+          // Only set type if modifer does not have it
+          type: modifier.value.toString().split(" ")?.[1]
+            ? ""
+            : primaryDamageType,
+        });
+      });
+    } else if (spell?.data?.healing) {
+      // Get healing modifiers
+      const moreHealingModifiers = getEffectsAndModifiers([
+        "healingBonus",
+        "healingPenalty",
+      ]);
+      moreHealingModifiers.forEach((modifier) => {
+        healingModifiers.push({
+          ...modifier,
+          type: spell?.data?.healing.includes("temp") ? "temp" : undefined,
+        });
+      });
+    }
+
+    // Determine if we are casting a spell that ignores resistances / immunities
+    const damageIgnoresResistances = damageModifiers
+      .filter(
+        (mod) =>
+          mod.valueType === "string" &&
+          mod.value.trim().toLowerCase().startsWith("ignore") &&
+          mod.value.trim().toLowerCase().includes("resistance")
+      )
+      ?.map((mod) => mod.value.split(" ")[1])
+      .join(",");
+    const damageIgnoresImmunities = damageModifiers
+      .filter(
+        (mod) =>
+          mod.valueType === "string" &&
+          mod.value.trim().toLowerCase().startsWith("ignore") &&
+          (mod.value.trim().toLowerCase().includes("immunities") ||
+            mod.value.trim().toLowerCase().includes("immunity"))
+      )
+      ?.map((mod) => mod.value.split(" ")[1])
+      .join(",");
+    // Filter these out of the modifiers array, we don't need them to be toggleable
+    damageModifiers = damageModifiers.filter(
+      (m) => !m.value.toString().toLowerCase().includes("ignore")
+    );
+
+    // Spell Attack Modifiers
+    let attackModifiers = getSpellAttackModifiers(spell);
+
+    // Determine damage or healing based on level of spell / (or character if cantrip)
+    let spellDamage = spell?.data?.damage;
+    let spellAltDamage = spell?.data?.damage2;
+    let spellHealing = spell?.data?.healing;
+
+    // Mark the level we're casting at so we can fill a slot
+    let spellLevel = 0;
+
+    // Deduct spell slot or daily uses and update spell level
+    const spellPrepared = spell?.data?.prepared || "prepared";
+    let actualSpellLevel = spell?.data?.level || "Cantrip";
+    if (actualSpellLevel === "Cantrip") {
+      actualSpellLevel = "0";
+    }
+    actualSpellLevel = parseInt(actualSpellLevel, 10);
+    if (spellPrepared === "prepared" && actualSpellLevel > 0) {
+      let spellSlot =
+        parseInt(spell?.data?.upcastLevel || `${actualSpellLevel}`, 10) || 1;
+
+      // Determine if we are using a spell slot of a pact magic slot
+      let fieldToUse = "";
+      let maxField = "";
+
+      // Pact Magic Slots available
+      const numPactMagicAvail1 =
+        parseInt(record?.data?.numPactMagic1 || "0", 10) -
+        parseInt(record?.data?.pactMagic1 || "0", 10);
+      const numPactMagicAvail2 =
+        parseInt(record?.data?.numPactMagic2 || "0", 10) -
+        parseInt(record?.data?.pactMagic2 || "0", 10);
+      const numPactMagicAvail3 =
+        parseInt(record?.data?.numPactMagic3 || "0", 10) -
+        parseInt(record?.data?.pactMagic3 || "0", 10);
+      const numPactMagicAvail4 =
+        parseInt(record?.data?.numPactMagic4 || "0", 10) -
+        parseInt(record?.data?.pactMagic4 || "0", 10);
+      const numPactMagicAvail5 =
+        parseInt(record?.data?.numPactMagic5 || "0", 10) -
+        parseInt(record?.data?.pactMagic5 || "0", 10);
+      const numPactMagicAvail6 =
+        parseInt(record?.data?.numPactMagic6 || "0", 10) -
+        parseInt(record?.data?.pactMagic6 || "0", 10);
+      const numPactMagicAvail7 =
+        parseInt(record?.data?.numPactMagic7 || "0", 10) -
+        parseInt(record?.data?.pactMagic7 || "0", 10);
+      const numPactMagicAvail8 =
+        parseInt(record?.data?.numPactMagic8 || "0", 10) -
+        parseInt(record?.data?.pactMagic8 || "0", 10);
+      const numPactMagicAvail9 =
+        parseInt(record?.data?.numPactMagic9 || "0", 10) -
+        parseInt(record?.data?.pactMagic9 || "0", 10);
+
+      // Spell Slots available
+      const numSpellSlots1Avail =
+        parseInt(record?.data?.numSpellSlots1 || "0", 10) -
+        parseInt(record?.data?.spellSlots1 || "0", 10);
+      const numSpellSlots2Avail =
+        parseInt(record?.data?.numSpellSlots2 || "0", 10) -
+        parseInt(record?.data?.spellSlots2 || "0", 10);
+      const numSpellSlots3Avail =
+        parseInt(record?.data?.numSpellSlots3 || "0", 10) -
+        parseInt(record?.data?.spellSlots3 || "0", 10);
+      const numSpellSlots4Avail =
+        parseInt(record?.data?.numSpellSlots4 || "0", 10) -
+        parseInt(record?.data?.spellSlots4 || "0", 10);
+      const numSpellSlots5Avail =
+        parseInt(record?.data?.numSpellSlots5 || "0", 10) -
+        parseInt(record?.data?.spellSlots5 || "0", 10);
+      const numSpellSlots6Avail =
+        parseInt(record?.data?.numSpellSlots6 || "0", 10) -
+        parseInt(record?.data?.spellSlots6 || "0", 10);
+      const numSpellSlots7Avail =
+        parseInt(record?.data?.numSpellSlots7 || "0", 10) -
+        parseInt(record?.data?.spellSlots7 || "0", 10);
+      const numSpellSlots8Avail =
+        parseInt(record?.data?.numSpellSlots8 || "0", 10) -
+        parseInt(record?.data?.spellSlots8 || "0", 10);
+      const numSpellSlots9Avail =
+        parseInt(record?.data?.numSpellSlots9 || "0", 10) -
+        parseInt(record?.data?.spellSlots9 || "0", 10);
+
+      const hasPactAvailable =
+        numPactMagicAvail1 > 0 ||
+        numPactMagicAvail2 > 0 ||
+        numPactMagicAvail3 > 0 ||
+        numPactMagicAvail4 > 0 ||
+        numPactMagicAvail5 > 0 ||
+        numPactMagicAvail6 > 0 ||
+        numPactMagicAvail7 > 0 ||
+        numPactMagicAvail8 > 0 ||
+        numPactMagicAvail9 > 0;
+
+      const hasSpellSlotsAvailable =
+        numSpellSlots1Avail > 0 ||
+        numSpellSlots2Avail > 0 ||
+        numSpellSlots3Avail > 0 ||
+        numSpellSlots4Avail > 0 ||
+        numSpellSlots5Avail > 0 ||
+        numSpellSlots6Avail > 0 ||
+        numSpellSlots7Avail > 0 ||
+        numSpellSlots8Avail > 0 ||
+        numSpellSlots9Avail > 0;
+
+      //  Use a pact magic slot if we have any available and we're using pact magic, or if we don't have any spell slots available
+      if (
+        hasPactAvailable &&
+        (record?.data?.usePactMagic || !hasSpellSlotsAvailable)
+      ) {
+        const availablePactSlots = [
+          numPactMagicAvail1,
+          numPactMagicAvail2,
+          numPactMagicAvail3,
+          numPactMagicAvail4,
+          numPactMagicAvail5,
+          numPactMagicAvail6,
+          numPactMagicAvail7,
+          numPactMagicAvail8,
+          numPactMagicAvail9,
+        ];
+
+        const lowestPactMagicIndex = availablePactSlots.findIndex(
+          (pactMagic) => pactMagic > 0
+        );
+        const lowestPactMagic = lowestPactMagicIndex + 1;
+
+        if (lowestPactMagic > 0) {
+          // Ensure that there is at least one available slot
+          if (actualSpellLevel <= lowestPactMagic) {
+            // For pact magic, we always upcast to the lowest available slot
+            // (Generally never above level 5 but we allow it just in case)
+            spellSlot = lowestPactMagic;
+            fieldToUse = `pactMagic${lowestPactMagic}`;
+            maxField = `numPactMagic${lowestPactMagic}`;
+          }
+        }
+      } else {
+        // Otherwise we use the spell slot for the level being cast at
+        fieldToUse = `spellSlots${spellSlot}`;
+        maxField = `numSpellSlots${spellSlot}`;
+      }
+
+      spellLevel = spellSlot;
+
+      let numSpellSlots = parseInt(
+        api.getValue(`data.${fieldToUse}`) || "0",
+        10
+      );
+      let numMaxSpellSlots = parseInt(
+        api.getValue(`data.${maxField}`) || "0",
+        10
+      );
+
+      if (numSpellSlots < numMaxSpellSlots) {
+        api.setValue(`data.${fieldToUse}`, numSpellSlots + 1);
+      }
+    } else if (spell?.data?.prepared === "daily") {
+      let dailyUses = parseInt(spell?.data?.dailyUses, 10) || 0;
+      let maxDailyUses = parseInt(spell?.data?.maxDailyUses, 10) || 1;
+      if (dailyUses < maxDailyUses) {
+        const dataPathToDaily = dataPath.replace(
+          ".data.castBtn",
+          ".data.dailyUses"
+        );
+        api.setValue(dataPathToDaily, dailyUses + 1);
+      }
+    }
+
+    if (spell?.data?.level === "Cantrip") {
+      // Cantrip handling
+      // Get the character's level
+      const characterLevel = parseInt(api.getValue("data.level") || "1", 10);
+      if (characterLevel >= 5) {
+        spellDamage = spell?.data?.damageCharacterLevel5 || spell?.data?.damage;
+        spellAltDamage =
+          spell?.data?.damage2CharacterLevel5 || spell?.data?.damage2;
+      }
+      if (characterLevel >= 11) {
+        spellDamage =
+          spell?.data?.damageCharacterLevel11 || spell?.data?.damage;
+        spellAltDamage =
+          spell?.data?.damage2CharacterLevel11 || spell?.data?.damage2;
+      }
+      if (characterLevel >= 17) {
+        spellDamage =
+          spell?.data?.damageCharacterLevel17 || spell?.data?.damage;
+        spellAltDamage =
+          spell?.data?.damage2CharacterLevel17 || spell?.data?.damage2;
+      }
+    } else {
+      // Spell handling
+      // Check if we're upcasting
+      if (spellLevel === 0) {
+        spellLevel =
+          parseInt(spell?.data?.upcastLevel || spell?.data?.level, 10) || 0;
+      }
+      // Check if damage is defined at that level
+      if (spellLevel >= 2) {
+        spellDamage =
+          spell?.data?.[`damageLevel${spellLevel}`] || spell?.data?.damage;
+        spellAltDamage =
+          spell?.data?.[`damage2Level${spellLevel}`] || spell?.data?.damage2;
+        spellHealing =
+          spell?.data?.[`healingLevel${spellLevel}`] || spell?.data?.healing;
+      }
+    }
+
+    // Now that we know the spell level, go through all string modifiers and
+    // replaced "Spell Level" with the actual spell level
+    let levelToReplace = spellLevel;
+    if (spell?.data?.level?.toLowerCase() === "cantrip") {
+      levelToReplace = 0;
+    }
+    damageModifiers.forEach((modifier) => {
+      if (modifier?.valueType?.toLowerCase() === "string") {
+        modifier.value = modifier.value.replace(
+          /[Ss]pell [Ll]evel/g,
+          levelToReplace
+        );
+      }
+    });
+    healingModifiers.forEach((modifier) => {
+      if (modifier?.valueType?.toLowerCase() === "string") {
+        modifier.value = modifier.value.replace(
+          /[Ss]pell [Ll]evel/g,
+          levelToReplace
+        );
+      }
+    });
+    attackModifiers.forEach((modifier) => {
+      if (modifier?.valueType?.toLowerCase() === "string") {
+        modifier.value = modifier.value.replace(
+          /[Ss]pell [Ll]evel/g,
+          levelToReplace
+        );
+      }
+    });
+
+    // If attackMod is set, use that instead
+    const attackModOverride = spell?.data?.attackMod;
+    if (attackModOverride !== undefined && attackModOverride > 0) {
+      attackModifiers = [
+        {
+          name: "Spell Attack Modifier",
+          value: attackModOverride,
+          active: true,
+        },
+      ];
+    }
+
+    // Spell range if set
+    const spellRange = parseInt(spell?.data?.range || "0", 10);
+    let rangedSpell = spellRange > 0;
+    if (rangedSpell) {
+      // If the description explicity says "make a melee spell attack" it's actually melee
+      if ((spell?.data?.description || "").match(/melee spell attack/i)) {
+        rangedSpell = false;
+      }
+    }
+
+    // Get save info, if Save
+    const savingThrow = spell?.data?.savingThrow || "dexterity"; // Default to dexterity if not set
+    // Spell Save DC is 8 + Spellcasting Ability Modifier + Proficiency Bonus (We assume they are proficient)
+    const spellcastingAbility = spell?.data?.ability || "intelligence";
+    const spellcastingAbilityMod =
+      api.getValue(`data.${spellcastingAbility}Mod`) || 0;
+    const proficiencyBonus =
+      api.getValue("data.proficiencyBonus") !== undefined
+        ? api.getValue("data.proficiencyBonus")
+        : 2;
+    let saveDc =
+      8 +
+      parseInt(spellcastingAbilityMod, 10) +
+      parseInt(proficiencyBonus, 10) +
+      spellDCBonus;
+    // If saveDc (the override) is set, use that instead
+    const saveDcOverride = spell?.data?.saveDc;
+    if (saveDcOverride !== undefined && saveDcOverride > 0) {
+      saveDc = saveDcOverride;
+    }
+    // Get spell dc modifiers
+    const spellDcModifiers = getEffectsAndModifiers(["spellDCBonus"]);
+    saveDc += spellDcModifiers.reduce(
+      (acc, mod) => acc + parseInt(mod?.value || "0", 10),
+      0
+    );
+
+    // Damage Button if this is a Saving Throw Spell (Attacks have it on Attack Output)
+    const saveDamageMetadata = spell?.data?.isSave
+      ? {
+          save: savingThrow,
+          saveDc: saveDc,
+          isSpell: true,
+          damageIgnoresResistances,
+          damageIgnoresImmunities,
+        }
+      : {};
+    const damageButton =
+      spell?.data?.damage && spell?.data?.isAttack !== true
+        ? `\`\`\`Roll_${
+            primaryDamageType !== "untyped"
+              ? capitalize(primaryDamageType)
+              : "Spell"
+          }_Damage
+  api.promptRoll(\`${spellName} ${
+            primaryDamageType !== "untyped"
+              ? capitalize(primaryDamageType)
+              : "Spell"
+          } Damage\`, '${spellDamage}', ${JSON.stringify(
+            damageModifiers
+          )}, ${JSON.stringify(saveDamageMetadata)}, 'damage')
+  \`\`\``
+        : "";
+
+    let altDamageButtons = "";
+    if (spellAltDamage) {
+      altDamageButtons = getAltSpellDamageButtons(
+        spell,
+        spellAltDamage,
+        saveDamageMetadata,
+        spellLevel
+      );
+    }
+
+    const healingButton = spell?.data?.healing
+      ? `\`\`\`Roll_Healing
+  api.promptRoll(\`${spellName} Healing\`, '${spellHealing}', ${JSON.stringify(
+          healingModifiers
+        )}, {}, 'healing')
+  \`\`\``
+      : "";
+
+    // Roll Attack Button, if Spell is an Attack, in the handler we get the targets and
+    // roll for each target - DC for Attacks is the enemy's AC
+    const rollAttackButton = spell?.data?.isAttack
+      ? `\`\`\`Roll_Attack
+  const targets = api.getTargets();
+  const ourToken = api.getToken();
+  let disDueToProximity = false;
+  if (${rangedSpell} && ourToken) {
+    api.getOtherTokens().forEach(token => {
+      if (disDueToProximity) {
+        // Short circuit if we already have disadvantage due to proximity
+        return;
+      }
+      if (token?.faction !== 'neutral' && token?.faction !== ourToken?.faction) {
+        // Check if they have incapacitated condition
+        const hasIncapacitated = (token?.effects || []).some(eff => eff.name === 'Incapacitated');
+        if (!hasIncapacitated) {
+          // Check distance
+          const distance = api.getDistance(ourToken, token);
+          if (distance !== undefined && distance !== null && distance <= 5) {
+            disDueToProximity = true;
+          }
+        }
+      }
+    });
+  }
+  
+  let attackModifiers = ${JSON.stringify(attackModifiers)};
+  
+  const autoCritical = attackModifiers.some(m => m.value === 'critical');
+  // Check for crit on 19 or some other number
+  const critOnMatch = /critical(\d+)/;
+  const critOnMods = attackModifiers
+    .map(m => {
+      const match = m.value.toString().match(critOnMatch);
+      return match ? parseInt(match[1], 10) : null;
+    })
+    .filter(value => value !== null);
+  
+  let critOn = null;
+  if (critOnMods.length) {
+    critOn = Math.min(...critOnMods);
+  }
+  
+  // Filter these out of the modifiers array, we don't need them to be toggleable
+  attackModifiers = attackModifiers.filter(m => !m.value.toString().startsWith('critical'));
+  
+  const minRoll = getMinRollModifier(attackModifiers);
+  // Filter these out of the modifiers array, we don't need them to be toggleable
+  attackModifiers = attackModifiers.filter(
+    (m) => !m.value.toString().startsWith("minroll")
+  );
+  
+  targets.forEach(target => {
+    // Get calculated AC from modifiers - use if any
+    const targetAc = getArmorClassForToken(target?.token);
+    const targetName = target?.token?.identified === false ? target?.token?.record?.unidentifiedName : target?.token?.record?.name;
+    const targetDistance = api.getDistance(ourToken, target?.token);
+    const diceRoll = '1d20';
+  
+    // If this is a ranged spell, and there are enemies within 5 feet, apply disadvantage
+    if (disDueToProximity) {
+      attackModifiers.push({
+        name: 'Enemy is Within 5 Feet',
+        value: 'disadvantage',
+        active: true
+      });
+    }
+  
+    // Get effects and modifiers for the target
+    const targetEffects = getAttackModifiersForTarget(target?.token, targetDistance);
+    targetEffects.forEach(r => {
+      attackModifiers.push(r);
+    });
+  
+    const metadata = {  
+      "rollName": 'Attack',
+      "attack": \`${spellName}\`,
+      "icon": "IconWand",
+      "targetName": targetName,
+      "tooltip": \`Attack Roll for ${spellName}\`,
+      "dc": targetAc,
+      "damage": "${spellDamage}",
+      "damageModifiers": ${JSON.stringify(damageModifiers)},
+      "damageIgnoresResistances": '${damageIgnoresResistances}',
+      "damageIgnoresImmunities": '${damageIgnoresImmunities}',
+      "autoCritical": autoCritical,
+      "critOn": critOn,
+      "minRoll": minRoll,
+      "isSpell": true
+    }
+    api.promptRoll(\`${spellName}\`, \`\$\{diceRoll\}\`, attackModifiers, metadata, 'attack');
+  });
+  if (!targets.length) {
+    const diceRoll = '1d20';
+    const metadata = {
+      "rollName": 'Attack',
+      "attack": \`${spellName}\`,
+      "icon": "IconWand",
+      "tooltip": \`Attack Roll for ${spellName}\`,
+      "dc": 0,
+      "damage": "${spellDamage}",
+      "critOn": critOn,
+      "minRoll": minRoll,
+      "damageModifiers": ${JSON.stringify(damageModifiers)},
+      "damageIgnoresResistances": '${damageIgnoresResistances}',
+      "damageIgnoresImmunities": '${damageIgnoresImmunities}',
+      "isSpell": true
+    }
+  
+    // If this is a ranged spell, and there are enemies within 5 feet, apply disadvantage
+    if (disDueToProximity) {
+      attackModifiers.push({
+        name: 'Enemy is Within 5 Feet',
+        value: 'disadvantage',
+        active: true
+      });
+    }
+  
+    api.promptRoll(\`${spellName}\`, \`\$\{diceRoll\}\`, attackModifiers, metadata, 'attack');
+  }
+  \`\`\``
+      : "";
+
+    // Saving Throw Buttons - look up saves of selected tokens and prompt roll for each
+    const possibleSavingThrows = [];
+    if (spell?.data?.isSave) {
+      if (spell?.data?.savingThrow) {
+        possibleSavingThrows.push(spell?.data?.savingThrow);
+      }
+      if (spell?.data?.additionalSavingThrows) {
+        spell?.data?.additionalSavingThrows.forEach((savingThrow) => {
+          possibleSavingThrows.push(savingThrow);
+        });
+      }
+    }
+    const rollSaveButtons = possibleSavingThrows
+      .map((savingThrow) => {
+        return `\`\`\`Roll_${capitalize(savingThrow)}_Save
+  const selectedTokens = api.getSelectedOrDroppedToken();
+  selectedTokens.forEach(token => {
+    let saveModifiers = [];
+    const modifier = token?.data?.['${savingThrow}Save'] || 0;
+    saveModifiers.push({
+      name: '${capitalize(savingThrow)} Save',
+      value: modifier,
+      active: true,
+    });
+  
+    const saveMods = getEffectsAndModifiersForToken(token, ['saveBonus', 'savePenalty'], '${savingThrow}');
+    // Also get modifiers specific to spells
+    const spellSaveMods = getEffectsAndModifiersForToken(token, ['saveBonus', 'savePenalty'], 'spell');
+    
+    // Filter out duplicates based on name, value, type, and active status
+    const allMods = [...saveMods, ...spellSaveMods].filter((mod, index, array) => {
+      return index === array.findIndex(m => 
+        m.name === mod.name && 
+        m.value === mod.value && 
+        m.modifierType === mod.modifierType && 
+        m.active === mod.active
+      );
+    });
+    
+    allMods.forEach(mod => {
+      saveModifiers.push(mod);
+    });
+  
+    const minRoll = getMinRollModifier(saveModifiers);
+    // Filter these out of the modifiers array, we don't need them to be toggleable
+    saveModifiers = saveModifiers.filter(m => !m.value.toString().startsWith('minroll'));
+  
+    const metadata = {
+      "rollName": '${capitalize(savingThrow)} Save',
+      "tooltip": '${capitalize(savingThrow)} Saving Throw',
+      "dc": ${saveDc},
+      "minRoll": minRoll
+    }
+  
+    api.promptRollForToken(token, '${capitalize(
+      savingThrow
+    )} Save', '1d20', saveModifiers, metadata, 'save');
+  });
+  \`\`\``;
+      })
+      .join("\n");
+
+    // Create macros for all effects that this spell can apply
+    let effectButtons = "";
+    const effects = spell?.data?.effects || [];
+    effects.forEach((effectJson) => {
+      const effect = JSON.parse(effectJson);
+      const effectName = effect?.name || "";
+      const effectID = effect?._id || "";
+      const effectTitle = `Apply_${effectName.replace(/ /g, "_")}`;
+      if (effectButtons !== "") {
+        effectButtons += "\n";
+      }
+      effectButtons += `\`\`\`${effectTitle}
+  let targets = api.getSelectedOrDroppedToken();
+  targets.forEach(target => {
+    api.addEffectById('${effectID}', target);
+  });
+  \`\`\``;
+    });
+
+    const message = `
+  #### ${spellIcon}${spellName}
+  
+  ---
+  &nbsp;
+  
+  ${spellDescription}
+  
+  ---
+  &nbsp;
+  
+  ${rollAttackButton}
+  ${rollSaveButtons}
+  ${damageButton}
+  ${altDamageButtons}
+  ${healingButton}
+  ${effectButtons}
+  `;
+
+    const castingTime = spell?.data?.castingTime;
+    const range = spell?.data?.range;
+    let duration = spell?.data?.duration || "";
+    // If there is a higher level duration, use that instead
+    if (spellLevel >= 2) {
+      duration = spell?.data?.[`durationLevel${spellLevel}`] || duration;
+    }
+    const hasConcentration = duration
+      ?.toLowerCase()
+      .startsWith("concentration");
+    const durationTag = duration.replace("Concentration, ", "").trim();
+
+    let components = spell?.data?.components;
+    if (components) {
+      // First clean up any extra spaces around commas
+      components = components.trim().replace(/\s*,\s*/g, ",");
+      // Split on V, S, M, or F, ignoring case
+      components = components.split(/,(?=[VSMF])/i);
+      components = components.map((component) => {
+        const trimmedComponent = component.trim().toLowerCase(); // Trim and convert to lower case
+        if (trimmedComponent === "v") {
+          return "Verbal";
+        } else if (trimmedComponent === "s") {
+          return "Somatic";
+        } else if (trimmedComponent === "m") {
+          return "Material";
+        } else if (trimmedComponent === "f") {
+          return "Focus";
+        } else if (trimmedComponent.match(/^m\s*\(/i)) {
+          // Check if material component has a cost
+          return trimmedComponent.toLowerCase().includes("worth")
+            ? "Material $"
+            : "Material";
+        }
+        return component.trim(); // Return the trimmed component if no match
+      });
+    }
+
+    const tags = [
+      {
+        tooltip: "Cast a Spell",
+        name: "Spell",
+      },
+    ];
+
+    if (castingTime) {
+      tags.push({
+        tooltip: "Casting Time",
+        name: castingTime.includes(",")
+          ? castingTime.split(",")[0]
+          : castingTime,
+      });
+    }
+
+    if (range) {
+      tags.push({
+        tooltip: "Range",
+        name: range,
+      });
+    }
+
+    if (hasConcentration) {
+      tags.push({
+        tooltip: "This Spell Requires Concentration",
+        name: "Concentration",
+      });
+    }
+
+    if (durationTag) {
+      tags.push({
+        tooltip: "Duration",
+        name: durationTag,
+      });
+    }
+
+    if (components && Array.isArray(components) && components.length > 0) {
+      components.forEach((component) => {
+        tags.push({
+          tooltip: component.includes("$")
+            ? "Spell Components (with Cost Requirement)"
+            : "Spell Components",
+          name: component,
+        });
+      });
+    }
+
+    let lostConcentrationOn = "";
+    if (hasConcentration) {
+      // Check for existing Concentration effect
+      const tokenForRecord = api.getToken();
+      const effects = tokenForRecord?.effects || [];
+      const hasEffect = effects.find(
+        (effect) => effect?.name?.toLowerCase() === "concentration"
+      );
+      if (tokenForRecord) {
+        const effectValue = spellName;
+        // Old spell name
+        let oldSpellName = "";
+        const oldValues = tokenForRecord?.effectValues || {};
+        if (oldValues[hasEffect?._id]) {
+          oldSpellName = oldValues[hasEffect?._id];
+        }
+        lostConcentrationOn = oldSpellName;
+        // Add concentration effect, which will replace any existing concentration effect
+        const durationSeconds = getDurationInSeconds(duration);
+        api.addEffect(
+          "Concentration",
+          tokenForRecord,
+          durationSeconds,
+          effectValue
+        );
+      }
+    }
+
+    api.sendMessage(message, undefined, [], tags);
+
+    if (lostConcentrationOn) {
+      api.sendMessage(
+        `Lost concentration on ${lostConcentrationOn}.`,
+        undefined,
+        [],
+        []
+      );
+    }
+  }
+
+  // Returns the options for upcasting a spell
+  function getLevelOptions() {
+    const iconButtonOptions = [
+      { icon: "IconCircleNumber1", label: "Level 1", value: 1 },
+      { icon: "IconCircleNumber2", label: "Level 2", value: 2 },
+      { icon: "IconCircleNumber3", label: "Level 3", value: 3 },
+      { icon: "IconCircleNumber4", label: "Level 4", value: 4 },
+      { icon: "IconCircleNumber5", label: "Level 5", value: 5 },
+      { icon: "IconCircleNumber6", label: "Level 6", value: 6 },
+      { icon: "IconCircleNumber7", label: "Level 7", value: 7 },
+      { icon: "IconCircleNumber8", label: "Level 8", value: 8 },
+      { icon: "IconCircleNumber9", label: "Level 9", value: 9 },
+    ];
+
+    const spellLevel = parseInt(value?.data?.level, 10) || 0; // Default to 0 if no level is set
+    return iconButtonOptions.filter((option) => option.value >= spellLevel);
+  }
+
+  function toggleDaily() {
+    const prepared = value;
+    // We're in a list, so we need to use the data path to the fields metadata
+    const dataPathToHideDaily = dataPath.replace(
+      ".data.prepared",
+      ".fields.maxDailyUses.hidden"
+    );
+    const dataPathToHideCounter = dataPath.replace(
+      ".data.prepared",
+      ".fields.dailyUses.hidden"
+    );
+    const dataPathToHideRestore = dataPath.replace(
+      ".data.prepared",
+      ".fields.restoreOnRest.hidden"
+    );
+    const dataPathToHideSaveDc = dataPath.replace(
+      ".data.prepared",
+      ".fields.saveDc.hidden"
+    );
+    const dataPathToHideAttackMod = dataPath.replace(
+      ".data.prepared",
+      ".fields.attackMod.hidden"
+    );
+    const valuesToSet = {};
+    if (prepared === "daily") {
+      valuesToSet[dataPathToHideDaily] = false;
+      valuesToSet[dataPathToHideCounter] = false;
+      valuesToSet[dataPathToHideRestore] = false;
+      valuesToSet[dataPathToHideSaveDc] = false;
+      valuesToSet[dataPathToHideAttackMod] = false;
+    } else if (prepared === "atwill") {
+      valuesToSet[dataPathToHideDaily] = true;
+      valuesToSet[dataPathToHideCounter] = true;
+      valuesToSet[dataPathToHideRestore] = true;
+      valuesToSet[dataPathToHideSaveDc] = false;
+      valuesToSet[dataPathToHideAttackMod] = false;
+    } else {
+      valuesToSet[dataPathToHideDaily] = true;
+      valuesToSet[dataPathToHideCounter] = true;
+      valuesToSet[dataPathToHideRestore] = true;
+      valuesToSet[dataPathToHideSaveDc] = true;
+      valuesToSet[dataPathToHideAttackMod] = true;
+    }
+    api.setValues(valuesToSet);
+  }
+</script>
+
+<div style="display: column; gap: 2px; width: 100%">
+  <div style="display: flex; gap: 2px; width: 100%">
+    <div style="width: 30px; height: 30px; min-width: 30px; min-height: 30px">
+      <portrait width="30px" height="30px" field="portrait"></portrait>
+    </div>
+    <div style="margin-top: auto; margin-bottom: auto">
+      <iconbutton
+        size="sm"
+        field="prepared"
+        variant="default"
+        onchange="toggleDaily();"
+        options='[{"icon": "IconWand", "label": "Prepared", "value": "prepared"}, {"icon": "IconBook", "label": "Unprepared", "value": "unprepared"}, {"icon": "IconCircleLetterD", "label": "Daily", "value": "daily"}, {"icon": "IconCircleLetterA", "label": "At Will", "value": "atwill"}]'
+      >
+      </iconbutton>
+    </div>
+    <namefield
+      size="xs"
+      width="100%"
+      variant="unstyled"
+      field="namefield"
+    ></namefield>
+    <stringfield
+      size="xs"
+      field="castingTime"
+      label="Casting Time"
+      variant="tooltip"
+    ></stringfield>
+    <stringfield
+      size="xs"
+      field="range"
+      label="Range"
+      variant="tooltip"
+    ></stringfield>
+    <div style="margin-top: auto; margin-bottom: auto">
+      <iconbutton
+        size="sm"
+        field="ability"
+        variant="default"
+        options='[{"icon": "IconSquareLetterS", "label": "Strength", "value": "strength"}, {"icon": "IconSquareLetterD", "label": "Dexterity", "value": "dexterity"}, {"icon": "IconSquareLetterC", "label": "Constitution", "value": "constitution"}, {"icon": "IconSquareLetterI", "label": "Intelligence", "value": "intelligence"}, {"icon": "IconSquareLetterW", "label": "Wisdom", "value": "wisdom"}, {"icon": "IconSquareLetterC", "label": "Charisma", "value": "charisma"}]'
+      >
+      </iconbutton>
+    </div>
+    <div style="margin-top: auto; margin-bottom: auto">
+      <iconbutton
+        size="sm"
+        field="upcastLevel"
+        color="pink"
+        variant="light"
+        getoptions="return getLevelOptions();"
+      >
+      </iconbutton>
+    </div>
+    <div style="margin-left: auto">
+      <button
+        size="xs"
+        radius="xs"
+        field="castBtn"
+        label="Cast"
+        variant="light"
+        onclick="castSpell();"
+      ></button>
+    </div>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      width: 100%;
+      align-items: center;
+    "
+  >
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <dropdown
+        size="xs"
+        field="restoreOnRest"
+        label="Restore On"
+        width="100px"
+        hidden="true"
+        options='[{"label": "Manual", "value": "no"}, {"label": "Long Rest", "value": "long"}, {"label": "Short Rest", "value": "short"}]'
+      ></dropdown>
+    </div>
+    <numberfield
+      hidden="true"
+      width="100px"
+      field="maxDailyUses"
+      placeholder="1"
+      label="Uses Per Day"
+      size="xs"
+    >
+    </numberfield>
+    <counter
+      hidden="true"
+      width="80%"
+      field="dailyUses"
+      maxvalue="1"
+      maxvaluefield="maxDailyUses"
+    >
+    </counter>
+  </div>
+  <accordion size="xs" field="descriptionOpen" label="Description">
+    <div style="display: flex; gap: 4px">
+      <numberfield
+        hidden="true"
+        width="50%"
+        field="saveDc"
+        placeholder="N/A"
+        label="Save DC Override"
+        size="xs"
+      >
+      </numberfield>
+      <numberfield
+        hidden="true"
+        width="50%"
+        field="attackMod"
+        placeholder="N/A"
+        label="Attack Modifier Override"
+        size="xs"
+      >
+      </numberfield>
+    </div>
+    <div style="display: flex; gap: 4px">
+      <stringfield
+        size="xs"
+        width="50%"
+        field="components"
+        label="Components"
+      ></stringfield>
+      <stringfield
+        size="xs"
+        width="50%"
+        field="duration"
+        label="Duration"
+      ></stringfield>
+    </div>
+    <div style="margin-top: 4px">
+      <richtextfield disablecontrols="true" field="description"></richtextfield>
+    </div>
+  </accordion>
+</div>
+
+<numberfield hidden="true" field="level"></numberfield>

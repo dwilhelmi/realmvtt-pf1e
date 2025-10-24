@@ -1,9 +1,11 @@
 <script>
   // TODO add things for other types such as Focus points
   // TODO in onEditFeature we need to set these values
+  // Add ability to show/hide lists for each rank in settings menu
 
   function deleteSpellcastingEntry() {
     const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
+    const spellcastingEntry = api.getValue(spellcastingEntryDataPath);
     const indexValue = parseInt(spellcastingEntryDataPath.split(".").pop(), 10);
 
     if (isNaN(indexValue) || indexValue < 0) {
@@ -12,11 +14,28 @@
 
     api.showConfirm(
       "Delete Spellcasting Entry",
-      "Are you sure you want to delete this spellcasting entry?",
+      `Are you sure you want to delete the "${spellcastingEntry.name}" entry?`,
       "Yes",
       "No",
       () => {
-        api.removeValue("data.spells", indexValue);
+        const allSpellcastingEntries = [...(record.data?.spells || [])];
+
+        // Remove the entry
+        allSpellcastingEntries.splice(indexValue, 1);
+
+        // If we deleted the first entry and there are remaining entries,
+        // ensure the new first entry has its move up button hidden
+        if (indexValue === 0 && allSpellcastingEntries.length > 0) {
+          allSpellcastingEntries[0].fields =
+            allSpellcastingEntries[0].fields || {};
+          allSpellcastingEntries[0].fields.moveUpBtn =
+            allSpellcastingEntries[0].fields.moveUpBtn || {};
+          allSpellcastingEntries[0].fields.moveUpBtn.hidden = true;
+        }
+
+        api.setValues({
+          "data.spells": allSpellcastingEntries,
+        });
       }
     );
   }
@@ -87,6 +106,17 @@
             ></label>
             <dropdown
               size="xs"
+              field="shownSpells"
+              placeholder="Select Spells to Show..."
+              width="100%"
+              multiselect="12"
+              onchange="onChangeValue();"
+              label="Spells to Show"
+              options='[{"label": "Cantrips", "value": "cantrips"}, {"label": "1st Rank", "value": "spells1"}, {"label": "2nd Rank", "value": "spells2"}, {"label": "3rd Rank", "value": "spells3"}, {"label": "4th Rank", "value": "spells4"}, {"label": "5th Rank", "value": "spells5"}, {"label": "6th Rank", "value": "spells6"}, {"label": "7th Rank", "value": "spells7"}, {"label": "8th Rank", "value": "spells8"}, {"label": "9th Rank", "value": "spells9"}, {"label": "10th Rank", "value": "spells10"}]'
+            ></dropdown>
+            <divider></divider>
+            <dropdown
+              size="xs"
               field="type"
               placeholder="Select Type..."
               defaultvalue="prepared"
@@ -98,6 +128,16 @@
               {"label": "Innate", "value": "innate"},
               {"label": "Focus", "value": "focus"}]'
             ></dropdown>
+            <numberfield
+              size="xs"
+              field="focusPoolMax"
+              hidden="true"
+              placeholder="1"
+              minvalue="1"
+              maxvalue="3"
+              width="100%"
+              label="Focus Pool Max"
+            ></numberfield>
             <divider></divider>
             <dropdown
               size="xs"
@@ -147,6 +187,16 @@
         options='[{"icon": "IconTrash", "label": "Delete", "value": "delete"}]'
         onclick="deleteSpellcastingEntry();"
       ></iconbutton>
+      <iconbutton
+        field="moveUpBtn"
+        hidden="true"
+        size="sm"
+        hideonlocked="true"
+        variant="subtle"
+        color="default"
+        options='[{"icon": "IconArrowUp", "label": "Move Up", "value": "moveUp"}]'
+        onclick="moveUpSpellcastingEntry(dataPath);"
+      ></iconbutton>
     </div>
   </div>
 </div>
@@ -188,6 +238,20 @@
       size="xs"
     ></numberfield>
   </div>
+  <label
+    field="focusPoolLabel"
+    hidden="true"
+    label="Focus Pool"
+    size="xs"
+    variant="bold"
+  ></label>
+  <counter
+    hidden="true"
+    field="focusPool"
+    size="xs"
+    maxvaluefield="focusPoolMax"
+    editable="true"
+  ></counter>
   <div
     style="
       display: flex;
@@ -210,3 +274,608 @@
     ></dropdown>
   </div>
 </div>
+
+<!-- Cantrips List -->
+<box field="cantripsBox" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="Cantrips"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numCantrips"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="cantrips" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 1 Spells List -->
+<box field="spells1Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="1st Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells1"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells1" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 2 Spells List -->
+<box field="spells2Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="2nd Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells2"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells2" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 3 Spells List -->
+<box field="spells3Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="3rd Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells3"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells3" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 4 Spells List -->
+<box field="spells4Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="4th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells4"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells4" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 5 Spells List -->
+<box field="spells5Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="5th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells5"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells5" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 6 Spells List -->
+<box field="spells6Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="6th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells6"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells6" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 7 Spells List -->
+<box field="spells7Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="7th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells7"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells7" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 8 Spells List -->
+<box field="spells8Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="8th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells8"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells8" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 9 Spells List -->
+<box field="spells9Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="9th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells9"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells9" variant="striped" listtype="spell_list"></list>
+</box>
+
+<!-- Rank 10 Spells List -->
+<box field="spells10Box" hidden="true">
+  <div
+    style="
+      width: 100%;
+      background-color: var(--mantine-color-dark-light);
+      border: 1px solid var(--mantine-color-default-border);
+      padding: 4px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-grow: 1;
+      "
+    >
+      <div style="min-width: 70px; width: 70px">
+        <label
+          label="10th Rank"
+          width="100%"
+          size="xs"
+          variant="bold"
+          textalign="left"
+        ></label>
+      </div>
+      <div style="min-width: 40px; width: 40px">
+        <numberfield
+          field="numSpells10"
+          width="100%"
+          placeholder="0"
+          bold="true"
+          hidecontrols="true"
+          textalign="center"
+          size="xs"
+        ></numberfield>
+      </div>
+    </div>
+    <div style="min-width: 100px; width: 100px; margin-left: 16px">
+      <label label="Defense" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px">
+      <label label="Range" size="xs" variant="bold"></label>
+    </div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"></div>
+  </div>
+
+  <list field="spells10" variant="striped" listtype="spell_list"></list>
+</box>
