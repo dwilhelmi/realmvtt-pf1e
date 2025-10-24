@@ -1,4 +1,38 @@
 <script>
+  function computeDefenseString(defense) {
+    // Format the defense object into a string
+    if (!defense && !defense?.passive && !defense?.save) {
+      return "";
+    }
+    let defenseString = "";
+    if (defense?.passive?.statistic) {
+      let passiveStatistic = defense?.passive?.statistic;
+      if (passiveStatistic === "ac") {
+        passiveStatistic = "AC";
+      } else if (passiveStatistic === "fortitude-dc") {
+        passiveStatistic = "Fortitude DC";
+      } else if (passiveStatistic === "reflex-dc") {
+        passiveStatistic = "Reflex DC";
+      } else if (passiveStatistic === "will-dc") {
+        passiveStatistic = "Will DC";
+      }
+      defenseString += `${passiveStatistic} `;
+    }
+    if (defense?.save?.basic) {
+      if (defenseString.length > 0) {
+        defenseString += " |";
+      }
+      defenseString += " Basic";
+    }
+    if (defense?.save?.statistic) {
+      if (defenseString.length > 0) {
+        defenseString += " ";
+      }
+      defenseString += `${capitalize(defense?.save?.statistic)} `;
+    }
+    return defenseString.trim();
+  }
+
   function onDrop(value, recordLink) {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
@@ -45,7 +79,7 @@
         return;
       }
 
-      if (spellSlot.data?.type === "slot") {
+      const setSpell = () => {
         valuesToSet[`${dataPathToSpell}`] = {
           ...spell,
           _id: spellSlot?._id,
@@ -54,6 +88,7 @@
             ...spell?.data,
             level: spellSlot?.data?.level,
             slotOrder: spellSlot?.data?.slotOrder,
+            defenseString: computeDefenseString(spell?.data?.defense),
           },
           fields: {
             ...(spell?.fields || {}),
@@ -62,11 +97,18 @@
           },
         };
         api.setValues(valuesToSet);
+      };
+
+      // If the spell was already set, we need to clear it first
+      if (spellSlot.data?.type === "spell") {
+        clearSpell(setSpell, false);
+      } else {
+        setSpell();
       }
     }
   }
 
-  function clearSpell() {
+  function clearSpell(callback, confirm = true) {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
     const rank = spellSlot?.data?.level;
@@ -81,32 +123,50 @@
             ? "Cantrip Slot"
             : `Rank ${rank} Spell Slot`,
           _id: spellSlot?._id,
+          portrait: null,
           data: {
             type: "slot",
+            traits: [],
+            traditions: [],
             description: "",
+            traitsList: [],
+            defense: null,
+            range: "",
+            time: "",
+            target: "",
+            cost: "",
+            duration: "",
+            area: null,
+            damage: null,
+            heightened: null,
+            overlays: null,
             level: spellSlot?.data?.level,
             slotOrder: spellSlot?.data?.slotOrder,
-            modifiers: [],
-            item: [],
-            choices: [],
-            proficiencies: [],
           },
           fields: {
             spellDetails: { hidden: true },
             spellSlot: { hidden: false },
           },
         };
-        api.setValues(valuesToSet);
+        api.setValues(valuesToSet, () => {
+          if (callback) {
+            callback();
+          }
+        });
       }
     };
 
-    api.showConfirm(
-      "Remove Spell",
-      `Are you sure you want to remove ${spellSlot.name}?`,
-      "Yes",
-      "No",
-      onDeleteSpell
-    );
+    if (confirm) {
+      api.showConfirm(
+        "Remove Spell",
+        `Are you sure you want to remove ${spellSlot.name}?`,
+        "Yes",
+        "No",
+        onDeleteSpell
+      );
+    } else {
+      onDeleteSpell();
+    }
   }
 
   function showSpellSlotOptions() {
@@ -240,33 +300,59 @@
         >
           <portrait width="30px" height="30px" field="portrait"></portrait>
         </div>
-        <div style="width: fit-content">
-          <namefield
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            min-width: 170px;
+            flex-grow: 1;
+            align-items: center;
+          "
+        >
+          <div style="width: fit-content">
+            <label size="sm" field="namefield" variant="bold"></label>
+          </div>
+          <iconbutton
+            field="actions"
             size="sm"
-            width="100%"
-            variant="unstyled"
-            bold="true"
-            field="namefield"
-            placeholder="Enter spell name..."
-          ></namefield>
-        </div>
-        <iconbutton
-          field="actions"
-          size="sm"
-          variant="subtle"
-          color="default"
-          disablediflocked="true"
-          hidden="true"
-          width="max-content"
-          options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+            variant="subtle"
+            color="default"
+            disabled="true"
+            hidden="false"
+            width="max-content"
+            options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
   {"label": "One Action", "value": "oneAction", "icon": "one-action"},
   {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
   {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
   {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
   {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
   {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
-        ></iconbutton>
+          ></iconbutton>
+        </div>
         <!-- TODO ADD Range / Defense / Cast Button -->
+        <div style="min-width: 100px; width: 100px; margin-left: 8px">
+          <label size="sm" field="defenseString"></label>
+        </div>
+        <div style="min-width: 70px; width: 70px; margin-left: 8px">
+          <stringfield
+            size="sm"
+            label="Range"
+            variant="tooltip-underline"
+            width="100%"
+            field="range"
+          ></stringfield>
+        </div>
+        <div style="min-width: 60px; width: 60px">
+          <button
+            size="xs"
+            variant="light"
+            width="100%"
+            color="primary"
+            label="Cast"
+            onclick="castSpell()"
+          ></button>
+        </div>
         <div style="margin-right: 4px; margin-left: auto">
           <iconbutton
             size="sm"
@@ -305,7 +391,7 @@
         size="sm"
         variant="subtle"
         color="default"
-        disablediflocked="true"
+        disabled="true"
         hidden="true"
         width="max-content"
         options='[{"label": "Free Action", "value": "free", "icon": "free-action"},

@@ -297,8 +297,111 @@
       {"label": "1 to 3 Actions", "value": "1 to 3"},
       {"label": "Reaction", "value": "reaction"}]'
     ></dropdown>
+    <stringfield
+      field="target"
+      label="Targets"
+      placeholder="Enter Targets..."
+      width="100%"
+    ></stringfield>
   </div>
 </box>
+
+<stringfield
+  field="range"
+  multiline="true"
+  label="Range"
+  placeholder="Enter Range..."
+></stringfield>
+
+<div
+  style="display: flex; flex-direction: row; width: 100%; gap: 4px; width: 100%"
+>
+  <dropdown
+    field="area.type"
+    width="100%"
+    placeholder="Enter Area Type..."
+    label="Area Type"
+    defaultvalue=""
+    options='[{"label": "None", "value": ""}, 
+    {"label": "Burst", "value": "burst"},
+    {"label": "Cone", "value": "cone"},
+    {"label": "Cube", "value": "cube"},
+    {"label": "Cylinder", "value": "cylinder"},
+    {"label": "Emanation", "value": "emanation"},
+    {"label": "Line", "value": "line"}]'
+  ></dropdown>
+  <numberfield
+    field="area.value"
+    width="100%"
+    placeholder="Enter Area Size..."
+    label="Area Size"
+    minvalue="0"
+    maxvalue="1000"
+  ></numberfield>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    width: 100%;
+    align-items: flex-end;
+  "
+>
+  <div style="min-width: 100px; flex-grow: 1">
+    <stringfield
+      field="duration.value"
+      placeholder="Enter Duration..."
+      width="100%"
+      label="Duration"
+    ></stringfield>
+  </div>
+  <checkbox
+    width="100px"
+    size="sm"
+    field="duration.sustained"
+    label="Sustained"
+  ></checkbox>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    width: 100%;
+    align-items: flex-end;
+  "
+>
+  <dropdown
+    field="defense.passive.statistic"
+    width="100%"
+    placeholder="--"
+    label="Passive Defense"
+    options='[{"label": "AC", "value": "ac"},
+    {"label": "Fortitude DC", "value": "fortitude-dc"},
+    {"label": "Reflex DC", "value": "reflex-dc"},
+    {"label": "Will DC", "value": "will-dc"}]'
+  ></dropdown>
+  <dropdown
+    field="defense.save.statistic"
+    width="100%"
+    placeholder="--"
+    label="Saving Throw"
+    options='[{"label": "Fortitude", "value": "fortitude"},
+    {"label": "Reflex", "value": "reflex"},
+    {"label": "Will", "value": "will"}]'
+  ></dropdown>
+  <checkbox
+    field="defense.save.basic"
+    width="100px"
+    size="sm"
+    label="Basic"
+  ></checkbox>
+</div>
 
 <div style="margin-top: 8px; margin-bottom: 8px">
   <divider label="Description"></divider>
