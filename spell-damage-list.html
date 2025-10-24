@@ -1,0 +1,77 @@
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: flex-end;
+    width: 100%;
+  "
+>
+  <div style="min-width: 100px; flex-grow: 1">
+    <stringfield
+      width="100%"
+      field="formula"
+      label="Damage Roll"
+      placeholder="Enter Roll..."
+    ></stringfield>
+  </div>
+  <dropdown
+    width="150px"
+    field="type"
+    label="Damage Type"
+    placeholder="Select Type..."
+    options='[
+    {"label": "Acid", "value": "acid"},
+    {"label": "Bludgeoning", "value": "bludgeoning"},
+    {"label": "Bleed", "value": "bleed"},
+    {"label": "Cold", "value": "cold"},
+    {"label": "Electricity", "value": "electricity"},
+    {"label": "Fire", "value": "fire"},
+    {"label": "Force", "value": "force"},
+    {"label": "Mental", "value": "mental"},
+    {"label": "Piercing", "value": "piercing"},
+    {"label": "Poison", "value": "poison"},
+    {"label": "Precision", "value": "precision"},
+    {"label": "Slashing", "value": "slashing"},
+    {"label": "Sonic", "value": "sonic"},
+    {"label": "Spirit", "value": "spirit"},
+    {"label": "Vitality", "value": "vitality"},
+    {"label": "Void", "value": "void"}]'
+  >
+  </dropdown>
+  <checkbox
+    width="130px"
+    field="applyMod"
+    size="sm"
+    label="Apply Modifier"
+    textalign="right"
+  ></checkbox>
+</div>
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: flex-end;
+    width: 100%;
+  "
+>
+  <dropdown
+    width="100%"
+    field="category"
+    label="Category"
+    defaultvalue=""
+    placeholder="Select Category..."
+    options='[{"label": "Standard", "value": ""}, {"label": "Persistent", "value": "persistent"}]'
+  >
+  </dropdown>
+  <dropdown
+    width="100%"
+    field="kinds"
+    label="Damage Kinds"
+    multiselect="2"
+    placeholder="Select Kinds..."
+    options='[{"label": "Damage", "value": "damage"}, {"label": "Healing", "value": "healing"}]'
+  >
+  </dropdown>
+</div>

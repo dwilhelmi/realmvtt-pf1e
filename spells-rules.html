@@ -1,0 +1,66 @@
+<label
+  variant="bold"
+  textalign="center"
+  label="Rules Elements"
+  size="md"
+></label>
+
+<stringfield
+  field="range"
+  multiline="true"
+  label="Range"
+  placeholder="Enter Range..."
+></stringfield>
+
+<div
+  style="display: flex; flex-direction: row; width: 100%; gap: 4px; width: 100%"
+>
+  <dropdown
+    field="area.type"
+    width="100%"
+    placeholder="Enter Area Type..."
+    label="Area Type"
+    defaultvalue=""
+    options='[{"label": "None", "value": ""}, 
+    {"label": "Burst", "value": "burst"},
+    {"label": "Cone", "value": "cone"},
+    {"label": "Cube", "value": "cube"},
+    {"label": "Cylinder", "value": "cylinder"},
+    {"label": "Emanation", "value": "emanation"},
+    {"label": "Line", "value": "line"}]'
+  ></dropdown>
+  <numberfield
+    field="area.value"
+    width="100%"
+    placeholder="Enter Area Size..."
+    label="Area Size"
+    minvalue="0"
+    maxvalue="1000"
+  ></numberfield>
+</div>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    width: 100%;
+    align-items: flex-end;
+  "
+>
+  <div style="min-width: 100px; flex-grow: 1">
+    <stringfield
+      field="duration.value"
+      placeholder="Enter Duration..."
+      width="100%"
+      label="Duration"
+    ></stringfield>
+  </div>
+  <checkbox
+    width="100px"
+    size="sm"
+    field="duration.sustained"
+    label="Sustained"
+  ></checkbox>
+</div>

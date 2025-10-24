@@ -16,21 +16,32 @@
         .includes("cantrip");
       const spellType = spell?.data?.type;
 
-      // Check if spell level is too high for the slot
-      if (spellLevel > slotLevel || (slotLevel === 0 && !isCantrip)) {
-        if (slotLevel === 0 && !isCantrip) {
-          api.showNotification(
-            `This slot only accepts Cantrips.`,
-            "red",
-            "Not a Cantrip"
-          );
-        } else {
-          api.showNotification(
-            `This slot requires a spell of Rank ${slotLevel} or lower.`,
-            "red",
-            "Spell Level Mismatch"
-          );
-        }
+      // Check cantrip vs non-cantrip first
+      if (slotLevel === 0 && !isCantrip) {
+        api.showNotification(
+          `This slot only accepts Cantrips.`,
+          "red",
+          "Not a Cantrip"
+        );
+        return;
+      }
+
+      if (isCantrip && slotLevel > 0) {
+        api.showNotification(
+          `Cantrips can only be placed in Cantrip slots.`,
+          "red",
+          "Spell Type Mismatch"
+        );
+        return;
+      }
+
+      // Check if spell level is too high for the slot (only for non-cantrips)
+      if (!isCantrip && spellLevel > slotLevel) {
+        api.showNotification(
+          `This slot requires a spell of Rank ${slotLevel} or lower.`,
+          "red",
+          "Spell Level Mismatch"
+        );
         return;
       }
 
@@ -128,16 +139,39 @@
           { "data.level": { $exists: false } },
           { "data.level": null },
         ],
-        "data.traits": {
-          $elemMatch: { $regex: `^${tradition}$`, $options: "i" },
-        },
-        ...(spellSlotLevel === 0
-          ? {
-              "data.traits": {
-                $elemMatch: { $regex: `^cantrip$`, $options: "i" },
+        $and: [
+          {
+            $or: [
+              {
+                "data.traits": {
+                  $elemMatch: { $regex: `^${tradition}$`, $options: "i" },
+                },
               },
-            }
-          : {}),
+              {
+                "data.traditions": {
+                  $elemMatch: { $regex: `^${tradition}$`, $options: "i" },
+                },
+              },
+            ],
+          },
+          ...(spellSlotLevel === 0
+            ? [
+                {
+                  "data.traits": {
+                    $elemMatch: { $regex: `^cantrip$`, $options: "i" },
+                  },
+                },
+              ]
+            : [
+                {
+                  "data.traits": {
+                    $not: {
+                      $elemMatch: { $regex: `^cantrip$`, $options: "i" },
+                    },
+                  },
+                },
+              ]),
+        ],
       },
     };
 

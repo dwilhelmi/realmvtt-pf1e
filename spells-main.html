@@ -1,0 +1,311 @@
+<script>
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const spellDataPath = getNearestParentDataPath(dataPath);
+    const spell = spellDataPath ? api.getValue(spellDataPath) : record;
+    const dataPrefix = spellDataPath ? `${spellDataPath}.data` : "data";
+    const fieldsPath = spellDataPath ? `${spellDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      spell.data?.traits &&
+      spell.data?.traits.length > 0 &&
+      !spell.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of spell.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    // Set actions based on time
+    const showActions = spell.data?.type !== "ritual";
+    if (showActions && spell.fields?.actions?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.actions.hidden`] = false;
+    } else if (!showActions && spell.fields?.actions?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.actions.hidden`] = true;
+    }
+
+    const time = spell.data?.time || "";
+    if (showActions) {
+      if (time === "free" && spell.data?.actions !== "free") {
+        valuesToSet[`${dataPrefix}.actions`] = "free";
+      } else if (time === "1" && spell.data?.actions !== "oneAction") {
+        valuesToSet[`${dataPrefix}.actions`] = "oneAction";
+      } else if (time === "2" && spell.data?.actions !== "twoActions") {
+        valuesToSet[`${dataPrefix}.actions`] = "twoActions";
+      } else if (time === "3" && spell.data?.actions !== "threeActions") {
+        valuesToSet[`${dataPrefix}.actions`] = "threeActions";
+      } else if (
+        time === "1 to 2" &&
+        spell.data?.actions !== "oneToTwoActions"
+      ) {
+        valuesToSet[`${dataPrefix}.actions`] = "oneToTwoActions";
+      } else if (
+        time === "1 to 3" &&
+        spell.data?.actions !== "oneToThreeActions"
+      ) {
+        valuesToSet[`${dataPrefix}.actions`] = "oneToThreeActions";
+      } else if (time === "reaction" && spell.data?.actions !== "reaction") {
+        valuesToSet[`${dataPrefix}.actions`] = "reaction";
+      }
+    }
+
+    // Show/hide ritual box
+    const showRitualBox = spell.data?.type === "ritual";
+    if (showRitualBox && spell.fields?.ritualBox?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.ritualBox.hidden`] = false;
+    } else if (!showRitualBox && spell.fields?.ritualBox?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.ritualBox.hidden`] = true;
+    }
+
+    // Show/hide spell box
+    if (!showRitualBox && spell.fields?.spellBox?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.spellBox.hidden`] = false;
+    } else if (showRitualBox && spell.fields?.spellBox?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.spellBox.hidden`] = true;
+    }
+
+    // Make sure time is set to a valid value if we're not a ritual
+    if (
+      !showRitualBox &&
+      !["reaction", "free", "1", "2", "3", "1 to 2", "1 to 3"].includes(
+        spell.data?.time
+      )
+    ) {
+      valuesToSet[`${dataPrefix}.time`] = "1";
+      valuesToSet[`${dataPrefix}.actions`] = "oneAction";
+    }
+
+    const isCantrip = (spell.data?.traits || []).some(
+      (trait) => trait?.toLowerCase() === "cantrip"
+    );
+
+    const level = spell.data?.level || 1;
+    const levelLabel = `${
+      isCantrip ? "Cantrip" : showRitualBox ? "Ritual" : "Spell"
+    } ${level}`;
+    if (levelLabel && spell.fields?.levelLabel?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = false;
+    } else if (!levelLabel && spell.fields?.levelLabel?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = true;
+    }
+
+    if (levelLabel && spell.data?.levelLabel !== levelLabel) {
+      valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function updateCastingTime() {
+    const spellDataPath = getNearestParentDataPath(dataPath);
+    const spell = spellDataPath ? api.getValue(spellDataPath) : record;
+    const dataPrefix = spellDataPath ? `${spellDataPath}.data` : "data";
+    const fieldsPath = spellDataPath ? `${spellDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    const actions = spell.data?.actions;
+    if (actions === "free") {
+      valuesToSet[`${dataPrefix}.time`] = "free";
+    } else if (actions === "oneAction") {
+      valuesToSet[`${dataPrefix}.time`] = "1";
+    } else if (actions === "twoActions") {
+      valuesToSet[`${dataPrefix}.time`] = "2";
+    } else if (actions === "threeActions") {
+      valuesToSet[`${dataPrefix}.time`] = "3";
+    } else if (actions === "oneToTwoActions") {
+      valuesToSet[`${dataPrefix}.time`] = "1 to 2";
+    } else if (actions === "oneToThreeActions") {
+      valuesToSet[`${dataPrefix}.time`] = "1 to 3";
+    } else if (actions === "reaction") {
+      valuesToSet[`${dataPrefix}.time`] = "reaction";
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Feat"
+    size="lg"
+    variant="bold"
+  ></label>
+  <iconbutton
+    field="actions"
+    size="md"
+    variant="subtle"
+    color="default"
+    disablediflocked="true"
+    hidden="true"
+    width="max-content"
+    onchange="updateCastingTime();"
+    options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+    {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+    {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+    {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
+    {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
+    {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+    {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+  ></iconbutton>
+  <div style="margin-left: auto">
+    <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
+  </div>
+</div>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value, showHideFields);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <numberfield
+          field="level"
+          label="Level"
+          onchange="showHideFields();"
+          width="70px"
+          minvalue="1"
+          placeholder="1"
+        ></numberfield>
+        <div style="min-width: 70px; flex-grow: 1">
+          <dropdown
+            width="100%"
+            field="traditions"
+            onchange="showHideFields();"
+            label="Traditions"
+            multiselect="4"
+            placeholder="Select Tradition..."
+            options='[{"label": "Arcane", "value": "Arcane"},
+{"label": "Divine", "value": "Divine"},
+{"label": "Occult", "value": "Occult"},
+{"label": "Primal", "value": "Primal"}]'
+          ></dropdown>
+        </div>
+      </div>
+      <div style="display: flex; gap: 4px">
+        <stringfield field="cost" placeholder="N/A" width="100%" label="Cost">
+        </stringfield>
+        <dropdown
+          width="100%"
+          field="type"
+          onchange="showHideFields();"
+          label="Type"
+          defaultvalue="spell"
+          placeholder="Select Type..."
+          options='[{"label": "Spell or Cantrip", "value": "spell"}, {"label": "Ritual", "value": "ritual"}]'
+        ></dropdown>
+      </div>
+    </div>
+  </div>
+</div>
+
+<box field="ritualBox" hidden="true">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <stringfield
+      field="time"
+      placeholder="N/A"
+      width="100%"
+      label="Ritual Time"
+    ></stringfield>
+  </div>
+</box>
+
+<box field="spellBox">
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <dropdown
+      field="time"
+      onchange="showHideFields();"
+      placeholder="N/A"
+      width="100%"
+      label="Casting Time"
+      options='[{"label": "Free Action", "value": "free"},
+      {"label": "One Action", "value": "1"},
+      {"label": "Two Actions", "value": "2"},
+      {"label": "Three Actions", "value": "3"},
+      {"label": "1 to 2 Actions", "value": "1 to 2"},
+      {"label": "1 to 3 Actions", "value": "1 to 3"},
+      {"label": "Reaction", "value": "reaction"}]'
+    ></dropdown>
+  </div>
+</box>
+
+<div style="margin-top: 8px; margin-bottom: 8px">
+  <divider label="Description"></divider>
+</div>
+
+<richtextfield
+  placeholder="Enter Feat description..."
+  field="description"
+  label="Description"
+></richtextfield>
