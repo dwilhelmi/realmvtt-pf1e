@@ -1,0 +1,97 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  "
+>
+  <!-- Spell Rank -->
+  <div
+    style="display: flex; flex-direction: row; gap: 8px; align-items: flex-end"
+  >
+    <numberfield
+      width="100px"
+      size="xs"
+      field="rank"
+      label="Spell Rank"
+      placeholder="e.g., 4"
+    ></numberfield>
+  </div>
+
+  <!-- Damage Section -->
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <label label="Damage at This Rank" variant="bold" size="sm"></label>
+    <list listtype="spell_damage_list" field="damage" variant="striped"></list>
+  </div>
+
+  <!-- Area Section -->
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <label label="Area at This Rank" variant="bold" size="sm"></label>
+
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: flex-end;
+      "
+    >
+      <dropdown
+        width="150px"
+        size="xs"
+        field="area.type"
+        label="Area Type"
+        placeholder="Select Type..."
+        options='[
+          {"label": "Burst", "value": "burst"},
+          {"label": "Cone", "value": "cone"},
+          {"label": "Cube", "value": "cube"},
+          {"label": "Cylinder", "value": "cylinder"},
+          {"label": "Emanation", "value": "emanation"},
+          {"label": "Line", "value": "line"}
+        ]'
+      ></dropdown>
+
+      <numberfield
+        width="100px"
+        size="xs"
+        field="area.value"
+        label="Size (ft)"
+        placeholder="10"
+      ></numberfield>
+    </div>
+  </div>
+
+  <!-- Additional Fields (Target, Duration, Range, etc.) -->
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <label label="Other Changes (Optional)" variant="bold" size="sm"></label>
+
+    <stringfield
+      width="100%"
+      size="xs"
+      field="target"
+      label="Target Override"
+      placeholder="e.g., 10 creatures"
+    ></stringfield>
+
+    <stringfield
+      width="100%"
+      size="xs"
+      field="duration"
+      label="Duration Override"
+      placeholder="e.g., 1 hour"
+    ></stringfield>
+
+    <stringfield
+      width="100%"
+      size="xs"
+      field="range"
+      label="Range Override"
+      placeholder="e.g., 500 feet"
+    ></stringfield>
+  </div>
+</div>

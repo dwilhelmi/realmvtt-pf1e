@@ -1,4 +1,31 @@
 <script>
+  function onCastSpell() {
+    const dataPathToSpell = getNearestParentDataPath(dataPath);
+    const spell = api.getValue(dataPathToSpell);
+    const ability = spell?.data?.ability || "int";
+
+    // TODO mark used, send to chat
+    // castSpell()
+  }
+
+  function toggleUsed(value) {
+    const dataPathToSpell = getNearestParentDataPath(dataPath);
+    const spell = api.getValue(dataPathToSpell);
+    const used = value;
+
+    const valuesToSet = {};
+
+    if (used) {
+      valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
+      valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = false;
+    } else {
+      valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = true;
+      valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = false;
+    }
+
+    api.setValues(valuesToSet);
+  }
+
   function computeDefenseString(defense) {
     // Format the defense object into a string
     if (!defense && !defense?.passive && !defense?.save) {
@@ -305,14 +332,21 @@
             display: flex;
             flex-direction: row;
             gap: 8px;
-            min-width: 170px;
+            min-width: 140px;
             flex-grow: 1;
             align-items: center;
           "
         >
-          <div style="width: fit-content">
-            <label size="sm" field="namefield" variant="bold"></label>
-          </div>
+          <box field="nameBox">
+            <div style="width: fit-content">
+              <label field="namefield" size="sm" variant="bold"></label>
+            </div>
+          </box>
+          <box field="nameUsedBox" hidden="true">
+            <div style="text-decoration: line-through; width: fit-content">
+              <label field="namefield" size="sm" variant="bold"></label>
+            </div>
+          </box>
           <iconbutton
             field="actions"
             size="sm"
@@ -330,7 +364,6 @@
   {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
           ></iconbutton>
         </div>
-        <!-- TODO ADD Range / Defense / Cast Button -->
         <div style="min-width: 100px; width: 100px; margin-left: 8px">
           <label size="sm" field="defenseString"></label>
         </div>
@@ -341,6 +374,7 @@
             variant="tooltip-underline"
             width="100%"
             field="range"
+            textalign="center"
           ></stringfield>
         </div>
         <div style="min-width: 60px; width: 60px">
@@ -350,9 +384,16 @@
             width="100%"
             color="primary"
             label="Cast"
-            onclick="castSpell()"
+            onclick="onCastSpell()"
           ></button>
         </div>
+        <checkbox
+          size="xs"
+          field="used"
+          color="primary"
+          editable="true"
+          onchange="toggleUsed(value)"
+        ></checkbox>
         <div style="margin-right: 4px; margin-left: auto">
           <iconbutton
             size="sm"
@@ -380,12 +421,7 @@
         align-items: center;
       "
     >
-      <label
-        field="namefield"
-        placeholder="New Spell"
-        size="sm"
-        variant="bold"
-      ></label>
+      <label field="namefield" size="sm" variant="bold"></label>
       <iconbutton
         field="actions"
         size="sm"

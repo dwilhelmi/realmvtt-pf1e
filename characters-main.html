@@ -510,6 +510,10 @@
     onAddEditFeature(record, undefined, true);
   }
 
+  function shortRest() {
+    // TODO increase focus by 1
+  }
+
   function rest() {
     // Implemen when spells/other things that reset on rest are added
     // Reset all things, and add HP per rules
@@ -1118,6 +1122,14 @@
         textalign="center"
         minvalue="0"
       ></counter>
+
+      <iconbutton
+        size="md"
+        variant="default"
+        options='[{"icon": "IconCampfire", "label": "Refocus", "value": "refocus"}]'
+        field="Refocus"
+        onclick="shortRest()"
+      ></iconbutton>
 
       <iconbutton
         size="md"

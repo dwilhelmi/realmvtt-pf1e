@@ -1,0 +1,103 @@
+<script>
+  function showHideFields() {
+    const heightPath = getNearestParentDataPath(dataPath);
+    const heightening = api.getValue(heightPath);
+    const typeValue = heightening?.data?.type || "";
+
+    const valuesToSet = {};
+
+    // Show/hide interval-specific fields
+    const showInterval = typeValue === "interval";
+    if (heightening.fields?.intervalBox?.hidden !== !showInterval) {
+      valuesToSet[`${heightPath}.fields.intervalBox.hidden`] = !showInterval;
+    }
+
+    // Show/hide fixed-specific fields
+    const showFixed = typeValue === "fixed";
+    if (heightening.fields?.levelsBox?.hidden !== !showFixed) {
+      valuesToSet[`${heightPath}.fields.levelsBox.hidden`] = !showFixed;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div style="display: flex; flex-direction: column; gap: 8px; width: 100%">
+  <!-- Type Selector -->
+  <div
+    style="display: flex; flex-direction: row; gap: 4px; align-items: flex-end"
+  >
+    <dropdown
+      width="200px"
+      size="xs"
+      field="type"
+      label="Heightening Type"
+      placeholder="Select Type..."
+      onchange="showHideFields()"
+      options='[
+        {"label": "Interval", "value": "interval"},
+        {"label": "Fixed", "value": "fixed"}
+      ]'
+    ></dropdown>
+  </div>
+
+  <!-- INTERVAL TYPE FIELDS -->
+  <box field="intervalBox" hidden="true">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label label="Interval Heightening" variant="bold" size="sm"></label>
+
+      <!-- Interval Number -->
+      <numberfield
+        width="150px"
+        size="xs"
+        field="interval"
+        label="Interval"
+        placeholder="1"
+        defaultvalue="1"
+      ></numberfield>
+
+      <!-- Area Increase -->
+      <numberfield
+        width="150px"
+        size="xs"
+        field="area"
+        label="Area Increase (ft)"
+        placeholder="-"
+        defaultvalue="0"
+      ></numberfield>
+
+      <!-- Damage Scaling - using damage list -->
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label label="Damage Scaling" variant="bold" size="sm"></label>
+        <label
+          label="Add damage entries that increase per interval. Order matters - first entry scales base damage index 0, second scales index 1, etc."
+          size="xs"
+        ></label>
+        <list
+          listtype="spell_heightening_damage_list"
+          field="damage"
+          variant="striped"
+        ></list>
+      </div>
+    </div>
+  </box>
+
+  <!-- FIXED TYPE FIELDS -->
+  <box field="levelsBox" hidden="true">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <label label="Fixed Heightening Levels" variant="bold" size="sm"></label>
+      <label
+        label="Add specific spell ranks with custom damage and area"
+        size="xs"
+      ></label>
+
+      <list
+        listtype="spell_heightening_level_list"
+        field="levels"
+        variant="striped"
+      ></list>
+    </div>
+  </box>
+</div>
