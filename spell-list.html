@@ -110,7 +110,7 @@
           data: {
             type: "spell",
             ...spell?.data,
-            level: spellSlot?.data?.level,
+            level: spell?.data?.level,
             slotOrder: spellSlot?.data?.slotOrder,
             defenseString: computeDefenseString(spell?.data?.defense),
           },
@@ -166,10 +166,13 @@
             overlays: null,
             level: spellSlot?.data?.level,
             slotOrder: spellSlot?.data?.slotOrder,
+            used: false,
           },
           fields: {
             spellDetails: { hidden: true },
             spellSlot: { hidden: false },
+            nameBox: { hidden: false },
+            nameUsedBox: { hidden: true },
           },
         };
         api.setValues(valuesToSet, () => {

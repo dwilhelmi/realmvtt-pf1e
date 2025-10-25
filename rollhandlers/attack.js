@@ -257,14 +257,16 @@ if (isCritical && deadlyDie && damage) {
 
   // Track the deadly dice so we don't double them
   // Extract die size (e.g., "d8" -> 8)
-  const dieSizeMatch = deadlyDie.match(/d(\d+)/);
-  const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+  const deadlyDieSizeMatch = deadlyDie.match(/d(\d+)/);
+  const deadlyDieSize = deadlyDieSizeMatch
+    ? parseInt(deadlyDieSizeMatch[1], 10)
+    : 0;
 
-  if (dieSize > 0) {
+  if (deadlyDieSize > 0) {
     // Add one entry for each deadly die
     for (let i = 0; i < numDeadlyDice; i++) {
       criticalOnlyDice.push({
-        dieType: dieSize,
+        dieType: deadlyDieSize,
         damageType: damageType.toLowerCase(),
       });
     }
@@ -284,12 +286,14 @@ if (isCritical && fatalDie) {
   };
   damageModifiers.push(fatalMod);
 
-  const dieSizeMatch = fatalDie.match(/d(\d+)/);
-  const dieSize = dieSizeMatch ? parseInt(dieSizeMatch[1], 10) : 0;
+  const fatalDieSizeMatch = fatalDie.match(/d(\d+)/);
+  const fatalDieSize = fatalDieSizeMatch
+    ? parseInt(fatalDieSizeMatch[1], 10)
+    : 0;
 
   // Add one entry for the fatal die
   criticalOnlyDice.push({
-    dieType: dieSize,
+    dieType: fatalDieSize,
     damageType: damageType.toLowerCase(),
   });
 }

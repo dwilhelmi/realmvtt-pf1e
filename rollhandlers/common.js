@@ -9680,7 +9680,209 @@ function addSpellcastingEntry(record) {
   });
 }
 
-function getSpellAttackMacro(record, spell, spellCastingEntry) {
+function getCastingRank(record, spell, dataPathToSpell) {
+  const pathParts = dataPathToSpell.split(".");
+
+  // Find which spell list this is in (cantrips, spells1, spells2, etc.)
+  // Path structure is like: data.spells.1.spells4.4
+  // We need the LAST occurrence of cantrips/spells# in the path
+  let spellListType = "";
+  for (let i = pathParts.length - 1; i >= 0; i--) {
+    if (pathParts[i] === "cantrips" || pathParts[i].startsWith("spells")) {
+      spellListType = pathParts[i];
+      break;
+    }
+  }
+
+  // Determine the rank we're casting at
+  let castingRank = spell?.data?.level || 1;
+  if (spellListType === "cantrips") {
+    // Cantrips are automatically heightened to half character level (rounded down)
+    castingRank = Math.max(1, Math.floor((record.data?.level || 1) / 2));
+  } else if (spellListType && spellListType.startsWith("spells")) {
+    // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
+    const rankMatch = spellListType.match(/spells(\d+)/);
+    if (rankMatch) {
+      castingRank = parseInt(rankMatch[1], 10);
+    }
+  }
+
+  return castingRank;
+}
+
+function getSpellHeighteningInfo(spell, castingRank) {
+  const heightening = spell?.data?.heightening || [];
+  const baseRank = spell?.data?.level || 1;
+
+  // Return object with heightening changes
+  const result = {
+    damage: null, // Will be set if fixed heightening applies
+    area: null,
+    target: null,
+    duration: null,
+    range: null,
+    intervalDamageIncrease: [], // For interval heightening
+  };
+
+  if (castingRank <= baseRank || heightening.length === 0) {
+    return result;
+  }
+
+  // Process interval heightening (all stack)
+  heightening.forEach((heightenEntry) => {
+    const heightenData = heightenEntry?.data;
+    if (!heightenData || heightenData.type !== "interval") return;
+
+    const interval = heightenData.interval || 1;
+    const ranksAboveBase = castingRank - baseRank;
+    const numIntervals = Math.floor(ranksAboveBase / interval);
+
+    if (numIntervals > 0 && heightenData.damage) {
+      result.intervalDamageIncrease.push({
+        numIntervals,
+        damage: heightenData.damage,
+      });
+    }
+  });
+
+  // Find the single highest fixed heightening across all fixed entries
+  let bestMatchingLevel = null;
+  let highestMatchingRank = 0;
+
+  heightening.forEach((heightenEntry) => {
+    const heightenData = heightenEntry?.data;
+    if (!heightenData || heightenData.type !== "fixed") return;
+
+    const levels = heightenData.levels || [];
+    levels.forEach((levelEntry) => {
+      const levelRank = levelEntry?.data?.rank || 0;
+      if (levelRank <= castingRank && levelRank > highestMatchingRank) {
+        bestMatchingLevel = levelEntry;
+        highestMatchingRank = levelRank;
+      }
+    });
+  });
+
+  // Apply the single best fixed heightening if found
+  if (bestMatchingLevel) {
+    const levelData = bestMatchingLevel.data;
+    result.damage = levelData?.damage || null;
+    result.area = levelData?.area || null;
+    result.target = levelData?.target || null;
+    result.duration = levelData?.duration || null;
+    result.range = levelData?.range || null;
+  }
+
+  return result;
+}
+
+function calculateSpellDamage(record, spell, dataPathToSpell) {
+  // Determine the spell rank we're casting at
+  const castingRank = getCastingRank(record, spell, dataPathToSpell);
+
+  const baseDamage = spell?.data?.damage || [];
+
+  let damageString = "";
+  let persistentDamage = "";
+  const damageComponents = [];
+  const persistentComponents = [];
+
+  // Get heightening info
+  const heighteningInfo = getSpellHeighteningInfo(spell, castingRank);
+
+  // If fixed heightening applies, use its damage instead of base
+  if (heighteningInfo.damage) {
+    heighteningInfo.damage.forEach((dmgEntry) => {
+      const formula = dmgEntry?.data?.formula || "";
+      const type = dmgEntry?.data?.type || "untyped";
+      const category = dmgEntry?.data?.category || "";
+      const kinds = dmgEntry?.data?.kinds || [];
+
+      // Skip if it doesn't have "damage" kind (i.e., only healing)
+      if (!kinds.includes("damage")) {
+        return;
+      }
+
+      if (category === "persistent") {
+        if (formula) {
+          persistentComponents.push(`${formula} ${type}`);
+        }
+      } else {
+        if (formula) {
+          damageComponents.push(`${formula} ${type}`);
+        }
+      }
+    });
+  } else {
+    // Use base damage
+    baseDamage.forEach((dmgEntry) => {
+      const formula = dmgEntry?.data?.formula || "";
+      const type = dmgEntry?.data?.type || "untyped";
+      const category = dmgEntry?.data?.category || "";
+      const kinds = dmgEntry?.data?.kinds || [];
+
+      // Skip if it doesn't have "damage" kind (i.e., only healing)
+      if (!kinds.includes("damage")) {
+        return;
+      }
+
+      if (category === "persistent") {
+        if (formula) {
+          persistentComponents.push(`${formula} ${type}`);
+        }
+      } else {
+        if (formula) {
+          damageComponents.push(`${formula} ${type}`);
+        }
+      }
+    });
+
+    // Apply interval heightening (stacks with base damage)
+    heighteningInfo.intervalDamageIncrease.forEach((intervalInfo) => {
+      const { numIntervals, damage } = intervalInfo;
+      damage.forEach((heightenDmg, index) => {
+        const heightenFormula = heightenDmg?.data?.formula || "";
+        const heightenType = heightenDmg?.data?.type || "untyped";
+
+        if (heightenFormula) {
+          // Parse the formula to multiply by intervals
+          const match = heightenFormula.match(/^(\d+)(d\d+)$/);
+          if (match) {
+            const numDice = parseInt(match[1], 10);
+            const dieType = match[2];
+            const totalDice = numDice * numIntervals;
+            damageComponents[index] = `${
+              damageComponents[index] || ""
+            } + ${totalDice}${dieType} ${heightenType}`.trim();
+          } else {
+            // If it's not dice notation, just add it multiple times
+            for (let i = 0; i < numIntervals; i++) {
+              damageComponents.push(`${heightenFormula} ${heightenType}`);
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // Build final damage strings
+  damageString = damageComponents.join(" + ");
+  persistentDamage = persistentComponents.join(" + ");
+
+  return {
+    damageString,
+    persistentDamage,
+    castingRank,
+  };
+}
+
+function getSpellAttackMacro(
+  record,
+  spell,
+  spellCastingEntry,
+  dataPathToSpell,
+  animation
+) {
   const defense = spell?.data?.defense || null;
   if (!defense || !defense.passive || !defense.passive.statistic) {
     return "";
@@ -9718,6 +9920,18 @@ function getSpellAttackMacro(record, spell, spellCastingEntry) {
     dcDescription = "Will DC";
   }
 
+  const spellDamage = calculateSpellDamage(record, spell, dataPathToSpell);
+  const isCantrip = (spell?.data?.traits || []).some(
+    (trait) => trait?.toLowerCase() === "cantrip"
+  );
+
+  // Determine primary damage type for physical damage check
+  const firstDamage = spell?.data?.damage?.[0];
+  const primaryDamageType = firstDamage?.data?.type || "untyped";
+  const damageIsPhysical = ["bludgeoning", "piercing", "slashing"].includes(
+    primaryDamageType.toLowerCase()
+  );
+
   return `\`\`\`Roll_Attack
 const selectedTokens = api.getSelectedOrDroppedToken();
 if (!selectedTokens || selectedTokens.length === 0) {
@@ -9733,6 +9947,16 @@ const recordType = record.type;
 const spellAttackMods = getEffectsAndModifiersForToken(
   record,
   ["spellAttackBonus", "spellAttackPenalty"]
+);
+
+// Get damage modifiers based on spell type
+const damageModifierTypes = ${isCantrip}
+  ? ["cantripDamageBonus", "cantripDamagePenalty"]
+  : ["spellDamageBonus", "spellDamagePenalty"];
+
+const damageModifiers = getEffectsAndModifiersForToken(
+  record,
+  damageModifierTypes
 );
 
 const modifiers = [
@@ -9752,7 +9976,12 @@ if (targets.length === 0) {
     rollName: "Spell Attack",
     tooltip: "Spell Attack vs ${dcDescription}",
     isSpell: true,
-    isMelee: ${isMelee}
+    isMelee: ${isMelee},
+    isRanged: ${!isMelee},
+    damage: "${spellDamage.damageString}",
+    persistentDamage: "${spellDamage.persistentDamage}",
+    damageModifiers: damageModifiers,
+    animation: ${JSON.stringify(animation)},
   };
 
   api.promptRoll(
@@ -9767,6 +9996,12 @@ if (targets.length === 0) {
     const targetToken = target.token;
     const targetRecord = targetToken?.record;
     const targetDistance = target?.distance || 0;
+
+    // Check if target has shield raised
+    let targetShieldRaised = false;
+    if (targetToken?.data?.shieldRaised === "true") {
+      targetShieldRaised = true;
+    }
 
     // Check if target is off-guard
     let targetIsOffGuard = isOffGuard(targetToken);
@@ -9803,12 +10038,18 @@ if (targets.length === 0) {
       tooltip: \`Spell Attack vs \${targetName}'s ${dcDescription}\`,
       isSpell: true,
       isMelee: ${isMelee},
+      isRanged: ${!isMelee},
       dc: targetDC,
       dcName: "${dcDescription}",
       targetName: targetName,
       isOffGuard: targetIsOffGuard,
       tokenId: ourToken?._id,
-      targetId: targetToken?._id
+      targetId: targetToken?._id,
+      damage: "${spellDamage.damageString}",
+      persistentDamage: "${spellDamage.persistentDamage}",
+      damageModifiers: damageModifiers,
+      showShieldDamage: targetShieldRaised && ${damageIsPhysical},
+      animation: ${JSON.stringify(animation)},
     };
 
     api.promptRoll(
@@ -9848,15 +10089,21 @@ function castSpell(record, spell, dataPathToSpell) {
   const traits = spell?.data?.traits || [];
   const tags = [];
 
-  // Add other tags like range, duration, etc.
-  const range = spell?.data?.range || "";
-  const duration = spell?.data?.duration || null;
+  // Get casting rank and heightening info to check for replacements
+  const castingRank = getCastingRank(record, spell, dataPathToSpell);
+  const heighteningInfo = getSpellHeighteningInfo(spell, castingRank);
+
+  // Add other tags like range, duration, etc. (use heightened values if available)
+  const range = heighteningInfo.range || spell?.data?.range || "";
+  const duration = heighteningInfo.duration || spell?.data?.duration || null;
   const durationString =
-    duration && duration.value
+    typeof duration === "string"
+      ? duration
+      : duration && duration.value
       ? `${duration.value} ${duration.sustained ? "Sustained" : ""}`
       : "";
-  const targetString = spell?.data?.target || "";
-  const area = spell?.data?.area || null;
+  const targetString = heighteningInfo.target || spell?.data?.target || "";
+  const area = heighteningInfo.area || spell?.data?.area || null;
   const areaString =
     area && area.type && area.value
       ? `${capitalize(area.type)} ${area.value} ft`
@@ -9930,30 +10177,6 @@ function castSpell(record, spell, dataPathToSpell) {
     portrait = "";
   }
 
-  const macros = [];
-  const defense = spell?.data?.defense || null;
-  if (defense) {
-    // If the spell has a passive stat defense, we show a "Roll Attack" macro
-    if (defense.passive && defense.passive.statistic) {
-      const macro = getSpellAttackMacro(record, spell, spellCastingEntry);
-      macros.push(macro);
-    }
-  }
-
-  const message = `
-#### ${portrait}${spellName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
-
----
-${spellDescription}
-${macros && macros.length > 0 ? `${macros.join("\n")}\n` : ""}
-`;
-
-  // Send the message
-  api.sendMessage(message, undefined, [], tags);
-
-  // Update values
-  api.setValuesOnRecord(record, valuesToSet);
-
   // Play animation if needed
   const ourToken = api.getToken();
   const targets = api.getTargets();
@@ -9984,7 +10207,41 @@ ${macros && macros.length > 0 ? `${macros.join("\n")}\n` : ""}
         (spell?.data?.range !== "Self" || spell?.data?.range !== "Touch"),
       isSpell: true,
     });
-  if (animation && tokenId) {
+
+  let hasAttackMacro = false;
+  const macros = [];
+  const defense = spell?.data?.defense || null;
+  if (defense) {
+    // If the spell has a passive stat defense, we show a "Roll Attack" macro
+    if (defense.passive && defense.passive.statistic) {
+      const macro = getSpellAttackMacro(
+        record,
+        spell,
+        spellCastingEntry,
+        dataPathToSpell,
+        animation
+      );
+      macros.push(macro);
+      hasAttackMacro = true;
+    }
+  }
+
+  const message = `
+#### ${portrait}${spellName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
+
+---
+${spellDescription}
+${macros && macros.length > 0 ? `${macros.join("\n")}\n` : ""}
+`;
+
+  // Send the message
+  api.sendMessage(message, undefined, [], tags);
+
+  // Update values
+  api.setValuesOnRecord(record, valuesToSet);
+
+  // Play animation only if not using attack macro (macro handles animation)
+  if (animation && tokenId && !hasAttackMacro) {
     api.playAnimation(animation, tokenId, targetId);
   }
 }
