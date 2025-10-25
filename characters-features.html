@@ -430,7 +430,7 @@
       padding: 0px 4px;
     "
   >
-    <label label="Attacks" size="sm" variant="bold"></label>
+    <label label="Offense" size="sm" variant="bold"></label>
   </div>
   <div
     style="
@@ -542,6 +542,28 @@
     <dropdown
       field="attacks.other.rank"
       label="Other Attacks (Rank)"
+      width="150px"
+      defaultvalue="0"
+      options='[{
+    "label": "Untrained",
+    "value": "0"
+  }, {
+    "label": "Trained",
+    "value": "1"
+  }, {
+    "label": "Expert",
+    "value": "2"
+  }, {
+    "label": "Master",
+    "value": "3"
+  }, {
+    "label": "Legendary",
+    "value": "4"
+  }]'
+    ></dropdown>
+    <dropdown
+      field="spellcasting"
+      label="Spellcasting"
       width="150px"
       defaultvalue="0"
       options='[{

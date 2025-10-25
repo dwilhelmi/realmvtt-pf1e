@@ -3150,6 +3150,68 @@ function calculateProficiencyBonus(record, training) {
   }
 }
 
+function calculateProficiencyBonusForLevel(characterLevel, training) {
+  switch (parseInt(training, 10)) {
+    case 0:
+      return 0;
+    case 1:
+      return 2 + characterLevel;
+    case 2:
+      return 4 + characterLevel;
+    case 3:
+      return 6 + characterLevel;
+    case 4:
+      return 8 + characterLevel;
+    default:
+      return 0;
+  }
+}
+
+// Called by onAddEditSpellcastingEntry to update the DC and Mod for all spellcasting entries
+function updateSpellcastingEntries(record, valuesToSet) {
+  const spellcastingEntries = record.data?.spells || [];
+  spellcastingEntries.forEach((spellcastingEntry, index) => {
+    const spellcastingEntryDataPath = `data.spells.${index}`;
+
+    const proficiency = spellcastingEntry.data?.proficiency || "spell";
+    const attribute = spellcastingEntry.data?.attribute || "int";
+    const training = parseInt(spellcastingEntry.data?.training || "0", 10);
+
+    // Get current spellcasting training level (check valuesToSet first)
+    const currentTraining =
+      proficiency === "spell"
+        ? `${
+            valuesToSet["data.spellcasting"] ?? record.data?.spellcasting ?? "0"
+          }`
+        : `${
+            valuesToSet["data.classDCProficiency"] ??
+            record.data?.classDCProficiency ??
+            "0"
+          }`;
+    const newTraining = Math.max(parseInt(currentTraining, 10), training);
+
+    // Check if level is being updated in valuesToSet
+    const level = valuesToSet["data.level"] ?? record.data?.level ?? 1;
+
+    const proficiencyBonus = calculateProficiencyBonusForLevel(
+      level,
+      newTraining
+    );
+
+    // Check if attribute is being updated in valuesToSet
+    const attributeScore =
+      valuesToSet[`data.${attribute}`] ?? record.data?.[`${attribute}`] ?? 0;
+
+    // Set the DC and Modifier based on the proficiency
+    const mod = attributeScore + proficiencyBonus;
+    const dc = 10 + mod;
+
+    valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = dc;
+    valuesToSet[`${spellcastingEntryDataPath}.data.mod`] = mod;
+    valuesToSet[`${spellcastingEntryDataPath}.data.training`] = newTraining;
+  });
+}
+
 // Called by onAddEditFeature to set the feat slots for the character based on their feats
 function setFeatSlots(record, valuesToSet) {
   const classes = record.data?.classes || [];
@@ -3483,8 +3545,17 @@ function updateProficiencies(record, valuesToSet) {
     return levelA - levelB;
   });
 
+  // Get character level (check valuesToSet first)
+  const characterLevel = valuesToSet["data.level"] ?? record.data?.level ?? 1;
+
   // Go through each feature and update proficiencies if the new rank is higher
   for (const feature of features) {
+    // Check if character level meets the feature's level requirement
+    const featureLevel = parseInt(feature.data?.level || "0", 10);
+    if (featureLevel > characterLevel) {
+      continue; // Skip this feature if character hasn't reached its level yet
+    }
+
     const featureProficiencies = feature.data?.proficiencies || [];
     featureProficiencies.forEach((proficiency) => {
       const name = (proficiency?.data?.name || "").toLowerCase();
@@ -4362,6 +4433,9 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Check for feats that the character gets at their current level, and add (or remove empty slots)
   // to make sure it matches
   setFeatSlots(record, valuesToSet);
+
+  // Check all spellcasting entries and update DC and Mod
+  updateSpellcastingEntries(record, valuesToSet);
 
   // We'll set actions and then provided attacks
   const setActionsCallback = () => {
@@ -9722,6 +9796,7 @@ function getSpellHeighteningInfo(spell, castingRank) {
     duration: null,
     range: null,
     intervalDamageIncrease: [], // For interval heightening
+    intervalAreaIncrease: 0, // Total area increase from all interval heightenings
   };
 
   if (castingRank <= baseRank || heightening.length === 0) {
@@ -9737,11 +9812,19 @@ function getSpellHeighteningInfo(spell, castingRank) {
     const ranksAboveBase = castingRank - baseRank;
     const numIntervals = Math.floor(ranksAboveBase / interval);
 
-    if (numIntervals > 0 && heightenData.damage) {
-      result.intervalDamageIncrease.push({
-        numIntervals,
-        damage: heightenData.damage,
-      });
+    if (numIntervals > 0) {
+      // Add damage increase
+      if (heightenData.damage) {
+        result.intervalDamageIncrease.push({
+          numIntervals,
+          damage: heightenData.damage,
+        });
+      }
+
+      // Add area increase (number that adds to base area value)
+      if (heightenData.area && typeof heightenData.area === "number") {
+        result.intervalAreaIncrease += heightenData.area * numIntervals;
+      }
     }
   });
 
@@ -9874,6 +9957,20 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
     persistentDamage,
     castingRank,
   };
+}
+
+function getSpellSaveMacro(record, spell, spellCastingEntry, dataPathToSpell) {
+  const saveType = spell?.data?.defense?.save?.statistic;
+  const saveDC = spellCastingEntry?.data?.dc || 0;
+  const spellDCMods = getEffectsAndModifiersForToken(
+    record,
+    ["spellDCBonus", "spellDCPenalty"],
+    saveType
+  );
+  spellDCMods.forEach((mod) => {
+    saveDC += mod.value;
+  });
+  return getSaveMacro(saveType, saveDC, true, true);
 }
 
 function getSpellAttackMacro(
@@ -10103,7 +10200,22 @@ function castSpell(record, spell, dataPathToSpell) {
       ? `${duration.value} ${duration.sustained ? "Sustained" : ""}`
       : "";
   const targetString = heighteningInfo.target || spell?.data?.target || "";
-  const area = heighteningInfo.area || spell?.data?.area || null;
+
+  // Area can be replaced (fixed heightening) or increased (interval heightening)
+  let area = heighteningInfo.area || spell?.data?.area || null;
+  if (
+    !heighteningInfo.area &&
+    spell?.data?.area &&
+    heighteningInfo.intervalAreaIncrease > 0
+  ) {
+    // Apply interval area increase to base area
+    area = {
+      type: spell.data.area.type,
+      value:
+        (spell.data.area.value || 0) + heighteningInfo.intervalAreaIncrease,
+    };
+  }
+
   const areaString =
     area && area.type && area.value
       ? `${capitalize(area.type)} ${area.value} ft`
@@ -10211,6 +10323,7 @@ function castSpell(record, spell, dataPathToSpell) {
   let hasAttackMacro = false;
   const macros = [];
   const defense = spell?.data?.defense || null;
+
   if (defense) {
     // If the spell has a passive stat defense, we show a "Roll Attack" macro
     if (defense.passive && defense.passive.statistic) {
@@ -10223,6 +10336,16 @@ function castSpell(record, spell, dataPathToSpell) {
       );
       macros.push(macro);
       hasAttackMacro = true;
+    }
+    // If saving throws, show saves
+    if (defense.save && defense.save.statistic) {
+      const macro = getSpellSaveMacro(
+        record,
+        spell,
+        spellCastingEntry,
+        dataPathToSpell
+      );
+      macros.push(macro);
     }
   }
 

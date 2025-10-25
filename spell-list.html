@@ -135,8 +135,30 @@
   function clearSpell(callback, confirm = true) {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
-    const rank = spellSlot?.data?.level;
-    const isCantrip = rank === 0;
+
+    let rank = 0;
+    let isCantrip = false;
+    let spellListType = "";
+    const pathParts = dataPathToSpell.split(".");
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      if (pathParts[i] === "cantrips" || pathParts[i].startsWith("spells")) {
+        spellListType = pathParts[i];
+        break;
+      }
+    }
+
+    // Determine the rank this slot should be set to
+    if (spellListType === "cantrips") {
+      // We'll use a rank of 0 for cantrips
+      rank = 0;
+      isCantrip = true;
+    } else {
+      // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
+      const rankMatch = spellListType.match(/spells(\d+)/);
+      if (rankMatch) {
+        rank = parseInt(rankMatch[1], 10);
+      }
+    }
 
     onDeleteSpell = () => {
       if (spellSlot.data?.type !== "slot") {
@@ -164,7 +186,7 @@
             damage: null,
             heightened: null,
             overlays: null,
-            level: spellSlot?.data?.level,
+            level: rank,
             slotOrder: spellSlot?.data?.slotOrder,
             used: false,
           },
