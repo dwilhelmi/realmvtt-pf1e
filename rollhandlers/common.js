@@ -5360,7 +5360,7 @@ function getAnimationFor({
     animation.hue = 100;
     animation.contrast = 1.0;
     animation.brightness = 0.8;
-  } else if (damage.includes("lightning")) {
+  } else if (damage.includes("lightning") || damage.includes("electric")) {
     animation.animationName = "lightning_1";
     animation.sound = "lightning_1";
     animation.hue = 244;
@@ -5371,34 +5371,34 @@ function getAnimationFor({
     animation.hue = 128;
     animation.contrast = 1.0;
     animation.brightness = 0.1;
-  } else if (damage.includes("necrotic")) {
+  } else if (damage.includes("necrotic") || damage.includes("void")) {
     animation.animationName = "necrotic_1";
     animation.hue = 240;
     animation.contrast = 0.1;
     animation.brightness = 0.1;
     animation.scale = 0.5;
     animation.opacity = 0.75;
-  } else if (damage.includes("radiant")) {
+  } else if (damage.includes("radiant") || damage.includes("vitality")) {
     animation.animationName = "radiant_1";
     animation.hue = 50;
     animation.contrast = 1.0;
     animation.brightness = 0.8;
     animation.scale = 0.5;
     animation.opacity = 0.75;
-  } else if (damage.includes("thunder")) {
+  } else if (damage.includes("thunder") || damage.includes("sonic")) {
     animation.animationName = "lightning_1";
     animation.sound = "lightning_1";
     animation.hue = 244;
     animation.contrast = 1.0;
     animation.brightness = 0.8;
-  } else if (damage.includes("force")) {
+  } else if (damage.includes("force") || damage.includes("spirit")) {
     animation.hue = 284;
     animation.contrast = 1.0;
     animation.brightness = 0.2;
     if (abilityName.toLowerCase().includes("disintegrate")) {
       animation.hue = 128;
     }
-  } else if (damage.includes("psychic")) {
+  } else if (damage.includes("psychic") || damage.includes("mental")) {
     animation.hue = 330;
     animation.contrast = 1.0;
     animation.brightness = 0.2;
@@ -5504,58 +5504,68 @@ function useAction(action) {
   const actionName = action?.name || "Unknown Action";
   const actions = action?.data?.actions || "";
   const actionType = action?.data?.actionType || "";
-  let actionIconFallback = "";
+  let actionIcon = "";
   if (
     actions === "free" ||
     (actions === undefined && actionType === "action")
   ) {
-    actionIconFallback = "free-action";
+    actionIcon = ":free-action:";
   } else if (actions === "oneAction") {
-    actionIconFallback = "one-action";
+    actionIcon = ":one-action:";
   } else if (actions === "twoActions") {
-    actionIconFallback = "two-actions";
+    actionIcon = ":two-actions:";
   } else if (actions === "threeActions") {
-    actionIconFallback = "three-actions";
+    actionIcon = ":three-actions:";
   } else if (actions === "oneToTwoActions") {
-    actionIconFallback = "1-to-2";
+    actionIcon = ":1-to-2:";
   } else if (actions === "oneToThreeActions") {
-    actionIconFallback = "1-to-3";
+    actionIcon = ":1-to-3:";
   } else if (actions === "reaction") {
-    actionIconFallback = "reaction";
+    actionIcon = ":reaction:";
   }
+
+  const traits = action?.data?.traits || [];
+  const tags = [];
+
+  // Get all traits as tags
+  traits.forEach((trait) => {
+    // Ignore rarity traits
+    if (getIsTraitRarity(trait)) {
+      return;
+    }
+    tags.push({
+      name: trait,
+      tooltip: getTraitToolTip(trait),
+    });
+  });
 
   const actionDescription = api.richTextToMarkdown(
     action?.data?.description || ""
   );
 
-  const actionIcon = action?.portrait
+  let portrait = action?.portrait
     ? `![${actionName}](${assetUrl}${encodeURI(
         action?.portrait
       )}?width=40&height=40) `
     : "";
 
-  let iconToUse = actionIcon;
   if (
-    !actionIcon ||
-    ((actionIcon.includes("Action") || actionIcon.includes("Reaction")) &&
-      actionIconFallback !== "")
+    (portrait.includes("Action") || portrait.includes("Reaction")) &&
+    actionIcon !== ""
   ) {
-    // If the portrait is not set or is a PF2e image icon, use the fallback icon if set
-    iconToUse = `:${actionIconFallback}:&nbsp;`;
-  }
-  if (!actionIcon && !actionIconFallback) {
-    iconToUse = "";
+    // If the portrait is also an action icon, don't show it
+    portrait = "";
   }
 
   const message = `
-#### ${iconToUse}${actionName}
+#### ${portrait}${actionName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
 
 ---
 ${actionDescription}
 `;
 
   // Send the message
-  api.sendMessage(message, undefined, [], []);
+  api.sendMessage(message, undefined, [], tags);
 
   // Play animation if needed
   const ourToken = api.getToken();
@@ -9648,4 +9658,159 @@ function addSpellcastingEntry(record) {
       }
     );
   });
+}
+
+function castSpell(record, spell, dataPathToSpell) {
+  const spellName = spell?.name || "Unknown Spell";
+  const actions = (spell?.data?.time || "").toLowerCase();
+  let actionIcon = "";
+  if (actions === "free") {
+    actionIcon = ":free-action:";
+  } else if (actions === "1") {
+    actionIcon = ":one-action:";
+  } else if (actions === "2") {
+    actionIcon = ":two-actions:";
+  } else if (actions === "3") {
+    actionIcon = ":three-actions:";
+  } else if (actions === "1 to 2") {
+    actionIcon = ":1-to-2:";
+  } else if (actions === "1 to 3") {
+    actionIcon = ":1-to-3:";
+  } else if (actions === "reaction") {
+    actionIcon = ":reaction:";
+  }
+
+  const valuesToSet = {};
+
+  const traits = spell?.data?.traits || [];
+  const tags = [];
+
+  // Add other tags like range, duration, etc.
+  const range = spell?.data?.range || "";
+  const duration = spell?.data?.duration || null;
+  const durationString =
+    duration && duration.value
+      ? `${duration.value} ${duration.sustained ? "Sustained" : ""}`
+      : "";
+  const targetString = spell?.data?.target || "";
+  const area = spell?.data?.area || null;
+  const areaString =
+    area && area.type && area.value
+      ? `${capitalize(area.type)} ${area.value} ft`
+      : "";
+  if (range) {
+    tags.push({
+      name: range,
+      tooltip: `Range: ${range}`,
+    });
+  }
+  if (durationString) {
+    tags.push({
+      name: durationString.trim(),
+      tooltip: `Duration: ${durationString.trim()}`,
+    });
+  }
+  if (targetString) {
+    tags.push({
+      name: targetString,
+      tooltip: `Targets: ${targetString}`,
+    });
+  }
+  if (areaString) {
+    tags.push({
+      name: areaString,
+      tooltip: `Area: ${areaString}`,
+    });
+  }
+
+  // Get all traits as tags
+  traits.forEach((trait) => {
+    // Ignore rarity traits
+    if (getIsTraitRarity(trait)) {
+      return;
+    }
+    tags.push({
+      name: trait,
+      tooltip: getTraitToolTip(trait),
+    });
+  });
+
+  // We'll need to mark the spell as cast
+  valuesToSet[`${dataPathToSpell}.data.used`] = true;
+  valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = false;
+  valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
+  // If this spell casting entry uses focus points, we need to mark 1 used
+  const spellCastingEntryDataPath = getNearestParentDataPath(dataPathToSpell);
+  const spellCastingEntry = api.getValue(spellCastingEntryDataPath);
+  if (spellCastingEntry.data?.type === "focus") {
+    const maxFocusPool = spellCastingEntry.data?.focusPoolMax || 1;
+    const usedFocus = spellCastingEntry.data?.focusPool || 0;
+    const newUsedFocus = Math.min(usedFocus + 1, maxFocusPool);
+    valuesToSet[`${spellCastingEntryDataPath}.data.focusPool`] = newUsedFocus;
+  }
+
+  const spellDescription = api.richTextToMarkdown(
+    spell?.data?.description || ""
+  );
+
+  let portrait = spell?.portrait
+    ? `![${spellName}](${assetUrl}${encodeURI(
+        spell?.portrait
+      )}?width=40&height=40) `
+    : "";
+
+  if (
+    (portrait.includes("Action") || portrait.includes("Reaction")) &&
+    actionIcon !== ""
+  ) {
+    // If the portrait is also an action icon, don't show it
+    portrait = "";
+  }
+
+  const message = `
+#### ${portrait}${spellName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
+
+---
+${spellDescription}
+`;
+
+  // Send the message
+  api.sendMessage(message, undefined, [], tags);
+
+  // Update values
+  api.setValuesOnRecord(record, valuesToSet);
+
+  // Play animation if needed
+  const ourToken = api.getToken();
+  const targets = api.getTargets();
+  const tokenId = ourToken?._id;
+  const targetId = targets.length > 0 ? targets[0]?.token?._id : null;
+  // Use the first instance of damage to determine animation if needed
+  const damage1 =
+    spell?.data?.damage && spell?.data?.damage.length > 0
+      ? spell?.data?.damage[0]
+      : null;
+  const damageString = damage1
+    ? `${damage1?.data?.formula || ""} ${damage1?.data?.type || "untyped"}`
+    : "";
+  const isHealing =
+    damage1 &&
+    damage1.data?.kinds &&
+    damage1.data?.kinds.length > 0 &&
+    damage1.data?.kinds.includes("healing");
+  const animation =
+    spell?.data?.animation ||
+    getAnimationFor({
+      abilityName: spellName,
+      abilityDescription: spellDescription,
+      damage: damageString.toLowerCase(),
+      healing: isHealing,
+      isRanged:
+        spell?.data?.range &&
+        (spell?.data?.range !== "Self" || spell?.data?.range !== "Touch"),
+      isSpell: true,
+    });
+  if (animation && tokenId) {
+    api.playAnimation(animation, tokenId, targetId);
+  }
 }

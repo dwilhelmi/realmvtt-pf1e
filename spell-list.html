@@ -2,10 +2,7 @@
   function onCastSpell() {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spell = api.getValue(dataPathToSpell);
-    const ability = spell?.data?.ability || "int";
-
-    // TODO mark used, send to chat
-    // castSpell()
+    castSpell(record, spell, dataPathToSpell);
   }
 
   function toggleUsed(value) {
