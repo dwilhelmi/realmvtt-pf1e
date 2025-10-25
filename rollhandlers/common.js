@@ -2510,6 +2510,26 @@ function getCheckPenaltyForArmor(record, bestArmor) {
   return null;
 }
 
+function getSaveDCForToken(token, saveType) {
+  const saveMods = getEffectsAndModifiersForToken(
+    token,
+    [`saveBonus`, `savePenalty`],
+    saveType
+  );
+
+  const saveValue = parseInt(token.data?.[`${saveType}Mod`] || "0", 10);
+
+  let saveDC = 10 + saveValue;
+
+  saveMods.forEach((mod) => {
+    if (typeof mod.value === "number") {
+      saveDC += mod.value;
+    }
+  });
+
+  return saveDC;
+}
+
 function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   const acModifiers = getEffectsAndModifiersForToken(token, [
     "armorClassBonus",
@@ -9660,6 +9680,148 @@ function addSpellcastingEntry(record) {
   });
 }
 
+function getSpellAttackMacro(record, spell, spellCastingEntry) {
+  const defense = spell?.data?.defense || null;
+  if (!defense || !defense.passive || !defense.passive.statistic) {
+    return "";
+  }
+
+  const spellName = spell?.name || "Spell";
+  const defenseStatistic = defense.passive.statistic; // ac, fortitude-dc, reflex-dc, or will-dc
+  const spellAttackMod = spellCastingEntry?.data?.mod || 0;
+  const range = (spell?.data?.range || "").toLowerCase().trim();
+
+  // Determine if spell is melee
+  const isMelee =
+    !range ||
+    range === "0" ||
+    range === "0 feet" ||
+    range === "0 ft" ||
+    range === "touch";
+
+  // Determine save type and description based on the defense statistic
+  let saveType = "";
+  let dcDescription = "";
+  let isAC = false;
+
+  if (defenseStatistic === "ac") {
+    isAC = true;
+    dcDescription = "AC";
+  } else if (defenseStatistic === "fortitude-dc") {
+    saveType = "fortitude";
+    dcDescription = "Fortitude DC";
+  } else if (defenseStatistic === "reflex-dc") {
+    saveType = "reflex";
+    dcDescription = "Reflex DC";
+  } else if (defenseStatistic === "will-dc") {
+    saveType = "will";
+    dcDescription = "Will DC";
+  }
+
+  return `\`\`\`Roll_Attack
+const selectedTokens = api.getSelectedOrDroppedToken();
+if (!selectedTokens || selectedTokens.length === 0) {
+  return;
+}
+const record = selectedTokens[0];
+const targets = api.getTargets();
+const ourToken = api.getToken();
+const recordId = record._id;
+const recordType = record.type;
+
+// Get spell attack modifiers for the caster
+const spellAttackMods = getEffectsAndModifiersForToken(
+  record,
+  ["spellAttackBonus", "spellAttackPenalty"]
+);
+
+const modifiers = [
+  {
+    name: "Spell Attack",
+    type: "",
+    value: ${spellAttackMod},
+    active: true
+  },
+  ...spellAttackMods
+];
+
+if (targets.length === 0) {
+  // No target - just roll without target-specific modifiers
+  const metadata = {
+    attack: "${spellName}",
+    rollName: "Spell Attack",
+    tooltip: "Spell Attack vs ${dcDescription}",
+    isSpell: true,
+    isMelee: ${isMelee}
+  };
+
+  api.promptRoll(
+    "Spell Attack: ${spellName}",
+    "1d20",
+    modifiers,
+    metadata,
+    "attack"
+  );
+} else {
+  for (const target of targets) {
+    const targetToken = target.token;
+    const targetRecord = targetToken?.record;
+    const targetDistance = target?.distance || 0;
+
+    // Check if target is off-guard
+    let targetIsOffGuard = isOffGuard(targetToken);
+
+    // Check for flanking if melee
+    let targetIsOffGuardDueToFlanking = false;
+    if (${isMelee} && !targetIsOffGuard) {
+      targetIsOffGuardDueToFlanking = isOffGuardDueToFlanking({
+        sourceToken: ourToken,
+        sourceReach: record.data?.reach || 5,
+        otherTokens: api.getOtherTokens(),
+        target: target
+      });
+      targetIsOffGuard = targetIsOffGuardDueToFlanking;
+    }
+
+    // Calculate target DC using proper functions
+    let targetDC = 10;
+    if (${isAC}) {
+      targetDC = getArmorClassForToken(targetToken, targetIsOffGuardDueToFlanking);
+    } else {
+      targetDC = getSaveDCForToken(targetToken, "${saveType}");
+    }
+
+    // Get attack modifiers from effects on the target
+    const targetEffects = getAttackModifiersForTarget(targetToken, targetDistance);
+    const targetModifiers = [...modifiers, ...targetEffects];
+
+    const targetName = targetToken?.identified === false ? targetRecord?.unidentifiedName : targetRecord?.name;
+
+    const metadata = {
+      attack: "${spellName}",
+      rollName: "Spell Attack",
+      tooltip: \`Spell Attack vs \${targetName}'s ${dcDescription}\`,
+      isSpell: true,
+      isMelee: ${isMelee},
+      dc: targetDC,
+      targetName: targetName,
+      isOffGuard: targetIsOffGuard,
+      tokenId: ourToken?._id,
+      targetId: targetToken?._id
+    };
+
+    api.promptRoll(
+      \`Spell Attack: ${spellName} vs \${targetName}\`,
+      "1d20",
+      targetModifiers,
+      metadata,
+      "attack"
+    );
+  }
+}
+\`\`\``;
+}
+
 function castSpell(record, spell, dataPathToSpell) {
   const spellName = spell?.name || "Unknown Spell";
   const actions = (spell?.data?.time || "").toLowerCase();
@@ -9767,11 +9929,22 @@ function castSpell(record, spell, dataPathToSpell) {
     portrait = "";
   }
 
+  const macros = [];
+  const defense = spell?.data?.defense || null;
+  if (defense) {
+    // If the spell has a passive stat defense, we show a "Roll Attack" macro
+    if (defense.passive && defense.passive.statistic) {
+      const macro = getSpellAttackMacro(record, spell, spellCastingEntry);
+      macros.push(macro);
+    }
+  }
+
   const message = `
 #### ${portrait}${spellName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
 
 ---
 ${spellDescription}
+${macros && macros.length > 0 ? `${macros.join("\n")}\n` : ""}
 `;
 
   // Send the message
