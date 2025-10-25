@@ -296,7 +296,7 @@ if (isCritical && fatalDie) {
 
 const damageMetadata = {
   // This is so that our damage handler script can tell if it was from a critical hit
-  critical: isCritical,
+  critical: isCritical && !isSpell,
   traits,
   damageCategories,
   splashDamage: splashDamage,
@@ -312,7 +312,8 @@ const damageMetadata = {
 };
 
 // Add damage button to message
-const dmgRollName = isCritical ? "Roll_Critical_Damage" : "Roll_Damage";
+const dmgRollName =
+  isCritical && !isSpell ? "Roll_Critical_Damage" : "Roll_Damage";
 const damageRollString = splashDamage
   ? `${damage} + ${splashDamage} ${damageType}`
   : damage;
