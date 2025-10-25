@@ -9804,6 +9804,7 @@ if (targets.length === 0) {
       isSpell: true,
       isMelee: ${isMelee},
       dc: targetDC,
+      dcName: "${dcDescription}",
       targetName: targetName,
       isOffGuard: targetIsOffGuard,
       tokenId: ourToken?._id,

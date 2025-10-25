@@ -6,6 +6,7 @@ const propertyRunes = data?.roll?.metadata?.runes || [];
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
+const dcName = data?.roll?.metadata?.dcName || "AC";
 const persistentDamage = data?.roll?.metadata?.persistentDamage || "";
 let damageModifiers = data?.roll?.metadata?.damageModifiers || [];
 let splashDamage = data?.roll?.metadata?.splashDamage || 0;
@@ -122,22 +123,22 @@ if (dc > 0) {
       isCritical = true;
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=green]CRITICAL HIT[/color] [gm]vs AC ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=green]CRITICAL HIT[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case 1:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=lime]HIT[/color] [gm]vs AC ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=lime]HIT[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case 0:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=pink]MISS[/color] [gm]vs AC ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=pink]MISS[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case -1:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=red]CRITICAL MISS[/color] [gm]vs AC ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=red]CRITICAL MISS[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
   }
 } else {
