@@ -185,10 +185,16 @@ applyDamage(null, ${JSON.stringify(data.roll)}, false, ${JSON.stringify(
 `
     : "";
 
+const persistentDamageMacroName = persistentDamage
+  ? persistentDamage
+      .split(" ")
+      .map((word) => capitalize(word))
+      .join("_")
+  : "Persistent_Damage";
 const persistentDamageMacro =
   persistentDamage && persistentDamage !== ""
     ? `
-\`\`\`${persistentDamage.replace(/ /g, "_")}_Persistent_Damage
+\`\`\`${persistentDamageMacroName}_Persistent_Damage
 applyPersistentDamage("${persistentDamage}", "${tokenId}", "${tokenName}");
 \`\`\`
 `

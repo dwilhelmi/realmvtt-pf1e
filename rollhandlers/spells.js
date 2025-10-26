@@ -479,9 +479,14 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   const baseDamage = spell?.data?.damage || [];
 
   let damageString = "";
+  let healingString = "";
   let persistentDamage = "";
   const damageComponents = [];
+  const healingComponents = [];
   const persistentComponents = [];
+
+  let hasDamage = false;
+  let hasHealing = false;
 
   // Get heightening info
   const heighteningInfo = getSpellHeighteningInfo(spell, castingRank);
@@ -495,23 +500,40 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       const kinds = dmgEntry?.data?.kinds || [];
       const applyMod = dmgEntry?.data?.applyMod || false;
 
-      // Skip if it doesn't have "damage" kind (i.e., only healing)
-      if (!kinds.includes("damage")) {
-        return;
+      // If no kinds specified, assume damage
+      const isDamage = kinds.length === 0 || kinds.includes("damage");
+      const isHealing = kinds.includes("healing");
+
+      if (isDamage) {
+        hasDamage = true;
+      }
+      if (isHealing) {
+        hasHealing = true;
       }
 
       if (category === "persistent") {
-        if (formula) {
+        if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
         }
       } else {
         if (formula) {
           // Apply attribute modifier if applyMod is true
-          const damageFormula =
+          // For healing, use empty string instead of "untyped"
+          const typeString = isHealing && type === "untyped" ? "" : type;
+          const effectFormula =
             applyMod && attributeMod > 0
-              ? `${formula} + ${attributeMod} ${type}`
-              : `${formula} ${type}`;
-          damageComponents.push(damageFormula);
+              ? `${formula} + ${attributeMod} ${typeString}`.trim()
+              : `${formula} ${typeString}`.trim();
+
+          if (isDamage && !isHealing) {
+            damageComponents.push(effectFormula);
+          } else if (isHealing && !isDamage) {
+            healingComponents.push(effectFormula);
+          } else if (isDamage && isHealing) {
+            // Both damage and healing - add to both
+            damageComponents.push(effectFormula);
+            healingComponents.push(effectFormula);
+          }
         }
       }
     });
@@ -524,33 +546,60 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       const kinds = dmgEntry?.data?.kinds || [];
       const applyMod = dmgEntry?.data?.applyMod || false;
 
-      // Skip if it doesn't have "damage" kind (i.e., only healing)
-      if (!kinds.includes("damage")) {
-        return;
+      // If no kinds specified, assume damage
+      const isDamage = kinds.length === 0 || kinds.includes("damage");
+      const isHealing = kinds.includes("healing");
+
+      if (isDamage) {
+        hasDamage = true;
+      }
+      if (isHealing) {
+        hasHealing = true;
       }
 
       if (category === "persistent") {
-        if (formula) {
+        if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
         }
       } else {
         if (formula) {
           // Apply attribute modifier if applyMod is true
-          const damageFormula =
+          // For healing, use empty string instead of "untyped"
+          const typeString = isHealing && type === "untyped" ? "" : type;
+          const effectFormula =
             applyMod && attributeMod > 0
-              ? `${formula} + ${attributeMod} ${type}`
-              : `${formula} ${type}`;
-          damageComponents.push(damageFormula);
+              ? `${formula} + ${attributeMod} ${typeString}`.trim()
+              : `${formula} ${typeString}`.trim();
+
+          if (isDamage && !isHealing) {
+            damageComponents.push(effectFormula);
+          } else if (isHealing && !isDamage) {
+            healingComponents.push(effectFormula);
+          } else if (isDamage && isHealing) {
+            // Both damage and healing - add to both
+            damageComponents.push(effectFormula);
+            healingComponents.push(effectFormula);
+          }
         }
       }
     });
 
-    // Apply interval heightening (stacks with base damage)
+    // Apply interval heightening (stacks with base damage/healing)
+    // Interval heightening doesn't have kinds - we check the base damage entry at the same index
     heighteningInfo.intervalDamageIncrease.forEach((intervalInfo) => {
       const { numIntervals, damage } = intervalInfo;
       damage.forEach((heightenDmg, index) => {
         const heightenFormula = heightenDmg?.data?.formula || "";
         const heightenType = heightenDmg?.data?.type || "untyped";
+
+        // Get the corresponding base damage entry to check its kinds
+        const baseDmgEntry = baseDamage[index];
+        const baseKinds = baseDmgEntry?.data?.kinds || [];
+
+        // If no kinds specified in base, assume damage
+        const heightenIsDamage =
+          baseKinds.length === 0 || baseKinds.includes("damage");
+        const heightenIsHealing = baseKinds.includes("healing");
 
         if (heightenFormula) {
           // Parse the formula to multiply by intervals
@@ -559,13 +608,42 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
             const numDice = parseInt(match[1], 10);
             const dieType = match[2];
             const totalDice = numDice * numIntervals;
-            damageComponents[index] = `${
-              damageComponents[index] || ""
-            } + ${totalDice}${dieType} ${heightenType}`.trim();
+            // For healing, use empty string instead of "untyped"
+            const typeString =
+              heightenIsHealing && heightenType === "untyped"
+                ? ""
+                : heightenType;
+            const intervalString =
+              `${totalDice}${dieType} ${typeString}`.trim();
+
+            if (heightenIsDamage) {
+              damageComponents[index] = `${
+                damageComponents[index] || ""
+              } + ${intervalString}`.trim();
+            }
+            if (heightenIsHealing) {
+              healingComponents[index] = `${
+                healingComponents[index] || ""
+              } + ${intervalString}`.trim();
+            }
           } else {
             // If it's not dice notation, just add it multiple times
+            // For healing, use empty string instead of "untyped"
+            const typeString =
+              heightenIsHealing && heightenType === "untyped"
+                ? ""
+                : heightenType;
             for (let i = 0; i < numIntervals; i++) {
-              damageComponents.push(`${heightenFormula} ${heightenType}`);
+              if (heightenIsDamage) {
+                damageComponents.push(
+                  `${heightenFormula} ${heightenType}`.trim()
+                );
+              }
+              if (heightenIsHealing) {
+                healingComponents.push(
+                  `${heightenFormula} ${typeString}`.trim()
+                );
+              }
             }
           }
         }
@@ -573,13 +651,17 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
     });
   }
 
-  // Build final damage strings
+  // Build final strings
   damageString = damageComponents.join(" + ");
+  healingString = healingComponents.join(" + ");
   persistentDamage = persistentComponents.join(" + ");
 
   return {
     damageString,
+    healingString,
     persistentDamage,
+    hasDamage,
+    hasHealing,
     castingRank,
   };
 }
@@ -588,7 +670,7 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
   const spellName = spell?.name || "Unknown Spell";
   const spellDamage = calculateSpellDamage(record, spell, dataPathToSpell);
 
-  if (!spellDamage.damageString && !spellDamage.persistentDamage) {
+  if (!spellDamage.hasDamage) {
     return null; // No damage to roll
   }
 
@@ -609,33 +691,67 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
     : ["spellDamageBonus", "spellDamagePenalty"];
 
   return `\`\`\`Roll_${damageTypeName}_Damage
-  const selectedTokens = api.getSelectedOrDroppedToken();
-  if (!selectedTokens || selectedTokens.length === 0) {
-    return;
+  // Lookup the record and then prompt the roll
+  api.getRecord('${record.recordType}', '${record._id}', (record) => {
+    // Get damage modifiers based on spell type
+    const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
+    const damageModifiers = getEffectsAndModifiersForToken(
+      record,
+      damageModifierTypes
+    );
+
+    const damage = "${spellDamage.damageString}";
+    const persistentDamage = "${spellDamage.persistentDamage}";
+
+    api.promptRoll(
+      "${spellName}",
+      damage,
+      damageModifiers,
+      {
+        persistentDamage: persistentDamage,
+        isSpell: true,
+        rollName: "${spellName} Damage"
+      },
+      "damage"
+    );
+  });
+  \`\`\``;
+}
+
+function getSpellHealingMacro(record, spell, dataPathToSpell) {
+  const spellName = spell?.name || "Unknown Spell";
+  const spellEffect = calculateSpellDamage(record, spell, dataPathToSpell);
+
+  if (!spellEffect.hasHealing) {
+    return null; // No healing to roll
   }
-  const record = selectedTokens[0];
-  
-  // Get damage modifiers based on spell type
-  const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
-  const damageModifiers = getEffectsAndModifiersForToken(
-    record,
-    damageModifierTypes
-  );
-  
-  const damage = "${spellDamage.damageString}";
-  const persistentDamage = "${spellDamage.persistentDamage}";
-  
-  api.promptRoll(
-    "${spellName}",
-    damage,
-    damageModifiers,
-    {
-      persistentDamage: persistentDamage,
-      isSpell: true,
-      rollName: "${spellName} Damage"
-    },
-    "damage"
-  );
+
+  // Get healing modifiers based on spell type
+  const healingModifierTypes = ["healingBonus", "healingPenalty"];
+
+  return `\`\`\`Roll_Healing
+  // Lookup the record and then prompt the roll
+  api.getRecord('${record.recordType}', '${record._id}', (record) => {
+    // Get healing modifiers based on spell type
+    const healingModifierTypes = ${JSON.stringify(healingModifierTypes)};
+    const healingModifiers = getEffectsAndModifiersForToken(
+      record,
+      healingModifierTypes
+    );
+
+    const healing = "${spellEffect.healingString}";
+
+    api.promptRoll(
+      "${spellName}",
+      healing,
+      healingModifiers,
+      {
+        isSpell: true,
+        rollName: "${spellName} Healing"
+      },
+      "healing"
+    );
+  });
   \`\`\``;
 }
 
@@ -1090,6 +1206,19 @@ function castSpell(record, spell, dataPathToSpell) {
         macros.push(damageMacro);
       }
     }
+  }
+
+  // Add damage/healing macros even if no defense (for spells that just do damage/healing)
+  if (!defense || (!defense.passive && !defense.save)) {
+    const damageMacro = getSpellDamageMacro(record, spell, dataPathToSpell);
+    if (damageMacro) {
+      macros.push(damageMacro);
+    }
+  }
+
+  const healingMacro = getSpellHealingMacro(record, spell, dataPathToSpell);
+  if (healingMacro) {
+    macros.push(healingMacro);
   }
 
   const message = `
