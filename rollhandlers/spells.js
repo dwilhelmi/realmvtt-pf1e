@@ -808,6 +808,9 @@ function getSpellAttackMacro(
 }
 
 function castSpell(record, spell, dataPathToSpell) {
+  const isCantrip = (spell?.data?.traits || []).some(
+    (trait) => trait?.toLowerCase() === "cantrip"
+  );
   const spellName = spell?.name || "Unknown Spell";
   const actions = (spell?.data?.time || "").toLowerCase();
   let actionIcon = "";
@@ -903,18 +906,48 @@ function castSpell(record, spell, dataPathToSpell) {
     });
   });
 
-  // We'll need to mark the spell as cast
-  valuesToSet[`${dataPathToSpell}.data.used`] = true;
-  valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = false;
-  valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
-  // If this spell casting entry uses focus points, we need to mark 1 used
-  const spellCastingEntryDataPath = getNearestParentDataPath(dataPathToSpell);
-  const spellCastingEntry = api.getValue(spellCastingEntryDataPath);
+  // We'll need to mark the spell as cast unless it was a catrip / focus / innate / or spontaneus spell
+  const dataPathToSpellCastingEntry = getNearestParentDataPath(dataPathToSpell);
+  const spellCastingEntry = api.getValue(dataPathToSpellCastingEntry);
+  const type = spellCastingEntry.data?.type;
+
+  const isSpontaneous = type === "spontaneous";
+  const isFocus = type === "focus";
+  const isInnate = type === "innate";
+
+  if (!isSpontaneous && !isFocus && !isInnate && !isCantrip) {
+    valuesToSet[`${dataPathToSpell}.data.used`] = true;
+    valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = false;
+    valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
+  }
+
   if (spellCastingEntry.data?.type === "focus") {
     const maxFocusPool = spellCastingEntry.data?.focusPoolMax || 1;
     const usedFocus = spellCastingEntry.data?.focusPool || 0;
     const newUsedFocus = Math.min(usedFocus + 1, maxFocusPool);
     valuesToSet[`${spellCastingEntryDataPath}.data.focusPool`] = newUsedFocus;
+  }
+
+  if (isSpontaneous && !isCantrip) {
+    // Spontaneous spells use the `useSpellsX` field to track
+    const usedSpells =
+      spellCastingEntry.data?.[`usedSpells${castingRank}`] || 0;
+    if (usedSpells <= -0) {
+      api.showNotification(
+        `You are out of Spell Slots for Rank ${castingRank}`,
+        "red",
+        "Out of Spell Slots"
+      );
+      return;
+    }
+    const newUsedSpells = Math.max(usedSpells - 1, 0);
+    valuesToSet[
+      `${dataPathToSpellCastingEntry}.data.usedSpells${castingRank}`
+    ] = newUsedSpells;
+  }
+
+  if (isInnate && !isCantrip) {
+    // TODO
   }
 
   const spellDescription = api.richTextToMarkdown(

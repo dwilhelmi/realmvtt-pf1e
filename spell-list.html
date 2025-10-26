@@ -102,12 +102,15 @@
   function onDrop(value, recordLink) {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
+    const spellCastingEntry = api.getValue(
+      getNearestParentDataPath(dataPathToSpell)
+    );
     const spell = recordLink?.value;
 
     const isSpontaneousOrFocus =
-      spellSlot?.data?.type === "spontaneous" ||
-      spellSlot?.data?.type === "innate" ||
-      spellSlot?.data?.type === "focus";
+      spellCastingEntry?.data?.type === "spontaneous" ||
+      spellCastingEntry?.data?.type === "innate" ||
+      spellCastingEntry?.data?.type === "focus";
 
     if (value === "spells") {
       // If this is a spell slot, we set it
@@ -165,6 +168,7 @@
             ...(spell?.fields || {}),
             spellDetails: { hidden: false },
             spellSlot: { hidden: true },
+            used: { hidden: isCantrip || isSpontaneousOrFocus },
           },
         };
         api.setValues(valuesToSet);
@@ -232,6 +236,7 @@
             nameBox: { hidden: false },
             nameUsedBox: { hidden: true },
             deleteBtn: { hidden: !isSpontaneous && !isFocus && !isInnate },
+            used: { hidden: isSpontaneous || isFocus || isInnate || isCantrip },
           },
         };
         api.setValues(valuesToSet, () => {
