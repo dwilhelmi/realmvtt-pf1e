@@ -27,6 +27,20 @@
     return 0; // Default to 0 if not found
   }
 
+  function deleteSpell() {
+    const dataPathToSpell = getNearestParentDataPath(dataPath);
+
+    // Extract the index (last part of the path)
+    const pathParts = dataPathToSpell.split(".");
+    const index = parseInt(pathParts.pop(), 10);
+
+    // Join remaining parts to get the spell list path (keeps .data. intact)
+    const spellListDataPath = pathParts.join(".");
+
+    // Call removeValue with the list path and index
+    api.removeValue(spellListDataPath, index);
+  }
+
   function onCastSpell() {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spell = api.getValue(dataPathToSpell);
@@ -89,6 +103,11 @@
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
     const spell = recordLink?.value;
+
+    const isSpontaneousOrFocus =
+      spellSlot?.data?.type === "spontaneous" ||
+      spellSlot?.data?.type === "innate" ||
+      spellSlot?.data?.type === "focus";
 
     if (value === "spells") {
       // If this is a spell slot, we set it
@@ -167,14 +186,24 @@
     const rank = getSlotLevelFromPath(dataPathToSpell);
     const isCantrip = rank === 0;
 
+    // Check if spontaneous or focus
+    const spellCastingEntryDataPath = getNearestParentDataPath(dataPathToSpell);
+    const type =
+      api.getValue(spellCastingEntryDataPath)?.data?.type || "prepared";
+    const isSpontaneous = type === "spontaneous";
+    const isFocus = type === "focus";
+    const isInnate = type === "innate";
+
+    let slotName = isCantrip ? "Cantrip Slot" : `Rank ${rank} Spell Slot`;
+    if (isSpontaneous || isFocus || isInnate) {
+      slotName = isCantrip ? "New Cantrip" : `New Rank ${rank} Spell`;
+    }
     onDeleteSpell = () => {
       if (spellSlot.data?.type !== "slot") {
         const valuesToSet = {};
         valuesToSet[`${dataPathToSpell}`] = {
-          name: isCantrip ? "Cantrip Slot" : `Rank ${rank} Spell Slot`,
-          unidentifiedName: isCantrip
-            ? "Cantrip Slot"
-            : `Rank ${rank} Spell Slot`,
+          name: slotName,
+          unidentifiedName: slotName.replace("New ", ""),
           _id: spellSlot?._id,
           portrait: null,
           data: {
@@ -202,6 +231,7 @@
             spellSlot: { hidden: false },
             nameBox: { hidden: false },
             nameUsedBox: { hidden: true },
+            deleteBtn: { hidden: !isSpontaneous && !isFocus && !isInnate },
           },
         };
         api.setValues(valuesToSet, () => {
@@ -340,10 +370,22 @@
           options='[{"label": "Select Spell", "icon": "IconWand", "value": "selectSpell"}]'
         ></iconbutton>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 2px">
+      <div style="display: flex; width: 100%; flex-direction: column; gap: 2px">
         <label size="sm" variant="bold" field="namefield"></label>
         <label size="xs" color="dimmed" label="Drag a Spell Here"></label>
       </div>
+      <box field="deleteBtn" hidden="true">
+        <div style="margin-right: 4px; margin-left: auto">
+          <iconbutton
+            size="sm"
+            variant="default"
+            color="red"
+            hideonlocked="true"
+            onclick="deleteSpell()"
+            options='[{"label": "Remove Spell", "icon": "IconTrash", "value": "removeSpell"}]'
+          ></iconbutton>
+        </div>
+      </box>
     </div>
   </div>
 </box>

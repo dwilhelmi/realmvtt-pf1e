@@ -1,4 +1,9 @@
 <script>
+  function onAddSpell(spellListName) {
+    const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
+    addSpell(`${spellcastingEntryDataPath}.data.${spellListName}`);
+  }
+
   function deleteSpellcastingEntry() {
     const spellcastingEntryDataPath = getNearestParentDataPath(dataPath);
     const spellcastingEntry = api.getValue(spellcastingEntryDataPath);
@@ -318,6 +323,13 @@
           textalign="center"
           size="xs"
         ></numberfield>
+        <label
+          field="numCantripSpontaneousLabel"
+          label="∞"
+          hidden="true"
+          size="sm"
+          variant="bold"
+        ></label>
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
@@ -329,7 +341,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('cantrips');"
+    ></iconbutton>
   </div>
 
   <list
@@ -371,6 +392,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells1"
+              maxvaluefield="numSpells1"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells1"
@@ -396,7 +443,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells1');"
+    ></iconbutton>
   </div>
 
   <list
@@ -438,6 +494,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells2"
+              maxvaluefield="numSpells2"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells2"
@@ -463,7 +545,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells2');"
+    ></iconbutton>
   </div>
 
   <list
@@ -505,6 +596,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells3"
+              maxvaluefield="numSpells3"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells3"
@@ -530,7 +647,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells3');"
+    ></iconbutton>
   </div>
 
   <list
@@ -572,6 +698,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells4"
+              maxvaluefield="numSpells4"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells4"
@@ -597,7 +749,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells4');"
+    ></iconbutton>
   </div>
 
   <list
@@ -639,6 +800,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells5"
+              maxvaluefield="numSpells5"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells5"
@@ -664,7 +851,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells5');"
+    ></iconbutton>
   </div>
 
   <list
@@ -706,6 +902,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells6"
+              maxvaluefield="numSpells6"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells6"
@@ -731,7 +953,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells6');"
+    ></iconbutton>
   </div>
 
   <list
@@ -773,6 +1004,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells7"
+              maxvaluefield="numSpells7"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells7"
@@ -798,7 +1055,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells7');"
+    ></iconbutton>
   </div>
 
   <list
@@ -840,6 +1106,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells8"
+              maxvaluefield="numSpells8"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells8"
@@ -865,7 +1157,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells8');"
+    ></iconbutton>
   </div>
 
   <list
@@ -907,6 +1208,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells9"
+              maxvaluefield="numSpells9"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells9"
@@ -932,7 +1259,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells9');"
+    ></iconbutton>
   </div>
 
   <list
@@ -974,6 +1310,32 @@
           textalign="left"
         ></label>
       </div>
+      <box field="spontaneousBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-right: 4px;
+          "
+        >
+          <div style="min-width: 40px; width: 40px">
+            <numberfield
+              field="usedSpells10"
+              maxvaluefield="numSpells10"
+              width="100%"
+              placeholder="0"
+              minvalue="0"
+              bold="true"
+              hidecontrols="true"
+              textalign="center"
+              size="xs"
+            ></numberfield>
+          </div>
+          <label label="/" size="xs" variant="bold"></label>
+        </div>
+      </box>
       <div style="min-width: 40px; width: 40px">
         <numberfield
           field="numSpells10"
@@ -999,7 +1361,16 @@
     <box field="spacer" hideonlocked="true">
       <div style="min-width: 20px; width: 20px"></div>
     </box>
-    <div style="min-width: 76px; width: 76px; margin-left: 16px"></div>
+    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
+    <iconbutton
+      field="addBtn"
+      hidden="true"
+      size="sm"
+      variant="subtle"
+      color="default"
+      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
+      onclick="onAddSpell('spells10');"
+    ></iconbutton>
   </div>
 
   <list
