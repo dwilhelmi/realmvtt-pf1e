@@ -316,8 +316,11 @@ const damageMetadata = {
 };
 
 // Add damage button to message
-const dmgRollName =
+let dmgRollName =
   isCritical && !isSpell ? "Roll_Critical_Damage" : "Roll_Damage";
+if (isSpell) {
+  dmgRollName = `Roll_${capitalize(damageType)}_Damage`;
+}
 const damageRollString = splashDamage
   ? `${damage} + ${splashDamage} ${damageType}`
   : damage;

@@ -1,4 +1,32 @@
 <script>
+  // Helper function to get the spell slot level from a spell data path
+  // Returns 0 for cantrips, 1-10 for spell ranks
+  function getSlotLevelFromPath(spellDataPath) {
+    const pathParts = spellDataPath.split(".");
+    let spellListType = "";
+
+    // Find the spell list type (cantrips, spells1, spells2, etc.) in the path
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      if (pathParts[i] === "cantrips" || pathParts[i].startsWith("spells")) {
+        spellListType = pathParts[i];
+        break;
+      }
+    }
+
+    // Return 0 for cantrips
+    if (spellListType === "cantrips") {
+      return 0;
+    }
+
+    // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
+    const rankMatch = spellListType.match(/spells(\d+)/);
+    if (rankMatch) {
+      return parseInt(rankMatch[1], 10);
+    }
+
+    return 0; // Default to 0 if not found
+  }
+
   function onCastSpell() {
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spell = api.getValue(dataPathToSpell);
@@ -68,7 +96,7 @@
 
       // Make sure it matches the LEVEL of the slot else notify error
       const spellLevel = parseInt(spell?.data?.level || "0", 10);
-      const slotLevel = parseInt(spellSlot?.data?.level || "0", 10);
+      const slotLevel = getSlotLevelFromPath(dataPathToSpell);
       const isCantrip = (spell?.data?.traits || [])
         .map((trait) => trait.toLowerCase())
         .includes("cantrip");
@@ -136,29 +164,8 @@
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
 
-    let rank = 0;
-    let isCantrip = false;
-    let spellListType = "";
-    const pathParts = dataPathToSpell.split(".");
-    for (let i = pathParts.length - 1; i >= 0; i--) {
-      if (pathParts[i] === "cantrips" || pathParts[i].startsWith("spells")) {
-        spellListType = pathParts[i];
-        break;
-      }
-    }
-
-    // Determine the rank this slot should be set to
-    if (spellListType === "cantrips") {
-      // We'll use a rank of 0 for cantrips
-      rank = 0;
-      isCantrip = true;
-    } else {
-      // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
-      const rankMatch = spellListType.match(/spells(\d+)/);
-      if (rankMatch) {
-        rank = parseInt(rankMatch[1], 10);
-      }
-    }
+    const rank = getSlotLevelFromPath(dataPathToSpell);
+    const isCantrip = rank === 0;
 
     onDeleteSpell = () => {
       if (spellSlot.data?.type !== "slot") {
@@ -222,7 +229,7 @@
     const dataPathToSpell = getNearestParentDataPath(dataPath);
     const spellSlot = api.getValue(dataPathToSpell);
 
-    const spellSlotLevel = parseInt(spellSlot?.data?.level || "0", 10);
+    const spellSlotLevel = getSlotLevelFromPath(dataPathToSpell);
     const actualLevel = spellSlotLevel === 0 ? 1 : spellSlotLevel;
 
     const options = [];

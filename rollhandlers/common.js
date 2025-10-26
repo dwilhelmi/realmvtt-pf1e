@@ -9771,8 +9771,8 @@ function getCastingRank(record, spell, dataPathToSpell) {
   // Determine the rank we're casting at
   let castingRank = spell?.data?.level || 1;
   if (spellListType === "cantrips") {
-    // Cantrips are automatically heightened to half character level (rounded down)
-    castingRank = Math.max(1, Math.floor((record.data?.level || 1) / 2));
+    // Cantrips are automatically heightened to half character level (rounded up)
+    castingRank = Math.max(1, Math.ceil((record.data?.level || 1) / 2));
   } else if (spellListType && spellListType.startsWith("spells")) {
     // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
     const rankMatch = spellListType.match(/spells(\d+)/);
@@ -9863,6 +9863,22 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   // Determine the spell rank we're casting at
   const castingRank = getCastingRank(record, spell, dataPathToSpell);
 
+  // Get the spellcasting entry to determine attribute modifier
+  // Navigate up from spell path (e.g., data.spells.0.cantrips.0) to get spellcasting entry
+  const spellListPath = getNearestParentDataPath(dataPathToSpell); // e.g., data.spells.0.cantrips
+  const spellcastingEntryPath = getNearestParentDataPath(spellListPath); // e.g., data.spells.0
+  const spellcastingEntry = api.getValue(spellcastingEntryPath);
+
+  let attributeMod = 0;
+  if (spellcastingEntry) {
+    const attribute = spellcastingEntry?.data?.attribute || "int";
+    console.log("attribute", attribute);
+    attributeMod = record.data?.[attribute] || 0;
+  }
+
+  console.log("spellcastingEntry", spellcastingEntry);
+  console.log("attributeMod", attributeMod);
+
   const baseDamage = spell?.data?.damage || [];
 
   let damageString = "";
@@ -9880,6 +9896,7 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       const type = dmgEntry?.data?.type || "untyped";
       const category = dmgEntry?.data?.category || "";
       const kinds = dmgEntry?.data?.kinds || [];
+      const applyMod = dmgEntry?.data?.applyMod || false;
 
       // Skip if it doesn't have "damage" kind (i.e., only healing)
       if (!kinds.includes("damage")) {
@@ -9892,7 +9909,13 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
         }
       } else {
         if (formula) {
-          damageComponents.push(`${formula} ${type}`);
+          // Apply attribute modifier if applyMod is true
+          const damageFormula =
+            applyMod && attributeMod > 0
+              ? `${formula} + ${attributeMod} ${type}`
+              : `${formula} ${type}`;
+          damageComponents.push(damageFormula);
+          console.log("damageFormula in heighten", damageFormula);
         }
       }
     });
@@ -9903,6 +9926,9 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       const type = dmgEntry?.data?.type || "untyped";
       const category = dmgEntry?.data?.category || "";
       const kinds = dmgEntry?.data?.kinds || [];
+      const applyMod = dmgEntry?.data?.applyMod || false;
+
+      console.log("applyMod", applyMod);
 
       // Skip if it doesn't have "damage" kind (i.e., only healing)
       if (!kinds.includes("damage")) {
@@ -9915,7 +9941,12 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
         }
       } else {
         if (formula) {
-          damageComponents.push(`${formula} ${type}`);
+          // Apply attribute modifier if applyMod is true
+          const damageFormula =
+            applyMod && attributeMod > 0
+              ? `${formula} + ${attributeMod} ${type}`
+              : `${formula} ${type}`;
+          damageComponents.push(damageFormula);
         }
       }
     });
@@ -9957,6 +9988,61 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
     persistentDamage,
     castingRank,
   };
+}
+
+function getSpellDamageMacro(record, spell, dataPathToSpell) {
+  const spellName = spell?.name || "Unknown Spell";
+  const spellDamage = calculateSpellDamage(record, spell, dataPathToSpell);
+
+  if (!spellDamage.damageString && !spellDamage.persistentDamage) {
+    return null; // No damage to roll
+  }
+
+  const isCantrip = (spell?.data?.traits || []).some(
+    (trait) => trait?.toLowerCase() === "cantrip"
+  );
+
+  // Determine primary damage type for the macro name
+  const firstDamage = spell?.data?.damage?.[0];
+  const primaryDamageType = firstDamage?.data?.type || "";
+  const damageTypeName = primaryDamageType
+    ? capitalize(primaryDamageType)
+    : "Damage";
+
+  // Get damage modifiers based on spell type
+  const damageModifierTypes = isCantrip
+    ? ["cantripDamageBonus", "cantripDamagePenalty"]
+    : ["spellDamageBonus", "spellDamagePenalty"];
+
+  return `\`\`\`Roll_${damageTypeName}_Damage
+const selectedTokens = api.getSelectedOrDroppedToken();
+if (!selectedTokens || selectedTokens.length === 0) {
+  return;
+}
+const record = selectedTokens[0];
+
+// Get damage modifiers based on spell type
+const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
+const damageModifiers = getEffectsAndModifiersForToken(
+  record,
+  damageModifierTypes
+);
+
+const damage = "${spellDamage.damageString}";
+const persistentDamage = "${spellDamage.persistentDamage}";
+
+api.promptRoll(
+  "${spellName}",
+  damage,
+  damageModifiers,
+  {
+    persistentDamage: persistentDamage,
+    isSpell: true,
+    rollName: "${spellName} Damage"
+  },
+  "damage"
+);
+\`\`\``;
 }
 
 function getSpellSaveMacro(record, spell, spellCastingEntry, dataPathToSpell) {
@@ -10076,6 +10162,7 @@ if (targets.length === 0) {
     isMelee: ${isMelee},
     isRanged: ${!isMelee},
     damage: "${spellDamage.damageString}",
+    damageType: "${primaryDamageType}",
     persistentDamage: "${spellDamage.persistentDamage}",
     damageModifiers: damageModifiers,
     animation: ${JSON.stringify(animation)},
@@ -10143,6 +10230,7 @@ if (targets.length === 0) {
       tokenId: ourToken?._id,
       targetId: targetToken?._id,
       damage: "${spellDamage.damageString}",
+      damageType: "${primaryDamageType}",
       persistentDamage: "${spellDamage.persistentDamage}",
       damageModifiers: damageModifiers,
       showShieldDamage: targetShieldRaised && ${damageIsPhysical},
@@ -10339,13 +10427,19 @@ function castSpell(record, spell, dataPathToSpell) {
     }
     // If saving throws, show saves
     if (defense.save && defense.save.statistic) {
-      const macro = getSpellSaveMacro(
+      const saveMacro = getSpellSaveMacro(
         record,
         spell,
         spellCastingEntry,
         dataPathToSpell
       );
-      macros.push(macro);
+      macros.push(saveMacro);
+
+      // Add damage macro for saving throw spells
+      const damageMacro = getSpellDamageMacro(record, spell, dataPathToSpell);
+      if (damageMacro) {
+        macros.push(damageMacro);
+      }
     }
   }
 
