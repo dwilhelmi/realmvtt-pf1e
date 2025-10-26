@@ -112,6 +112,8 @@
       spellCastingEntry?.data?.type === "innate" ||
       spellCastingEntry?.data?.type === "focus";
 
+    const isInnate = spellCastingEntry?.data?.type === "innate";
+
     if (value === "spells") {
       // If this is a spell slot, we set it
       const valuesToSet = {};
@@ -168,6 +170,7 @@
             ...(spell?.fields || {}),
             spellDetails: { hidden: false },
             spellSlot: { hidden: true },
+            innateBox: { hidden: !isInnate || isCantrip },
             used: { hidden: isCantrip || isSpontaneousOrFocus },
           },
         };
@@ -235,6 +238,7 @@
             spellSlot: { hidden: false },
             nameBox: { hidden: false },
             nameUsedBox: { hidden: true },
+            innateBox: { hidden: true },
             deleteBtn: { hidden: !isSpontaneous && !isFocus && !isInnate },
             used: { hidden: isSpontaneous || isFocus || isInnate || isCantrip },
           },
@@ -479,6 +483,35 @@
           ></iconbutton>
         </div>
       </div>
+      <box field="innateBox" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label size="sm" variant="bold" label="Uses"></label>
+          <numberfield
+            field="uses"
+            size="xs"
+            width="40px"
+            hidecontrols="true"
+            maxvaluefield="maxUses"
+            placeholder="0"
+          ></numberfield>
+          <label size="sm" variant="bold" label="/"></label>
+          <numberfield
+            field="maxUses"
+            size="xs"
+            width="40px"
+            hidecontrols="true"
+            placeholder="0"
+          ></numberfield>
+        </div>
+      </box>
     </accordion.control>
 
     <div

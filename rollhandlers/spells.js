@@ -107,6 +107,7 @@ function updateSpellcastingEntry(
         },
         fields: {
           spellDetails: { hidden: true },
+          innateBox: { hidden: true },
           spellSlot: { hidden: false },
           used: { hidden: isCantrip },
         },
@@ -200,6 +201,7 @@ function addSpell(spellListDataPath) {
     },
     fields: {
       spellDetails: { hidden: true },
+      innateBox: { hidden: true },
       spellSlot: { hidden: false },
       deleteBtn: { hidden: false },
       used: { hidden: true },
@@ -300,6 +302,36 @@ function addSpellcastingEntry(record) {
           },
           numCantrips: {
             hidden: isSpontaneous || isFocus || isInnate,
+          },
+          numSpells1: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells2: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells3: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells4: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells5: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells6: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells7: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells8: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells9: {
+            hidden: isInnate || isFocus,
+          },
+          numSpells10: {
+            hidden: isInnate || isFocus,
           },
           numCantripSpontaneousLabel: {
             hidden: !isSpontaneous && !isInnate && !isFocus,
@@ -921,11 +953,21 @@ function castSpell(record, spell, dataPathToSpell) {
     valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
   }
 
-  if (spellCastingEntry.data?.type === "focus") {
+  if (spellCastingEntry.data?.type === "focus" && !isCantrip) {
     const maxFocusPool = spellCastingEntry.data?.focusPoolMax || 1;
     const usedFocus = spellCastingEntry.data?.focusPool || 0;
+
+    if (usedFocus >= maxFocusPool) {
+      api.showNotification(
+        `You are out of Focus points and must first Refocus to cast this spell.`,
+        "red",
+        "Out of Focus Points"
+      );
+      return;
+    }
+
     const newUsedFocus = Math.min(usedFocus + 1, maxFocusPool);
-    valuesToSet[`${spellCastingEntryDataPath}.data.focusPool`] = newUsedFocus;
+    valuesToSet[`${dataPathToSpellCastingEntry}.data.focusPool`] = newUsedFocus;
   }
 
   if (isSpontaneous && !isCantrip) {
@@ -947,7 +989,19 @@ function castSpell(record, spell, dataPathToSpell) {
   }
 
   if (isInnate && !isCantrip) {
-    // TODO
+    const spellUses = spell?.data?.uses || 0;
+
+    if (spellUses <= 0) {
+      api.showNotification(
+        `You are out of Spell Uses for ${spellName}`,
+        "red",
+        "Out of Spell Uses"
+      );
+      return;
+    }
+
+    const newSpellUses = Math.max(spellUses - 1, 0);
+    valuesToSet[`${dataPathToSpell}.data.uses`] = newSpellUses;
   }
 
   const spellDescription = api.richTextToMarkdown(
