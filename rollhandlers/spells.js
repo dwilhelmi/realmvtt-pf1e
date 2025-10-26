@@ -518,8 +518,8 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       } else {
         if (formula) {
           // Apply attribute modifier if applyMod is true
-          // For healing, use empty string instead of "untyped"
-          const typeString = isHealing && type === "untyped" ? "" : type;
+          // For healing, use "heal" instead of "untyped"
+          const typeString = isHealing && type === "untyped" ? "heal" : type;
           const effectFormula =
             applyMod && attributeMod > 0
               ? `${formula} + ${attributeMod} ${typeString}`.trim()
@@ -564,8 +564,8 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       } else {
         if (formula) {
           // Apply attribute modifier if applyMod is true
-          // For healing, use empty string instead of "untyped"
-          const typeString = isHealing && type === "untyped" ? "" : type;
+          // For healing, use "heal" instead of "untyped"
+          const typeString = isHealing && type === "untyped" ? "heal" : type;
           const effectFormula =
             applyMod && attributeMod > 0
               ? `${formula} + ${attributeMod} ${typeString}`.trim()
@@ -608,10 +608,10 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
             const numDice = parseInt(match[1], 10);
             const dieType = match[2];
             const totalDice = numDice * numIntervals;
-            // For healing, use empty string instead of "untyped"
+            // For healing, use "heal" instead of "untyped"
             const typeString =
               heightenIsHealing && heightenType === "untyped"
-                ? ""
+                ? "heal"
                 : heightenType;
             const intervalString =
               `${totalDice}${dieType} ${typeString}`.trim();
@@ -628,10 +628,10 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
             }
           } else {
             // If it's not dice notation, just add it multiple times
-            // For healing, use empty string instead of "untyped"
+            // For healing, use "heal" instead of "untyped"
             const typeString =
               heightenIsHealing && heightenType === "untyped"
-                ? ""
+                ? "heal"
                 : heightenType;
             for (let i = 0; i < numIntervals; i++) {
               if (heightenIsDamage) {
