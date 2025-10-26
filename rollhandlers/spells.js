@@ -367,8 +367,13 @@ function getCastingRank(record, spell, dataPathToSpell) {
 
   // Determine the rank we're casting at
   let castingRank = spell?.data?.level || 1;
-  if (spellListType === "cantrips") {
-    // Cantrips are automatically heightened to half character level (rounded up)
+  const spellCastingEntryDataPath = getNearestParentDataPath(dataPathToSpell);
+  const spellCastingEntry = api.getValue(spellCastingEntryDataPath);
+  const isFocus = spellCastingEntry?.data?.type === "focus";
+
+  // Cantrips and Focus spells are automatically heightened to half character level (rounded up)
+  if (spellListType === "cantrips" || isFocus) {
+    console.log("Heightening to half character level");
     castingRank = Math.max(1, Math.ceil((record.data?.level || 1) / 2));
   } else if (spellListType && spellListType.startsWith("spells")) {
     // Extract rank from spellListType (e.g., "spells1" -> 1, "spells10" -> 10)
