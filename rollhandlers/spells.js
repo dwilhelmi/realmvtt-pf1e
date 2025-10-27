@@ -690,6 +690,8 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
     ? ["cantripDamageBonus", "cantripDamagePenalty"]
     : ["spellDamageBonus", "spellDamagePenalty"];
 
+  const traits = spell?.data?.traits || [];
+
   return `\`\`\`Roll_${damageTypeName}_Damage
   // Lookup the record and then prompt the roll
   api.getRecord('${record.recordType}', '${record._id}', (record) => {
@@ -710,7 +712,8 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
       {
         persistentDamage: persistentDamage,
         isSpell: true,
-        rollName: "${spellName} Damage"
+        rollName: "${spellName} Damage",
+        traits: ${JSON.stringify(traits)},
       },
       "damage"
     );
@@ -825,6 +828,8 @@ function getSpellAttackMacro(
     primaryDamageType.toLowerCase()
   );
 
+  const traits = spell?.data?.traits || [];
+
   return `\`\`\`Roll_Attack
 // Lookup the record and then prompt the roll
 api.getRecord('${record.recordType}', '${record._id}', (record) => {
@@ -872,6 +877,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       damageType: "${primaryDamageType}",
       persistentDamage: "${spellDamage.persistentDamage}",
       damageModifiers: damageModifiers,
+      traits: ${JSON.stringify(traits)},
       animation: ${JSON.stringify(animation)},
     };
   
@@ -940,6 +946,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
         damageType: "${primaryDamageType}",
         persistentDamage: "${spellDamage.persistentDamage}",
         damageModifiers: damageModifiers,
+        traits: ${JSON.stringify(traits)},
         showShieldDamage: targetShieldRaised && ${damageIsPhysical},
         animation: ${JSON.stringify(animation)},
       };
