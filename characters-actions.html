@@ -18,7 +18,6 @@
     size="md"
     textalign="center"
   ></label>
-
   <div
     style="
       width: 100%;
@@ -69,6 +68,15 @@
     ></button>
   </div>
 
+  <label
+    variant="bold"
+    field="attackListLabel2"
+    label="Weapons in Inventory Appear Here"
+    size="xs"
+    color="dimmed"
+    textalign="center"
+  ></label>
+
   <list
     hidden="true"
     listtype="polymorph_actions_list"
@@ -77,6 +85,16 @@
   ></list>
 
   <list listtype="attack_list" variant="striped" field="inventory"></list>
+  <list
+    listtype="attack_stowed_list"
+    variant="striped"
+    field="inventory"
+  ></list>
+  <list
+    listtype="attack_dropped_list"
+    variant="striped"
+    field="inventory"
+  ></list>
 </div>
 
 <div style="margin-top: 8px">

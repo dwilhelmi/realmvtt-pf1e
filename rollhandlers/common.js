@@ -3421,6 +3421,19 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Check all spellcasting entries and update DC and Mod
   updateSpellcastingEntries(record, valuesToSet);
 
+  // If we have any weapons, hide the attack list sublabel
+  const weapons = record.data?.inventory?.filter(
+    (item) => item.data?.type === "weapon"
+  );
+  if (weapons.length > 0 && record.fields?.attackListLabel2?.hidden !== true) {
+    valuesToSet[`fields.attackListLabel2.hidden`] = true;
+  } else if (
+    weapons.length === 0 &&
+    record.fields?.attackListLabel2?.hidden !== false
+  ) {
+    valuesToSet[`fields.attackListLabel2.hidden`] = false;
+  }
+
   // We'll set actions and then provided attacks
   const setActionsCallback = () => {
     setProvidedActions(record, () => {

@@ -1,0 +1,44 @@
+<script>
+  function handleDraw() {
+    const ourToken = api.getToken();
+    const dataPathToWeapon = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(dataPathToWeapon);
+    const valuesToSet = {
+      [`${dataPathToWeapon}.data.carried`]: "equipped",
+    };
+    api.setValues(valuesToSet);
+    api.sendMessage(
+      `**:one-action: Drawing Weapon: ${weapon.name}**`,
+      undefined,
+      [],
+      [],
+      ourToken
+    );
+  }
+</script>
+
+<div style="display: flex; flex-direction: column">
+  <!-- Main row for icon, name, buttons -->
+  <div
+    style="display: flex; flex-direction: row; gap: 4px; align-items: center"
+  >
+    <div style="width: 30px; height: 30px; min-width: 30px; min-height: 30px">
+      <portrait width="30px" height="30px" field="portrait"></portrait>
+    </div>
+    <div style="width: 100%">
+      <namefield
+        field="namefield"
+        placeholder="Weapon Name..."
+        variant="standard"
+      ></namefield>
+    </div>
+    <button
+      onclick="handleDraw()"
+      size="xs"
+      icon="one-action"
+      width="120px"
+      label="Draw"
+      variant="default"
+    ></button>
+  </div>
+</div>
