@@ -693,32 +693,32 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
   const traits = spell?.data?.traits || [];
 
   return `\`\`\`Roll_${damageTypeName}_Damage
-  // Lookup the record and then prompt the roll
-  api.getRecord('${record.recordType}', '${record._id}', (record) => {
-    // Get damage modifiers based on spell type
-    const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
-    const damageModifiers = getEffectsAndModifiersForToken(
-      record,
-      damageModifierTypes
-    );
+// Lookup the record and then prompt the roll
+api.getRecord('${record.recordType}', '${record._id}', (record) => {
+  // Get damage modifiers based on spell type
+  const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
+  const damageModifiers = getEffectsAndModifiersForToken(
+    record,
+    damageModifierTypes
+  );
 
-    const damage = "${spellDamage.damageString}";
-    const persistentDamage = "${spellDamage.persistentDamage}";
+  const damage = "${spellDamage.damageString}";
+  const persistentDamage = "${spellDamage.persistentDamage}";
 
-    api.promptRoll(
-      "${spellName}",
-      damage,
-      damageModifiers,
-      {
-        persistentDamage: persistentDamage,
-        isSpell: true,
-        rollName: "${spellName} Damage",
-        traits: ${JSON.stringify(traits)},
-      },
-      "damage"
-    );
-  });
-  \`\`\``;
+  api.promptRoll(
+    "${spellName}",
+    damage,
+    damageModifiers,
+    {
+      persistentDamage: persistentDamage,
+      isSpell: true,
+      rollName: "${spellName} Damage",
+      traits: ${JSON.stringify(traits)},
+    },
+    "damage"
+  );
+});
+\`\`\``;
 }
 
 function getSpellHealingMacro(record, spell, dataPathToSpell) {
@@ -733,29 +733,29 @@ function getSpellHealingMacro(record, spell, dataPathToSpell) {
   const healingModifierTypes = ["healingBonus", "healingPenalty"];
 
   return `\`\`\`Roll_Healing
-  // Lookup the record and then prompt the roll
-  api.getRecord('${record.recordType}', '${record._id}', (record) => {
-    // Get healing modifiers based on spell type
-    const healingModifierTypes = ${JSON.stringify(healingModifierTypes)};
-    const healingModifiers = getEffectsAndModifiersForToken(
-      record,
-      healingModifierTypes
-    );
+// Lookup the record and then prompt the roll
+api.getRecord('${record.recordType}', '${record._id}', (record) => {
+  // Get healing modifiers based on spell type
+  const healingModifierTypes = ${JSON.stringify(healingModifierTypes)};
+  const healingModifiers = getEffectsAndModifiersForToken(
+    record,
+    healingModifierTypes
+  );
 
-    const healing = "${spellEffect.healingString}";
+  const healing = "${spellEffect.healingString}";
 
-    api.promptRoll(
-      "${spellName}",
-      healing,
-      healingModifiers,
-      {
-        isSpell: true,
-        rollName: "${spellName} Healing"
-      },
-      "healing"
-    );
-  });
-  \`\`\``;
+  api.promptRoll(
+    "${spellName}",
+    healing,
+    healingModifiers,
+    {
+      isSpell: true,
+      rollName: "${spellName} Healing"
+    },
+    "healing"
+  );
+});
+\`\`\``;
 }
 
 function getSpellSaveMacro(record, spell, spellCastingEntry, dataPathToSpell) {
