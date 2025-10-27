@@ -6618,6 +6618,7 @@ function applyDamage(
   // splashDamage should be an object like: { type: "fire", value: 3 }
   // We still use the roll object for metadata (traits, ignore resistances, etc.)
   const isApplyingSplash = splashDamage !== null;
+  const traits = roll.metadata?.traits || [];
 
   // Extract values from metadata
   // Splash damage is never a critical hit and never has death trait
@@ -6801,6 +6802,51 @@ function applyDamage(
         }
       }
 
+      // Check for vitality/void trait healing conversion
+      // This must be done before we calculate baseDamage
+      const targetTraits = target.data?.traits || [];
+      const hasUndeadTrait = targetTraits.some(
+        (trait) => trait?.toLowerCase() === "undead"
+      );
+      const hasVitalityTrait = traits.some(
+        (trait) => trait?.toLowerCase() === "vitality"
+      );
+      const hasVoidTrait = traits.some(
+        (trait) => trait?.toLowerCase() === "void"
+      );
+
+      // Convert damage to healing based on vitality/void traits
+      let healingAmount = 0;
+      const damageTypesToRemove = [];
+
+      Object.keys(damageByType).forEach((type) => {
+        const lowerType = type.toLowerCase();
+
+        // Void damage heals undead
+        if (hasVoidTrait && lowerType === "void" && hasUndeadTrait) {
+          healingAmount += damageByType[type];
+          damageTypesToRemove.push(type);
+        }
+
+        // Vitality damage heals living (non-undead)
+        if (hasVitalityTrait && lowerType === "vitality" && !hasUndeadTrait) {
+          healingAmount += damageByType[type];
+          damageTypesToRemove.push(type);
+        }
+      });
+
+      // Apply half damage to healing if halfDamage is true
+      if (halfDamage && healingAmount > 0 && !isApplyingSplash) {
+        healingAmount = Math.floor(healingAmount / 2);
+        // Minimum 1 healing if there was any healing to begin with
+        healingAmount = Math.max(1, healingAmount);
+      }
+
+      // Remove converted damage types from damageByType
+      damageTypesToRemove.forEach((type) => {
+        delete damageByType[type];
+      });
+
       // Calculate total base damage (before IWR and before half)
       let baseDamage = 0;
       Object.keys(damageByType).forEach((type) => {
@@ -6974,6 +7020,9 @@ function applyDamage(
         0
       );
 
+      // Subtract healing amount from damage (can make damage negative)
+      damage -= healingAmount;
+
       // Handle shield damage if shieldDamage is true and shield is raised
       let shieldAbsorbed = 0;
       let shieldDamaged = false;
@@ -7068,26 +7117,39 @@ function applyDamage(
       oldValues["data.curhp"] = oldHp;
       oldValues["data.tempHp"] = oldTempHp;
 
-      // If damage > 0, float text
-      if (damage > 0) {
-        let message = `-${damage}`;
-        if (immuneToCritical && isCritical) {
-          message += "\n(Immune to Critical Hits)";
+      // Float text for damage or healing
+      if (damage !== 0) {
+        if (damage > 0) {
+          // Damage - red text
+          let message = `-${damage}`;
+          if (immuneToCritical && isCritical) {
+            message += "\n(Immune to Critical Hits)";
+          }
+          api.floatText(target, message, "#FF0000");
+        } else {
+          // Healing (negative damage) - green text
+          const healAmount = Math.abs(damage);
+          api.floatText(target, `+${healAmount}`, "#1bc91b");
         }
-        api.floatText(target, message, "#FF0000");
       }
 
-      // First deduct from Temp HP
-      const newTempHp = Math.max(oldTempHp - damage, 0);
-      damage = Math.max(damage - oldTempHp, 0);
+      // Handle temp HP and healing
       let usedTempHp = false;
-      if (newTempHp !== oldTempHp) {
-        valuesToSet["data.tempHp"] = newTempHp;
-        usedTempHp = true;
-      }
 
-      // Then deduct from Current HP
-      curhp -= damage;
+      if (damage > 0) {
+        // Damage: First deduct from Temp HP
+        const newTempHp = Math.max(oldTempHp - damage, 0);
+        damage = Math.max(damage - oldTempHp, 0);
+        if (newTempHp !== oldTempHp) {
+          valuesToSet["data.tempHp"] = newTempHp;
+          usedTempHp = true;
+        }
+        // Then deduct from Current HP
+        curhp -= damage;
+      } else if (damage < 0) {
+        // Healing: Add to current HP (damage is negative, so subtract it)
+        curhp -= damage;
+      }
 
       // Check for instant death conditions
       let instantDeath = false;
@@ -7143,13 +7205,21 @@ function applyDamage(
         ? target.name || target.record.name
         : target.unidentifiedName || target.record.unidentifiedName;
 
-      let message = isApplyingSplash
-        ? `${targetName} took ${damage} splash damage.`
-        : `${targetName} took ${damage} damage.`;
-      if (usedTempHp && !isApplyingSplash) {
-        message = `${targetName} took ${damage} damage after deducting Temp HP.`;
-      } else if (usedTempHp && isApplyingSplash) {
-        message = `${targetName} took ${damage} splash damage after deducting Temp HP.`;
+      let message;
+      if (damage < 0) {
+        // Healing message
+        const healAmount = Math.abs(damage);
+        message = `${targetName} was healed ${healAmount} HP.`;
+      } else {
+        // Damage message
+        message = isApplyingSplash
+          ? `${targetName} took ${damage} splash damage.`
+          : `${targetName} took ${damage} damage.`;
+        if (usedTempHp && !isApplyingSplash) {
+          message = `${targetName} took ${damage} damage after deducting Temp HP.`;
+        } else if (usedTempHp && isApplyingSplash) {
+          message = `${targetName} took ${damage} splash damage after deducting Temp HP.`;
+        }
       }
 
       // Add shield damage message if shield was damaged
@@ -7248,8 +7318,9 @@ function applyDamage(
       }
 
       // Build undo macro with all old values as a single batch operation
+      // Include undo for both damage (damage > 0) and healing (damage < 0)
       const macro =
-        damage > 0 && !instantDeath && Object.keys(oldValues).length > 0
+        damage !== 0 && !instantDeath && Object.keys(oldValues).length > 0
           ? `\n\`\`\`Undo\nif (isGM) { api.setValuesOnTokenById('${
               target._id
             }', '${target.recordType}', ${JSON.stringify(

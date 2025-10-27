@@ -8,6 +8,7 @@ const isPersistant = data.roll?.metadata?.isPersistant === true;
 const persistentPartIndex = data.roll?.metadata?.persistentPartIndex || 0;
 const showShieldDamage = data.roll?.metadata?.showShieldDamage;
 const isSpell = data.roll?.metadata?.isSpell === true;
+const isVitalityDual = data.roll?.metadata?.isVitalityDual;
 
 let persistentDamage = data.roll?.metadata?.persistentDamage || "";
 
@@ -157,15 +158,20 @@ _${breakdown}_
 `;
 }
 
+let damageName = "Damage";
+if (isVitalityDual) {
+  damageName = "Damage_or_Healing";
+}
+
 const damageMacro = `
-\`\`\`Apply_Damage
+\`\`\`Apply_${damageName}
 applyDamage(null, ${JSON.stringify(data.roll)}, false);
 \`\`\`
 `;
 
 const halfDamageMacro = showHalf
   ? `
-\`\`\`Apply_Half_Damage
+\`\`\`Apply_Half_${damageName}
 applyDamage(null, ${JSON.stringify(data.roll)}, true);
 \`\`\`
 `
@@ -182,7 +188,7 @@ const spellDoubleDamageRoll = {
 };
 const doubleDamageMacro = isSpell
   ? `
-\`\`\`Apply_Double_Damage
+\`\`\`Apply_Double_${damageName}
 applyDamage(null, ${JSON.stringify(spellDoubleDamageRoll)}, false);
 \`\`\`
 `

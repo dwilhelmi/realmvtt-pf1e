@@ -36,6 +36,7 @@ const hasCriticalSpecialization =
   data?.roll?.metadata?.hasCriticalSpecialization;
 
 const showShieldDamage = data?.roll?.metadata?.showShieldDamage;
+const isVitalityDual = data?.roll?.metadata?.isVitalityDual;
 
 // If it was a spell attack, we need to pass this along in damage metadata
 const isSpell = data?.roll?.metadata?.isSpell === true;
@@ -313,6 +314,7 @@ const damageMetadata = {
   persistentDamage: persistentDamage,
   hasDeathTrait: hasDeathTrait,
   criticalOnlyDice: criticalOnlyDice,
+  isVitalityDual: isVitalityDual,
 };
 
 // Add damage button to message
@@ -321,6 +323,10 @@ let dmgRollName =
 if (isSpell) {
   dmgRollName = `Roll_${capitalize(damageType)}_Damage`;
 }
+if (isVitalityDual) {
+  dmgRollName = "Roll_Damage_or_Healing";
+}
+
 const damageRollString = splashDamage
   ? `${damage} + ${splashDamage} ${damageType}`
   : damage;

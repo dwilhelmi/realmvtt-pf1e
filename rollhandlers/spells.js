@@ -666,6 +666,28 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   };
 }
 
+function isVitalityDualKindSpell(spell) {
+  // Check if spell has vitality or void trait
+  const traits = spell?.data?.traits || [];
+  const hasVitalityOrVoid = traits.some((trait) => {
+    const lowerTrait = trait?.toLowerCase();
+    return lowerTrait === "vitality" || lowerTrait === "void";
+  });
+
+  if (!hasVitalityOrVoid) {
+    return false;
+  }
+
+  // Check if any damage entry has both damage and healing kinds
+  const damageList = spell?.data?.damage || [];
+  const hasDualKind = damageList.some((dmg) => {
+    const kinds = dmg?.data?.kinds || [];
+    return kinds.includes("damage") && kinds.includes("healing");
+  });
+
+  return hasDualKind;
+}
+
 function getSpellDamageMacro(record, spell, dataPathToSpell) {
   const spellName = spell?.name || "Unknown Spell";
   const spellDamage = calculateSpellDamage(record, spell, dataPathToSpell);
@@ -678,12 +700,20 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
     (trait) => trait?.toLowerCase() === "cantrip"
   );
 
+  // Check if this is a vitality spell with dual damage/healing
+  const isVitalityDual = isVitalityDualKindSpell(spell);
+
   // Determine primary damage type for the macro name
   const firstDamage = spell?.data?.damage?.[0];
   const primaryDamageType = firstDamage?.data?.type || "";
   const damageTypeName = primaryDamageType
     ? capitalize(primaryDamageType)
     : "Damage";
+
+  // Use special name for vitality dual-kind spells
+  const macroName = isVitalityDual
+    ? "Roll_Damage_or_Healing"
+    : `Roll_${damageTypeName}_Damage`;
 
   // Get damage modifiers based on spell type
   const damageModifierTypes = isCantrip
@@ -692,7 +722,7 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
 
   const traits = spell?.data?.traits || [];
 
-  return `\`\`\`Roll_${damageTypeName}_Damage
+  return `\`\`\`${macroName}
 // Lookup the record and then prompt the roll
 api.getRecord('${record.recordType}', '${record._id}', (record) => {
   // Get damage modifiers based on spell type
@@ -714,6 +744,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       isSpell: true,
       rollName: "${spellName} Damage",
       traits: ${JSON.stringify(traits)},
+      isVitalityDual: ${isVitalityDual},
     },
     "damage"
   );
@@ -829,6 +860,7 @@ function getSpellAttackMacro(
   );
 
   const traits = spell?.data?.traits || [];
+  const isVitalityDual = isVitalityDualKindSpell(spell);
 
   return `\`\`\`Roll_Attack
 // Lookup the record and then prompt the roll
@@ -879,6 +911,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       damageModifiers: damageModifiers,
       traits: ${JSON.stringify(traits)},
       animation: ${JSON.stringify(animation)},
+      isVitalityDual: ${isVitalityDual},
     };
   
     api.promptRoll(
@@ -949,6 +982,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
         traits: ${JSON.stringify(traits)},
         showShieldDamage: targetShieldRaised && ${damageIsPhysical},
         animation: ${JSON.stringify(animation)},
+        isVitalityDual: ${isVitalityDual},
       };
   
       api.promptRoll(
@@ -1221,9 +1255,12 @@ function castSpell(record, spell, dataPathToSpell) {
     }
   }
 
-  const healingMacro = getSpellHealingMacro(record, spell, dataPathToSpell);
-  if (healingMacro) {
-    macros.push(healingMacro);
+  // Only add healing macro if this is not a vitality/void dual-kind spell
+  if (!isVitalityDualKindSpell(spell)) {
+    const healingMacro = getSpellHealingMacro(record, spell, dataPathToSpell);
+    if (healingMacro) {
+      macros.push(healingMacro);
+    }
   }
 
   const message = `
