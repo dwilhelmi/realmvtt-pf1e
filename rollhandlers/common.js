@@ -3708,7 +3708,8 @@ function rollSkill(
   loreSkillStat = "int",
   isMacro = false,
   isInitiative = false,
-  initiativeGroup = undefined
+  initiativeGroup = undefined,
+  additionalMetadata = {}
 ) {
   if (!record || !skillName) {
     console.error("rollSkill: Invalid record or skillName");
@@ -3846,6 +3847,7 @@ function rollSkill(
     tooltip: `${capitalize(skillName)} Skill Check`,
     skillName: skill,
     group: initiativeGroup,
+    ...additionalMetadata,
   };
 
   if (isPerception) {

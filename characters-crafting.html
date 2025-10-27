@@ -1,0 +1,134 @@
+<script>
+  function craftItems() {}
+
+  function convertCurrencyToString(totalCp) {
+    // Convert copper pieces to gold pieces (100 cp = 1 gp)
+    const gp = totalCp / 100;
+
+    // If it's a whole number, show no decimals
+    if (gp % 1 === 0) {
+      return `${gp} gp`;
+    }
+
+    // Otherwise show up to 2 decimal places
+    return `${gp.toFixed(2)} gp`;
+  }
+
+  function onCraftingItemChange() {
+    // Calculate and update the DC and Cost of each item in the list
+    // Requery the record to get the latest data
+    api.getRecord(record.recordType, record._id, (updatedRecord) => {
+      const craftingItems = updatedRecord.data?.craftingItems || [];
+
+      const valuesToSet = {};
+
+      craftingItems.forEach((item, index) => {
+        const itemDataPath = `data.craftingItems.${index}`;
+
+        // Determine DC if not already set
+        let dc = item.data?.craftingDC;
+        if (dc === undefined || dc === null) {
+          const itemLevel = item.data?.level || 0;
+
+          // Determine rarity from traits
+          let rarity = null;
+          const traits = item.data?.traits || [];
+
+          // Check for rarity in priority order: unique > rare > uncommon
+          if (traits.some((t) => t.name?.toLowerCase() === "unique")) {
+            rarity = "unique";
+          } else if (traits.some((t) => t.name?.toLowerCase() === "rare")) {
+            rarity = "rare";
+          } else if (traits.some((t) => t.name?.toLowerCase() === "uncommon")) {
+            rarity = "uncommon";
+          }
+
+          dc = getDCForLevel(itemLevel, rarity);
+        }
+
+        // Determine quantity if not already set
+        let quantity = item.data?.craftingQuantity;
+        if (quantity === undefined || quantity === null) {
+          const isConsumable =
+            item.data?.type?.toLowerCase() === "consumable" ||
+            item.data?.traits?.some(
+              (t) => t.name?.toLowerCase() === "consumable"
+            );
+          quantity = isConsumable ? 4 : 1;
+        }
+
+        // Calculate crafting cost
+        const price = item.data?.price?.value || {};
+        const cpPerItem =
+          (price.pp || 0) * 1000 +
+          (price.gp || 0) * 100 +
+          (price.sp || 0) * 10 +
+          (price.cp || 0);
+        const totalCp = cpPerItem * quantity;
+        const craftingCost = convertCurrencyToString(totalCp);
+
+        valuesToSet[`${itemDataPath}.data.craftingDC`] = dc;
+        valuesToSet[`${itemDataPath}.data.craftingQuantity`] = quantity;
+        valuesToSet[`${itemDataPath}.data.craftingCost`] = craftingCost;
+      });
+
+      if (Object.keys(valuesToSet).length > 0) {
+        api.setValues(valuesToSet);
+      }
+    });
+  }
+</script>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+  <label
+    variant="bold"
+    field="craftingLabel"
+    label="Known Formulas"
+    size="md"
+    textalign="center"
+  ></label>
+
+  <div style="height: 30px; display: flex; gap: 4px; align-items: center">
+    <div style="width: 30px; min-width: 30px"></div>
+    <div style="flex-grow: 1"></div>
+    <div style="width: 40px">
+      <label
+        size="xs"
+        width="100%"
+        textalign="center"
+        label="DC"
+        variant="bold"
+      >
+      </label>
+    </div>
+    <div style="width: 60px">
+      <label
+        size="xs"
+        width="100%"
+        textalign="center"
+        label="Cost"
+        variant="bold"
+      >
+      </label>
+    </div>
+    <div style="width: 50px">
+      <label
+        size="xs"
+        width="100%"
+        textalign="center"
+        label="Quantity"
+        variant="bold"
+      >
+      </label>
+    </div>
+    <div style="width: 60px"></div>
+    <box field="tableSpacer" width="16px" hideonlocked="true"></box>
+  </div>
+
+  <list
+    listtype="crafting_list"
+    onchange="onCraftingItemChange()"
+    variant="striped"
+    field="craftingItems"
+  ></list>
+</div>

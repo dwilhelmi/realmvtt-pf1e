@@ -1,6 +1,11 @@
 const rollName = data?.roll?.metadata?.rollName;
 const tooltip = data?.roll?.metadata?.tooltip;
 const minRoll = data?.roll?.metadata?.minRoll;
+const itemDataPath = data?.roll?.metadata?.itemDataPath;
+const successMessage = data?.roll?.metadata?.successMessage;
+const failureMessage = data?.roll?.metadata?.failureMessage;
+const criticalSuccessMessage = data?.roll?.metadata?.criticalSuccessMessage;
+const criticalFailureMessage = data?.roll?.metadata?.criticalFailureMessage;
 
 // Find the unddropped d20, and if minroll is set
 // alter the actual roll to be the minroll if it's lower
@@ -78,19 +83,61 @@ if (dc > 0) {
   const marginText = margin >= 0 ? `+${margin}` : `${margin}`;
 
   // Generate appropriate message based on final degree of success
+  let outcomeMessage = "";
   switch (degreeOfSuccess) {
     case 2:
       message = `**[center][color=green]CRITICAL SUCCESS[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      outcomeMessage = criticalSuccessMessage || "";
       break;
     case 1:
       message = `**[center][color=lime]SUCCESS[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      outcomeMessage = successMessage || "";
       break;
     case 0:
       message = `**[center][color=pink]FAILURE[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      outcomeMessage = failureMessage || "";
       break;
     case -1:
       message = `**[center][color=red]CRITICAL FAILURE[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      outcomeMessage = criticalFailureMessage || "";
       break;
+  }
+
+  // Append outcome message if it exists
+  if (outcomeMessage) {
+    message += `\n\n${outcomeMessage}`;
+  }
+
+  // Handle item crafting - copy to inventory on success or critical success
+  if (itemDataPath && (degreeOfSuccess === 1 || degreeOfSuccess === 2)) {
+    const craftedItem = api.getValueOnRecord(record, itemDataPath);
+    const traits = craftedItem.data?.traits || [];
+    const hasConsumableTrait = traits
+      .map((trait) => trait.toLowerCase())
+      .includes("consumable");
+    const isConsumable =
+      craftedItem.data?.type === "consumable" || hasConsumableTrait;
+    const hasUseBtn = craftedItem.data?.hasUseBtn || false;
+    if (craftedItem) {
+      const inventory = record.data?.inventory || [];
+      const newItem = {
+        ...craftedItem,
+        _id: generateUuid(),
+        data: {
+          ...craftedItem.data,
+          ammo: craftedItem.data?.craftingQuantity || 1,
+          count: craftedItem.data?.craftingQuantity || 1,
+          carried: "carried",
+        },
+        fields: {
+          ...craftedItem.fields,
+          ...getItemFields(craftedItem),
+        },
+      };
+      api.setValuesOnRecord(record, {
+        "data.inventory": [...inventory, newItem],
+      });
+    }
   }
 }
 

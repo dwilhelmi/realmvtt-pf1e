@@ -2217,3 +2217,70 @@ function getArmorSpecializationDetails(armorGroup) {
     macros: [], // TODO add macros for certain specializations later
   };
 }
+
+function getDCForLevel(level, difficulty = null) {
+  const dcByLevel = {
+    0: 14,
+    1: 15,
+    2: 16,
+    3: 18,
+    4: 19,
+    5: 20,
+    6: 22,
+    7: 23,
+    8: 24,
+    9: 26,
+    10: 27,
+    11: 28,
+    12: 30,
+    13: 31,
+    14: 32,
+    15: 34,
+    16: 35,
+    17: 36,
+    18: 38,
+    19: 39,
+    20: 40,
+    21: 42,
+    22: 44,
+    23: 46,
+    24: 48,
+    25: 50,
+  };
+
+  const difficultyAdjustments = {
+    "incredibly easy": -10,
+    "very easy": -5,
+    easy: -2,
+    hard: 2,
+    uncommon: 2,
+    "very hard": 5,
+    rare: 5,
+    "incredibly hard": 10,
+    unique: 10,
+  };
+
+  let dc = dcByLevel[level] || 14;
+
+  if (difficulty && difficultyAdjustments[difficulty.toLowerCase()]) {
+    dc += difficultyAdjustments[difficulty.toLowerCase()];
+  }
+
+  return dc;
+}
+
+function getDCForSpellRank(rank) {
+  const dcByRank = {
+    1: 15,
+    2: 18,
+    3: 20,
+    4: 23,
+    5: 26,
+    6: 28,
+    7: 31,
+    8: 34,
+    9: 36,
+    10: 39,
+  };
+  return dcByRank[rank] || 15;
+}
