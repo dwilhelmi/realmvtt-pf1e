@@ -52,10 +52,14 @@ if (dc <= 1) {
 
         if (persistentDamageEffect) {
           const existingValue = effectValues[persistentDamageEffect?._id];
+          const existingValueString =
+            typeof existingValue === "object"
+              ? existingValue.value
+              : existingValue;
 
-          if (existingValue && existingValue.value) {
+          if (existingValue && existingValueString) {
             // Split the persistent damage into parts
-            const damageParts = existingValue.value
+            const damageParts = existingValueString
               .split("+")
               .map((part) => part.trim())
               .filter((part) => part.length > 0);
@@ -67,12 +71,29 @@ if (dc <= 1) {
             if (damageParts.length > 0) {
               // Still have persistent damage remaining, update the effect
               const newValue = damageParts.join(" + ");
+              const tokenId =
+                existingValue && typeof existingValue === "object"
+                  ? existingValue.tokenId
+                  : undefined;
+              const tokenName =
+                existingValue && typeof existingValue === "object"
+                  ? existingValue.tokenName
+                  : undefined;
+              const effectValue =
+                tokenId && tokenName
+                  ? {
+                      value: newValue,
+                      _id: tokenId,
+                      name: tokenName,
+                    }
+                  : newValue;
               api.removeEffectById(persistentDamageEffect?._id, token, () => {
-                api.addEffect("Persistent Damage", token, undefined, {
-                  value: newValue,
-                  _id: existingValue.tokenId,
-                  name: existingValue.tokenName,
-                });
+                api.addEffect(
+                  "Persistent Damage",
+                  token,
+                  undefined,
+                  effectValue
+                );
               });
               message += `\n\n**Recovered from persistent damage!**\n*Removed: ${recoveredPart}*\n*Remaining: ${newValue}*`;
             } else {

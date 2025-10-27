@@ -20,7 +20,11 @@ if (modifiers.length > 0) {
     : undefined;
 
   // Get the value of the persistent damage effect
-  const persistentDamageValue = existingValue ? existingValue.value : 0;
+  const persistentDamageValue = existingValue
+    ? typeof existingValue === "object"
+      ? existingValue.value
+      : existingValue
+    : 0;
 
   // Split persistent damage into parts by '+' and roll each separately
   if (persistentDamageValue) {

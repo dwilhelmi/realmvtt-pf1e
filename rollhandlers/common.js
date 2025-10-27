@@ -6507,23 +6507,33 @@ function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
     const existingValue = persistentDamageEffect
       ? effectValues[persistentDamageEffect?._id]
       : undefined;
-    if (existingValue && existingValue.value) {
+    if (existingValue) {
       // New value concats both
-      const newValue = `${existingValue.value} + ${persistentDamage}`;
+      const existingValueString =
+        typeof existingValue === "object" ? existingValue.value : existingValue;
+      const newValue = `${existingValueString} + ${persistentDamage}`;
+      const effectValue =
+        tokenId && tokenName
+          ? {
+              value: newValue,
+              _id: tokenId,
+              name: tokenName,
+            }
+          : newValue;
       api.removeEffectById(persistentDamageEffect?._id, target, () => {
-        api.addEffect("Persistent Damage", target, undefined, {
-          value: newValue,
-          _id: tokenId,
-          name: tokenName,
-        });
+        api.addEffect("Persistent Damage", target, undefined, effectValue);
       });
     } else {
       // Else we add the effect with the value
-      api.addEffect("Persistent Damage", target, undefined, {
-        value: persistentDamage,
-        _id: tokenId,
-        name: tokenName,
-      });
+      const effectValue =
+        tokenId && tokenName
+          ? {
+              value: persistentDamage,
+              _id: tokenId,
+              name: tokenName,
+            }
+          : persistentDamage;
+      api.addEffect("Persistent Damage", target, undefined, effectValue);
     }
   });
 }
