@@ -344,6 +344,117 @@
     } else if (record.fields?.levelUpBtn?.hidden !== true) {
       api.setHidden("levelUpBtn", true);
     }
+
+    // If this is the first time we're loading the character, add the unarmed attack
+    if (!record.data?.initialized) {
+      api.setValue("data.initialized", true, () => {
+        api.addValue("data.inventory", {
+          _id: generateUuid(),
+          portrait: "/images/bc390eaa-d17a-4022-a1ca-fa388c12e498_29.webp",
+          name: "Unarmed Strike",
+          recordType: "items",
+          identified: true,
+          unidentifiedName: "Unarmed Strike",
+          fields: {
+            armorCategory: {
+              hidden: true,
+            },
+            armorProperties: {
+              hidden: true,
+            },
+            backpackProperties: {
+              hidden: true,
+            },
+            consumableCategory: {
+              hidden: true,
+            },
+            consumableProperties: {
+              hidden: true,
+            },
+            equipmentCategory: {
+              hidden: true,
+            },
+            kitProperties: {
+              hidden: true,
+            },
+            levelLabel: {
+              hidden: true,
+            },
+            otherProperties: {
+              hidden: false,
+            },
+            scrollProperties: {
+              hidden: true,
+            },
+            shieldProperties: {
+              hidden: true,
+            },
+            weaponCategory: {
+              hidden: false,
+            },
+            weaponProperties: {
+              hidden: false,
+            },
+            dropBtn: {
+              hidden: true,
+            },
+            stowBtn: {
+              hidden: true,
+            },
+          },
+          data: {
+            carried: "equipped",
+            traits: ["Attack", "Agile", "Finesse", "Nonlethal", "Unarmed"],
+            hideFromList: "true",
+            traitsList: [
+              {
+                _id: "790b41f3-3ff0-492a-ab40-0cc345da882d",
+                name: "Attack",
+                identified: true,
+                data: {},
+              },
+              {
+                _id: "21c049b5-a20f-4ca0-95de-cc51a6265d27",
+                name: "Agile",
+                identified: true,
+                data: {},
+              },
+              {
+                _id: "cb9e0428-22fe-4baa-930e-1f1d26625f53",
+                name: "Finesse",
+                identified: true,
+                data: {},
+              },
+              {
+                _id: "b988644b-5cbd-4b0a-bf85-c34a040c4a75",
+                name: "Nonlethal",
+                identified: true,
+                data: {},
+              },
+              {
+                _id: "088ba422-e9c7-4885-9661-5a0fca3e47aa",
+                name: "Unarmed",
+                identified: true,
+                data: {},
+              },
+            ],
+            type: "weapon",
+            level: 0,
+            bulk: {
+              value: 0,
+            },
+            itemCategory: "Unarmed",
+            group: "Brawling",
+            damage: {
+              dice: 1,
+              die: "d4",
+              damageType: "bludgeoning",
+            },
+          },
+          locked: true,
+        });
+      });
+    }
   }
 
   function onLevelChange(value) {
