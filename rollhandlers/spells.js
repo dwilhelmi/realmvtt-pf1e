@@ -826,11 +826,8 @@ function getSpellAttackMacro(
   );
 
   return `\`\`\`Roll_Attack
-  const selectedTokens = api.getSelectedOrDroppedToken();
-  if (!selectedTokens || selectedTokens.length === 0) {
-    return;
-  }
-  const record = selectedTokens[0];
+// Lookup the record and then prompt the roll
+api.getRecord('${record.recordType}', '${record._id}', (record) => {
   const targets = api.getTargets();
   const ourToken = api.getToken();
   const recordId = record._id;
@@ -956,6 +953,7 @@ function getSpellAttackMacro(
       );
     }
   }
+});
   \`\`\``;
 }
 

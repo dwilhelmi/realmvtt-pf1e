@@ -7,6 +7,7 @@ const tokenName = data.roll?.metadata?.tokenName || "";
 const isPersistant = data.roll?.metadata?.isPersistant === true;
 const persistentPartIndex = data.roll?.metadata?.persistentPartIndex || 0;
 const showShieldDamage = data.roll?.metadata?.showShieldDamage;
+const isSpell = data.roll?.metadata?.isSpell === true;
 
 let persistentDamage = data.roll?.metadata?.persistentDamage || "";
 
@@ -170,6 +171,23 @@ applyDamage(null, ${JSON.stringify(data.roll)}, true);
 `
   : "";
 
+// For spells we allow double damage as some spells do this such as with a Basic Save
+const spellDoubleDamageRoll = {
+  ...(data?.roll || {}),
+  metadata: {
+    ...(data?.roll?.metadata || {}),
+    isSpell: true,
+    critical: true,
+  },
+};
+const doubleDamageMacro = isSpell
+  ? `
+\`\`\`Apply_Double_Damage
+applyDamage(null, ${JSON.stringify(spellDoubleDamageRoll)}, false);
+\`\`\`
+`
+  : "";
+
 const splashDamageMetadata = {
   value: splashDamage,
   damageType: damageType,
@@ -200,6 +218,24 @@ applyPersistentDamage("${persistentDamage}", "${tokenId}", "${tokenName}");
 `
     : "";
 
+let doublePersistentDamage = persistentDamage
+  ? doubleDamageDice(persistentDamage)
+  : "";
+const doublePersistentDamageMacroName = doublePersistentDamage
+  ? doublePersistentDamage
+      .split(" ")
+      .map((word) => capitalize(word))
+      .join("_")
+  : "Double_Persistent_Damage";
+const doublePersistentDamageMacro =
+  doublePersistentDamage && isSpell
+    ? `
+\`\`\`${doublePersistentDamageMacroName}_Persistent_Damage
+applyPersistentDamage("${doublePersistentDamage}", "${tokenId}", "${tokenName}");
+\`\`\`
+`
+    : "";
+
 // Flat Check for Persistent Damage Recovery DC 15
 // After you take persistent damage, roll a DC 15 flat check to see if you recover from the persistent damage. If you succeed, the condition ends.
 const persistentRecoveryMacro =
@@ -223,8 +259,10 @@ const message = `
 ${criticalDamageInfo}
 ${damageMacro}
 ${halfDamageMacro}
+${doubleDamageMacro}
 ${splashDamageMacro}
 ${persistentDamageMacro}
+${doublePersistentDamageMacro}
 ${persistentRecoveryMacro}
 ${shieldDamageMacro}
 `;
