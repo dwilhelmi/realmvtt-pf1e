@@ -224,7 +224,6 @@ function removeSpell(record, dataPathToSpell) {
   // Join remaining parts to get the spell list path (keeps .data. intact)
   const spellListDataPath = pathParts.join(".");
 
-  console.log("spellListDataPath", spellListDataPath, indexValue);
   api.removeValue(spellListDataPath, indexValue);
 }
 
@@ -368,7 +367,10 @@ function getCastingRank(record, spell, dataPathToSpell) {
   // Determine the rank we're casting at
   let castingRank = spell?.data?.level || 1;
   const spellCastingEntryDataPath = getNearestParentDataPath(dataPathToSpell);
-  const spellCastingEntry = api.getValue(spellCastingEntryDataPath);
+  const spellCastingEntry = api.getValueOnRecord(
+    record,
+    spellCastingEntryDataPath
+  );
   const isFocus = spellCastingEntry?.data?.type === "focus";
 
   // Cantrips and Focus spells are automatically heightened to half character level (rounded up)
@@ -995,10 +997,10 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
     }
   }
 });
-  \`\`\``;
+\`\`\``;
 }
 
-function castSpell(record, spell, dataPathToSpell) {
+function castSpell(record, spell, dataPathToSpell, isOverlay = false) {
   const isCantrip = (spell?.data?.traits || []).some(
     (trait) => trait?.toLowerCase() === "cantrip"
   );
@@ -1099,7 +1101,10 @@ function castSpell(record, spell, dataPathToSpell) {
 
   // We'll need to mark the spell as cast unless it was a catrip / focus / innate / or spontaneus spell
   const dataPathToSpellCastingEntry = getNearestParentDataPath(dataPathToSpell);
-  const spellCastingEntry = api.getValue(dataPathToSpellCastingEntry);
+  const spellCastingEntry = api.getValueOnRecord(
+    record,
+    dataPathToSpellCastingEntry
+  );
   const type = spellCastingEntry.data?.type;
 
   const isSpontaneous = type === "spontaneous";
@@ -1263,12 +1268,65 @@ function castSpell(record, spell, dataPathToSpell) {
     }
   }
 
+  // Add overlay macros if this is not already an overlay
+  const overlayMacros = [];
+  if (!isOverlay) {
+    const overlays = spell?.data?.overlays || [];
+    if (overlays.length > 0) {
+      overlays.forEach((overlay, index) => {
+        const overlayName = overlay?.name || "Overlay";
+        const overlayDataPath = `${dataPathToSpell}.data.overlays.${index}`;
+
+        // Get action icon for overlay
+        const overlayActions = (overlay?.data?.time || "").toLowerCase();
+        let overlayActionIcon = "";
+        if (overlayActions === "free") {
+          overlayActionIcon = ":free-action:";
+        } else if (overlayActions === "1") {
+          overlayActionIcon = ":one-action:";
+        } else if (overlayActions === "2") {
+          overlayActionIcon = ":two-actions:";
+        } else if (overlayActions === "3") {
+          overlayActionIcon = ":three-actions:";
+        } else if (overlayActions === "1 to 2") {
+          overlayActionIcon = ":1-to-2:";
+        } else if (overlayActions === "1 to 3") {
+          overlayActionIcon = ":1-to-3:";
+        } else if (overlayActions === "reaction") {
+          overlayActionIcon = ":reaction:";
+        }
+
+        // Sanitize overlay name: replace spaces with underscores, remove special characters
+        const overlayMacroName = overlayName
+          .replace(/\s+/g, "_")
+          .replace(/[^a-zA-Z0-9_-]/g, "");
+        const overlayMacro = `\`\`\`${overlayActionIcon}${overlayMacroName}
+api.getRecord('${record.recordType}', '${record._id}', (updatedRecord) => {
+  if (!updatedRecord) {
+    console.warn('Record not found');
+    return;
+  }
+  const overlaySpell = api.getValueOnRecord(updatedRecord, '${overlayDataPath}');
+  if (!overlaySpell) {
+    console.warn('Overlay spell not found');
+  }
+  else {
+    castSpell(updatedRecord, overlaySpell, '${overlayDataPath}', true);
+  }
+});
+\`\`\``;
+        overlayMacros.push(overlayMacro);
+      });
+    }
+  }
+
   const message = `
   #### ${portrait}${spellName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
-  
+
   ---
   ${spellDescription}
   ${macros && macros.length > 0 ? `${macros.join("\n")}\n` : ""}
+  ${overlayMacros.length > 0 ? `\n---\n${overlayMacros.join("\n")}\n` : ""}
   `;
 
   // Send the message
