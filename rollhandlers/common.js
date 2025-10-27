@@ -5715,7 +5715,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     .join(",");
   // Filter these out of the modifiers array, we don't need them to be toggleable
   const filteredDamageModifiers = damageModifiers.filter(
-    (m) => !m.value.toString().toLowerCase().includes("ignore")
+    (m) => !m?.value?.toString()?.toLowerCase()?.includes("ignore")
   );
 
   // Roll for each target or just once
@@ -6195,7 +6195,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     .join(",");
   // Filter these out of the modifiers array, we don't need them to be toggleable
   const filteredDamageModifiers = damageModifiers.filter(
-    (m) => !m.value.toString().toLowerCase().includes("ignore")
+    (m) => !m?.value?.toString()?.toLowerCase()?.includes("ignore")
   );
 
   // Roll for each target or just once
