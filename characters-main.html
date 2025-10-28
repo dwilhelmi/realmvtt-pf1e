@@ -625,26 +625,158 @@
     // TODO increase focus by 1
   }
 
+  // Resets spells, alchemy for alchemists, and provides healing
   function rest() {
-    // Implemen when spells/other things that reset on rest are added
-    // Reset all things, and add HP per rules
+    const valuesToSet = {};
 
     // Add HP per resting rules
+    // - The character regains Hit Points equal to their Constitution modifier (minimum 1) multiplied by their level.
+    const level = record.data?.level || 0;
+    const constitution = record.data?.con || 0;
+    const constitutionModifier = Math.max(1, constitution);
+    const curHp = record.data?.curhp || 0;
+    const maxHp = record.data?.hitpoints || 0;
 
-    // Reset focus points in all spell casting entries
+    const healedBy = Math.max(1, constitutionModifier * level);
+    const newHp = Math.min(curHp + healedBy, maxHp);
 
-    // Mark all spells as not used and reverse the hidden fields
-    // valuesToSet[`${dataPathToSpell}.data.used`] = true;
-    // valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = false;
-    // valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = true;
+    valuesToSet["data.curhp"] = newHp;
 
-    // Mark all items not crafted
+    let message = `Resting for the day.`;
+    if (healedBy > 0) {
+      message += ` Recovered ${healedBy} HP.`;
+    }
 
-    // Remoev all items that are infused
+    // Detemine if any spells need to be reset
+    const spellcastingEntries = record.data?.spells || [];
+    spellcastingEntries.forEach((spellcastingEntry, spellListIndex) => {
+      const isInnate = spellcastingEntry.data?.type === "innate";
+      const isFocus = spellcastingEntry.data?.type === "focus";
+      const isSpontaneous = spellcastingEntry.data?.type === "spontaneous";
+      const isPrepared =
+        spellcastingEntry.data?.type === "prepared" ||
+        (!isInnate && !isFocus && !isSpontaneous);
 
-    // Re-add vials for alchemists
+      const spellLists = [
+        "cantrips",
+        "spells1",
+        "spells2",
+        "spells3",
+        "spells4",
+        "spells5",
+        "spells6",
+        "spells7",
+        "spells8",
+        "spells9",
+      ];
 
-    console.log("TODO REST");
+      // If it's not a focus spell entry we go through each spell list of the entry
+      if (!isFocus) {
+        spellLists.forEach((spellList) => {
+          const spells =
+            api.getValue(`data.spells.${spellListIndex}.data.${spellList}`) ||
+            [];
+          // Go through each spell if it's innate or praepared
+          if (isInnate || isPrepared) {
+            spells.forEach((spell, index) => {
+              const dataPathToSpell = `data.spells.${spellListIndex}.data.${spellList}.${index}`;
+              if (isInnate) {
+                // If this is innate, we reset uses of the spell
+                const maxUses = spell.data?.maxUses || 0;
+                valuesToSet[`${dataPathToSpell}.data.uses`] = maxUses;
+              } else if (isPrepared) {
+                // If it's a prepared spell, we need to mark the spell as not used
+                valuesToSet[`${dataPathToSpell}.data.used`] = false;
+                valuesToSet[
+                  `${dataPathToSpell}.fields.nameUsedBox.hidden`
+                ] = true;
+                valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = false;
+              }
+            });
+          } else if (isSpontaneous && spellList !== "cantrips") {
+            // If this is a spontaneous spell, we need to reset the used spells
+            const numSpellsField = `num${capitalize(spellList)}`;
+            const usedSpellsField = `used${capitalize(spellList)}`;
+            const numSpells =
+              api.getValue(
+                `data.spells.${spellListIndex}.data.${numSpellsField}`
+              ) || 0;
+            valuesToSet[
+              `data.spells.${spellListIndex}.data.${usedSpellsField}`
+            ] = numSpells;
+          }
+        });
+      } else {
+        // If this is a focus spell entry we just reset the focus pool
+        valuesToSet[`data.spells.${spellListIndex}.data.focusPool`] = 0;
+      }
+    });
+
+    // Find effects that need to be modified
+    const effects = record?.effects || [];
+    const fatiguedEffect = effects.find((effect) =>
+      effect.name.toLowerCase().startsWith("fatigued")
+    );
+    const doomedEffect = effects.find((effect) =>
+      effect.name.toLowerCase().startsWith("doomed")
+    );
+    const drainedEffect = effects.find((effect) =>
+      effect.name.toLowerCase().startsWith("drained")
+    );
+
+    // Chain effect changes synchronously through callbacks
+    api.setValues(valuesToSet, () => {
+      // The character loses the fatigued condition
+      if (fatiguedEffect) {
+        message += " Lost the fatigued condition.";
+        api.deductEffectById(fatiguedEffect._id, record, () => {
+          // The character reduces the severity of the doomed condition by 1
+          if (doomedEffect) {
+            message += " Doomed condition reduced by 1.";
+            api.deductEffectById(doomedEffect._id, record, () => {
+              // The character reduces the severity of the drained condition by 1
+              if (drainedEffect) {
+                message += " Drained condition reduced by 1.";
+                api.deductEffectById(drainedEffect._id, record, () => {
+                  api.sendMessage(message, undefined, [], []);
+                });
+              } else {
+                api.sendMessage(message, undefined, [], []);
+              }
+            });
+          } else if (drainedEffect) {
+            message += " Drained condition reduced by 1.";
+            api.deductEffectById(drainedEffect._id, record, () => {
+              api.sendMessage(message, undefined, [], []);
+            });
+          } else {
+            api.sendMessage(message, undefined, [], []);
+          }
+        });
+      } else {
+        // No fatigued effect, check for doomed
+        if (doomedEffect) {
+          message += " Doomed condition reduced by 1.";
+          api.deductEffectById(doomedEffect._id, record, () => {
+            if (drainedEffect) {
+              message += " Drained condition reduced by 1.";
+              api.deductEffectById(drainedEffect._id, record, () => {
+                api.sendMessage(message, undefined, [], []);
+              });
+            } else {
+              api.sendMessage(message, undefined, [], []);
+            }
+          });
+        } else if (drainedEffect) {
+          message += " Drained condition reduced by 1.";
+          api.deductEffectById(drainedEffect._id, record, () => {
+            api.sendMessage(message, undefined, [], []);
+          });
+        } else {
+          api.sendMessage(message, undefined, [], []);
+        }
+      }
+    });
   }
 
   function onAlternateAncestryBoostsChange(value) {
