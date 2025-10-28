@@ -5384,6 +5384,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     isPropulsive = true;
   }
 
+  // Bombs and thrown weapons don't use ammo select
+  const isBomb = weapon?.data?.group?.toLowerCase() === "bomb";
+
   if (isThrown || !isMelee) {
     // Thrown and ranged always use dex
     abilityScore = "dex";
@@ -5397,7 +5400,12 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
 
     // Deduct ammo for all weapons that are using this, as well as the item itself
-    const ammoSelected = weapon.data?.ammoSelect;
+    let ammoSelected = weapon.data?.ammoSelect;
+    if (isBomb || isThrown) {
+      // In this case, we just use the weapon itself as the ammo selected
+      ammoSelected = weapon._id;
+    }
+
     const expend = parseInt(weapon.data?.expend || "1", 10) || 1; // Default to 1 if 0 or undefined
 
     // Get the ammo item to check for uses system
@@ -5463,6 +5471,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         if (item._id === ammoSelected) {
           // Update the ammo item itself
           valuesToSet[`data.inventory.${index}.data.count`] = newAmmoCount;
+          valuesToSet[`data.inventory.${index}.data.ammo`] = newAmmoCount;
           const usesMax = parseInt(item.data?.uses?.max || "0", 10);
           if (usesMax > 1) {
             valuesToSet[`data.inventory.${index}.data.uses.value`] =

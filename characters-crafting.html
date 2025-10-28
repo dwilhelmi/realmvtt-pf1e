@@ -119,7 +119,16 @@
             count: item.data?.quantity,
             carried: "carried",
             // Items mark as infused disappear after a long rest
-            infused: true,
+            traits: [...(item.data?.traits || []), "infused"],
+            traitsList: [
+              ...(item.data?.traitsList || []),
+              {
+                _id: generateUuid(),
+                name: "Infused",
+                identified: true,
+                data: {},
+              },
+            ],
           },
           fields: {
             ...item.fields,
