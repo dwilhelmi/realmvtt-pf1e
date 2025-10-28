@@ -675,6 +675,29 @@ function getEffectsAndModifiersForToken(
   // Get and modifiers from runes
   const runeModifiers = getFeaturesFromRunes(equippedItems);
 
+  // Determine if we're using a weapon that has ammo, and add effects for that ammo
+  let ammoEffects = [];
+  if (itemId) {
+    // Find the item that has the itemId
+    const item = equippedItems.find((item) => item._id === itemId);
+    if (item) {
+      // Check if the item has ammo
+      const ammo = item.data?.ammoSelect;
+      if (ammo) {
+        // Find the ammo item
+        const ammoItem = items.find((item) => item._id === ammo);
+        if (ammoItem) {
+          console.log("Adding ammo item to results:", ammoItem);
+          ammoEffects.push({
+            ...ammoItem,
+            // Mark it as the itemId so we can use it to filter results
+            _id: itemId,
+          });
+        }
+      }
+    }
+  }
+
   [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
     const toggleable = feature.data?.toggleable || false;
