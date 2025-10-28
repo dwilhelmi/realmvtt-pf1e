@@ -622,7 +622,45 @@
   }
 
   function shortRest() {
-    // TODO increase focus by 1
+    // Recover 1 focus point for all focus spellcasting entries
+    const valuesToSet = {};
+    let focusPointsRecovered = 0;
+
+    const spellcastingEntries = record.data?.spells || [];
+    spellcastingEntries.forEach((spellcastingEntry, spellListIndex) => {
+      const isFocus = spellcastingEntry.data?.type === "focus";
+
+      if (isFocus) {
+        const currentFocusPool = spellcastingEntry.data?.focusPool || 0;
+        // Reduce focus pool by 1 (minimum 0)
+        const newFocusPool = Math.max(0, currentFocusPool - 1);
+        if (newFocusPool < currentFocusPool) {
+          valuesToSet[`data.spells.${spellListIndex}.data.focusPool`] =
+            newFocusPool;
+          focusPointsRecovered++;
+        }
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet, () => {
+        api.sendMessage(
+          `Refocusing (10 minutes). Recovered ${focusPointsRecovered} Focus Point${
+            focusPointsRecovered !== 1 ? "s" : ""
+          }.`,
+          undefined,
+          [],
+          []
+        );
+      });
+    } else {
+      api.sendMessage(
+        "Refocusing (10 minutes). No Focus Points to recover.",
+        undefined,
+        [],
+        []
+      );
+    }
   }
 
   // Resets spells, alchemy for alchemists, and provides healing
@@ -712,6 +750,66 @@
       }
     });
 
+    // Reset advanced alchemy items (for Alchemist class)
+    const advancedAlchemyItems = record.data?.advancedAlchemyItems || [];
+    advancedAlchemyItems.forEach((item, index) => {
+      const itemFieldsPath = `data.advancedAlchemyItems.${index}.fields`;
+      const itemDataPath = `data.advancedAlchemyItems.${index}.data`;
+      valuesToSet[`${itemDataPath}.craftingDeleteBtn`] = "markCrafted";
+      valuesToSet[`${itemFieldsPath}.markedNameBox.hidden`] = true;
+      valuesToSet[`${itemFieldsPath}.unmarkedNameBox.hidden`] = false;
+    });
+
+    let hasAlchemistClass = false;
+    const classObjs = record.data?.classes || [];
+    for (const classObj of classObjs) {
+      if (classObj?.name.toLowerCase().startsWith("alchemist")) {
+        hasAlchemistClass = true;
+      }
+    }
+
+    // Remove all infused items
+    const inventory = record.data?.inventory || [];
+    const itemsToRemove = [];
+    inventory.forEach((item, index) => {
+      // Ignore versatile vials since we handle it separately
+      const traits = item?.data?.traits || [];
+      const hasInfusedTrait = traits
+        .map((trait) => trait.toLowerCase())
+        .includes("infused");
+      if (
+        hasInfusedTrait &&
+        !item?.name.toLowerCase().startsWith("versatile vial")
+      ) {
+        itemsToRemove.push(item._id);
+      }
+    });
+    if (itemsToRemove.length > 0) {
+      message += " Removed all infused items.";
+    }
+
+    let needToAddVials = false;
+    let numVersatileVials = 0;
+    if (hasAlchemistClass) {
+      // Make sure versatilie vials is refreshed
+      // During your daily preparations, you can create a number of versatile vials up to 2 + your Intelligence modifier
+      const int = record.data?.int || 0;
+      numVersatileVials = 2 + int;
+      const versatileVials = inventory.find((item) =>
+        item?.name.toLowerCase().startsWith("versatile vial")
+      );
+      if (versatileVials) {
+        const versatileVialsIndex = inventory.findIndex(
+          (item) => item._id === versatileVials._id
+        );
+        const itemDataPath = `data.inventory.${versatileVialsIndex}.data`;
+        valuesToSet[`${itemDataPath}.count`] = numVersatileVials;
+      } else {
+        needToAddVials = true;
+      }
+      message += " Refreshed Versatile Vials.";
+    }
+
     // Find effects that need to be modified
     const effects = record?.effects || [];
     const fatiguedEffect = effects.find((effect) =>
@@ -724,8 +822,8 @@
       effect.name.toLowerCase().startsWith("drained")
     );
 
-    // Chain effect changes synchronously through callbacks
-    api.setValues(valuesToSet, () => {
+    // Process effects after all item operations complete
+    const processEffects = () => {
       // The character loses the fatigued condition
       if (fatiguedEffect) {
         message += " Lost the fatigued condition.";
@@ -776,6 +874,102 @@
           api.sendMessage(message, undefined, [], []);
         }
       }
+    };
+
+    const queryAndAddVials = () => {
+      // Look for an item call "Versatile Vial"
+      api.getRecordByTypeAndName("items", "Versatile Vial", (item) => {
+        if (item) {
+          api.addValue(
+            "data.inventory",
+            {
+              ...item,
+              data: {
+                ...item.data,
+                carried: "carried",
+                ammo: numVersatileVials,
+                count: numVersatileVials,
+              },
+              fields: {
+                ...(item.fields || {}),
+                ...getItemFields(item),
+              },
+            },
+            () => {
+              if (itemsToRemove.length > 0) {
+                removeValuesSequentially(itemsToRemove, processEffects);
+              } else {
+                processEffects();
+              }
+            }
+          );
+        } else if (itemsToRemove.length > 0) {
+          removeValuesSequentially(itemsToRemove, processEffects);
+        } else {
+          processEffects();
+        }
+      });
+    };
+
+    // Chain effect changes synchronously through callbacks
+    api.setValues(valuesToSet, () => {
+      if (needToAddVials) {
+        queryAndAddVials();
+      } else {
+        if (itemsToRemove.length > 0) {
+          removeValuesSequentially(itemsToRemove, processEffects);
+        } else {
+          processEffects();
+        }
+      }
+    });
+  }
+
+  function removeValuesSequentially(itemIds, callback) {
+    // Remove items by ID using removeValueFromRecord to maintain updated record state
+    // Start by getting the initial record
+    api.getRecord(record.recordType, record._id, (currentRecord) => {
+      function removeNext(idIndex, workingRecord) {
+        if (idIndex >= itemIds.length) {
+          // All items removed, call the callback
+          if (callback) {
+            callback();
+          }
+          return;
+        }
+
+        const itemIdToRemove = itemIds[idIndex];
+        const currentInventory = workingRecord.data?.inventory || [];
+        const itemIndex = currentInventory.findIndex(
+          (item) => item._id === itemIdToRemove
+        );
+
+        if (itemIndex === -1) {
+          // Item not found, move to next
+          removeNext(idIndex + 1, workingRecord);
+          return;
+        }
+
+        api.removeValueFromRecord(
+          workingRecord,
+          `data.inventory`,
+          itemIndex,
+          (updatedRecord) => {
+            // Move to the next item with the updated record
+            removeNext(idIndex + 1, updatedRecord);
+          }
+        );
+      }
+
+      // Start removing from the first item
+      if (itemIds.length === 0) {
+        if (callback) {
+          callback();
+        }
+        return;
+      }
+
+      removeNext(0, currentRecord);
     });
   }
 
