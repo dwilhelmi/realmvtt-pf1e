@@ -1,5 +1,78 @@
 <script>
+  function onDrop(value, recordLink) {
+    if (value === "items") {
+      onDropItem(recordLink);
+    }
+  }
+
+  function onDropItem(recordLink) {
+    const item = recordLink?.value;
+
+    // Calculate values for the item being added
+    const itemLevel = item.data?.level || 0;
+
+    // Determine rarity from traits
+    let rarity = null;
+    const traits = item.data?.traits || [];
+
+    // Check for rarity in priority order: unique > rare > uncommon
+    if (traits.some((t) => t.name?.toLowerCase() === "unique")) {
+      rarity = "unique";
+    } else if (traits.some((t) => t.name?.toLowerCase() === "rare")) {
+      rarity = "rare";
+    } else if (traits.some((t) => t.name?.toLowerCase() === "uncommon")) {
+      rarity = "uncommon";
+    }
+
+    const dc = getDCForLevel(itemLevel, rarity);
+
+    // Determine quantity based on whether it's consumable
+    const isConsumable =
+      item.data?.type?.toLowerCase() === "consumable" ||
+      traits.some((t) => t.toLowerCase() === "consumable");
+    const quantity = isConsumable ? 4 : 1;
+
+    // Calculate crafting cost
+    const price = item.data?.price?.value || {};
+    const cpPerItem =
+      (price.pp || 0) * 1000 +
+      (price.gp || 0) * 100 +
+      (price.sp || 0) * 10 +
+      (price.cp || 0);
+    const totalCp = cpPerItem * quantity;
+    const craftingCost = convertCurrencyToString(totalCp);
+
+    // Add item to crafting list with calculated values
+    api.addValue(`data.craftingItems`, {
+      ...item,
+      data: {
+        ...(item?.data || {}),
+        craftingDC: dc,
+        craftingQuantity: quantity,
+        craftingCost: craftingCost,
+      },
+    });
+  }
+
   function craftItems() {}
+
+  function onShowAdvancedAlchemy(value) {
+    const valuesToSet = {};
+
+    valuesToSet["fields.advancedAlchemyBox.hidden"] = !value;
+
+    // Update daily creafting based on int
+    // You can Craft a number of alchemical items up to 4 + your Intelligence modifier.
+    const int = record.data?.int ?? 0;
+    const numDailyCrafting = 4 + int;
+    valuesToSet["data.numDailyCrafting"] = numDailyCrafting;
+    valuesToSet["data.usedDailyCrafting"] = record.data?.usedDailyCrafting ?? 0;
+    valuesToSet["data.numDailyCraftingLabel"] = `Remaining: ${
+      numDailyCrafting - valuesToSet["data.usedDailyCrafting"]
+    } out of ${numDailyCrafting}`;
+
+    api.setValues(valuesToSet);
+  }
 
   function convertCurrencyToString(totalCp) {
     // Convert copper pieces to gold pieces (100 cp = 1 gp)
@@ -14,79 +87,286 @@
     return `${gp.toFixed(2)} gp`;
   }
 
-  function onCraftingItemChange() {
-    // Calculate and update the DC and Cost of each item in the list
-    // Requery the record to get the latest data
+  function performDailyCrafting() {
+    // Perform daily Alchemist crafting for the character
+    // Go through each item, make a copy for the inventory, mark crafted
+    // Then show a notification with the total item's crafted
+
+    let totalCrafted = 0;
+
+    const items = record.data?.advancedAlchemyItems || [];
+    const valuesToSet = {};
+    const itemsToAdd = [];
+
+    items.forEach((item, index) => {
+      const itemDataPath = `data.advancedAlchemyItems.${index}`;
+
+      if (
+        item.data?.craftingDeleteBtn === "markCrafted" &&
+        item.data?.quantity &&
+        item.data?.quantity > 0
+      ) {
+        valuesToSet[`${itemDataPath}.data.craftingDeleteBtn`] = "unmarkCrafted";
+        valuesToSet[`${itemDataPath}.fields.markedNameBox.hidden`] = false;
+        valuesToSet[`${itemDataPath}.fields.unmarkedNameBox.hidden`] = true;
+        totalCrafted += item.data?.quantity;
+        itemsToAdd.push({
+          ...item,
+          _id: generateUuid(),
+          data: {
+            ...item.data,
+            ammo: item.data?.quantity,
+            count: item.data?.quantity,
+            carried: "carried",
+            // Items mark as infused disappear after a long rest
+            infused: true,
+          },
+          fields: {
+            ...item.fields,
+            ...getItemFields(item),
+          },
+        });
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0 && totalCrafted > 0) {
+      api.showNotification(
+        `${totalCrafted} items successfully crafted and added to your inventory.`,
+        "green",
+        "Crafting"
+      );
+      api.setValues(valuesToSet, (record) => {
+        api.addValues("data.inventory", itemsToAdd);
+      });
+    } else {
+      api.showNotification(
+        `No items were crafted, none were prepared or marked as not already crafted.`,
+        "yellow",
+        "Crafting"
+      );
+    }
+  }
+
+  function onNumDailyCraftingChange(value) {
+    // Recalc the number of daily crafting for the character
+    const valuesToSet = {};
+
+    const items = record.data?.advancedAlchemyItems || [];
+    let usedDailyCrafting = 0;
+
+    items.forEach((item, index) => {
+      let quantity = item.data?.quantity || 0;
+      if (item.data?.quantity === undefined || item.data?.quantity < 0) {
+        quantity = 1;
+      }
+      usedDailyCrafting += quantity;
+    });
+
+    const numDailyCrafting = value;
+    const labelToSet = `Remaining: ${
+      numDailyCrafting - usedDailyCrafting
+    } out of ${numDailyCrafting}`;
+    valuesToSet["data.totalDailyCraftingLabel"] = labelToSet;
+    api.setValues(valuesToSet);
+  }
+
+  function onAdvancedAlchemyItemChange() {
+    // Recalc the totals for advanced alchemy items
+    // Requery the record
     api.getRecord(record.recordType, record._id, (updatedRecord) => {
-      const craftingItems = updatedRecord.data?.craftingItems || [];
+      const items = updatedRecord.data?.advancedAlchemyItems || [];
+      let total = 0;
 
       const valuesToSet = {};
 
-      craftingItems.forEach((item, index) => {
-        const itemDataPath = `data.craftingItems.${index}`;
-
-        // Determine DC if not already set
-        let dc = item.data?.craftingDC;
-        if (dc === undefined || dc === null) {
-          const itemLevel = item.data?.level || 0;
-
-          // Determine rarity from traits
-          let rarity = null;
-          const traits = item.data?.traits || [];
-
-          // Check for rarity in priority order: unique > rare > uncommon
-          if (traits.some((t) => t.name?.toLowerCase() === "unique")) {
-            rarity = "unique";
-          } else if (traits.some((t) => t.name?.toLowerCase() === "rare")) {
-            rarity = "rare";
-          } else if (traits.some((t) => t.name?.toLowerCase() === "uncommon")) {
-            rarity = "uncommon";
-          }
-
-          dc = getDCForLevel(itemLevel, rarity);
+      items.forEach((item, index) => {
+        let quantity = item.data?.quantity || 0;
+        if (item.data?.quantity === undefined || item.data?.quantity < 0) {
+          valuesToSet[`data.advancedAlchemyItems.${index}.data.quantity`] = 1;
+          quantity = 1;
         }
-
-        // Determine quantity if not already set
-        let quantity = item.data?.craftingQuantity;
-        if (quantity === undefined || quantity === null) {
-          const isConsumable =
-            item.data?.type?.toLowerCase() === "consumable" ||
-            item.data?.traits?.some(
-              (t) => t.name?.toLowerCase() === "consumable"
-            );
-          quantity = isConsumable ? 4 : 1;
-        }
-
-        // Calculate crafting cost
-        const price = item.data?.price?.value || {};
-        const cpPerItem =
-          (price.pp || 0) * 1000 +
-          (price.gp || 0) * 100 +
-          (price.sp || 0) * 10 +
-          (price.cp || 0);
-        const totalCp = cpPerItem * quantity;
-        const craftingCost = convertCurrencyToString(totalCp);
-
-        valuesToSet[`${itemDataPath}.data.craftingDC`] = dc;
-        valuesToSet[`${itemDataPath}.data.craftingQuantity`] = quantity;
-        valuesToSet[`${itemDataPath}.data.craftingCost`] = craftingCost;
+        total += quantity;
       });
 
-      if (Object.keys(valuesToSet).length > 0) {
-        api.setValues(valuesToSet);
-      }
+      // Recalc label
+      const numDailyCrafting = updatedRecord.data?.numDailyCrafting ?? 0;
+      const labelToSet = `Remaining: ${
+        numDailyCrafting - total
+      } out of ${numDailyCrafting}`;
+
+      valuesToSet["data.totalDailyCraftingLabel"] = labelToSet;
+
+      api.setValues(valuesToSet);
     });
+  }
+
+  function resetDailyCrafting() {
+    // Reset the daily crafting for the character
+    // Go through each item and unmark cradted
+    const items = record.data?.advancedAlchemyItems || [];
+    const valuesToSet = {};
+    items.forEach((item, index) => {
+      const itemFieldsPath = `data.advancedAlchemyItems.${index}.fields`;
+      const itemDataPath = `data.advancedAlchemyItems.${index}.data`;
+      valuesToSet[`${itemDataPath}.craftingDeleteBtn`] = "markCrafted";
+      valuesToSet[`${itemFieldsPath}.markedNameBox.hidden`] = true;
+      valuesToSet[`${itemFieldsPath}.unmarkedNameBox.hidden`] = false;
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
   }
 </script>
 
-<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-direction: column">
   <label
     variant="bold"
     field="craftingLabel"
-    label="Known Formulas"
+    label="Crafting"
     size="md"
     textalign="center"
   ></label>
+
+  <div style="width: 100%">
+    <div style="float: right">
+      <checkbox
+        label="Show Advanced Alchemy (Alchemist)"
+        field="showAdvancedAlchemy"
+        onchange="onShowAdvancedAlchemy(value)"
+        textalign="left"
+        size="xs"
+        hideonlocked="true"
+      ></checkbox>
+    </div>
+  </div>
+
+  <box field="advancedAlchemyBox" hidden="true">
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 4px;
+        background-color: rgb(
+          from var(--mantine-color-primary-filled) r g b / 0.25
+        );
+        border-radius: 4px;
+        padding: 0px 4px;
+        margin-top: 8px;
+      "
+    >
+      <label label="Advanced Alchemy" size="sm" variant="bold"></label>
+    </div>
+
+    <div style="height: 30px; display: flex; gap: 4px; align-items: center">
+      <div style="width: 30px; min-width: 30px"></div>
+      <div style="flex-grow: 1"></div>
+      <div style="width: 50px">
+        <label
+          size="xs"
+          width="100%"
+          textalign="center"
+          label="Quantity"
+          variant="bold"
+        >
+        </label>
+      </div>
+      <div style="width: 30px"></div>
+      <box field="tableSpacer" width="16px" hideonlocked="true"></box>
+    </div>
+
+    <list
+      listtype="advanced_alchemy_list"
+      onchange="onAdvancedAlchemyItemChange()"
+      variant="striped-outline"
+      field="advancedAlchemyItems"
+    ></list>
+
+    <div style="margin-top: 4px">
+      <label
+        size="xs"
+        width="100%"
+        textalign="left"
+        field="totalDailyCraftingLabel"
+        color="dimmed"
+      >
+      </label>
+    </div>
+
+    <div
+      style="
+        height: 30px;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin-top: 4px;
+      "
+    >
+      <button
+        size="xs"
+        variant="light"
+        field="performCraftingBtn"
+        icon="IconHammer"
+        label="Perform Daily Crafting"
+        onclick="performDailyCrafting()"
+      ></button>
+
+      <button
+        size="xs"
+        variant="default"
+        field="resetCraftingBtn"
+        icon="IconRefresh"
+        label="Reset Crafting"
+        onclick="resetDailyCrafting()"
+      ></button>
+
+      <div style="width: 8px"></div>
+
+      <label
+        size="xs"
+        width="60px"
+        textalign="center"
+        label="# / Day"
+        variant="bold"
+      >
+      </label>
+
+      <numberfield
+        size="xs"
+        field="numDailyCrafting"
+        label="Number per Day"
+        onchange="onNumDailyCraftingChange(value)"
+        variant="tooltip"
+        placeholder="0"
+        width="60px"
+        minvalue="0"
+        maxvalue="100"
+      ></numberfield>
+    </div>
+  </box>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      background-color: rgb(
+        from var(--mantine-color-tertiary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      padding: 0px 4px;
+      margin-top: 8px;
+    "
+  >
+    <label
+      variant="bold"
+      field="knownFormulasLabel"
+      label="Known Formulas"
+      size="sm"
+      textalign="left"
+    ></label>
+  </div>
 
   <div style="height: 30px; display: flex; gap: 4px; align-items: center">
     <div style="width: 30px; min-width: 30px"></div>
@@ -121,14 +401,14 @@
       >
       </label>
     </div>
-    <div style="width: 60px"></div>
+    <div style="width: 90px"></div>
     <box field="tableSpacer" width="16px" hideonlocked="true"></box>
   </div>
 
   <list
     listtype="crafting_list"
-    onchange="onCraftingItemChange()"
-    variant="striped"
+    variant="striped-outline"
+    keepitemondrag="true"
     field="craftingItems"
   ></list>
 </div>

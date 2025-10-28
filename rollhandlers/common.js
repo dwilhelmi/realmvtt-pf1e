@@ -2151,6 +2151,42 @@ function calculateProficiencyBonusForLevel(characterLevel, training) {
   }
 }
 
+function showAlchemistFields(record, valuesToSet) {
+  // Get all classes
+  let hasAlchemistClass = false;
+  const classObjs = record.data?.classes || [];
+  for (const classObj of classObjs) {
+    if (classObj?.name.toLowerCase().startsWith("alchemist")) {
+      hasAlchemistClass = true;
+    }
+  }
+
+  if (hasAlchemistClass) {
+    if (record.fields?.advancedAlchemyBox?.hidden !== false) {
+      valuesToSet["data.showAdvancedAlchemy"] = true;
+      valuesToSet["fields.advancedAlchemyBox.hidden"] = false;
+    }
+
+    // Update daily creafting based on int
+    // You can Craft a number of alchemical items up to 4 + your Intelligence modifier.
+    const int = valuesToSet["data.int"] ?? record.data?.int ?? 0;
+    const numDailyCrafting = 4 + int;
+    if (valuesToSet["data.numDailyCrafting"] !== numDailyCrafting) {
+      valuesToSet["data.numDailyCrafting"] = numDailyCrafting;
+    }
+    const usedDailyCrafting = valuesToSet["data.usedDailyCrafting"] ?? 0;
+    if (valuesToSet["data.usedDailyCrafting"] === usedDailyCrafting) {
+      valuesToSet["data.usedDailyCrafting"] = usedDailyCrafting;
+    }
+    const labelToSet = `Remaining: ${
+      numDailyCrafting - usedDailyCrafting
+    } out of ${numDailyCrafting}`;
+    if (valuesToSet["data.totalDailyCraftingLabel"] !== labelToSet) {
+      valuesToSet["data.totalDailyCraftingLabel"] = labelToSet;
+    }
+  }
+}
+
 // Called by onAddEditSpellcastingEntry to update the DC and Mod for all spellcasting entries
 function updateSpellcastingEntries(record, valuesToSet) {
   const spellcastingEntries = record.data?.spells || [];
@@ -3409,6 +3445,9 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   ) {
     valuesToSet[`data.immunities`] = immunities;
   }
+
+  // Show fields for alchemist if needed
+  showAlchemistFields(record, valuesToSet);
 
   // Determine the best proficiencies for class dcs / saving throws / armor / weapons
   // And set them on the character

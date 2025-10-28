@@ -1,0 +1,81 @@
+<script>
+  function onMarkCrafted(value) {
+    const itemDataPath = getNearestParentDataPath(dataPath);
+    const item = api.getValue(itemDataPath);
+    const name = item.data?.name || "";
+
+    const valuesToSet = {};
+
+    const marked = value === "unmarkCrafted";
+
+    valuesToSet[`${itemDataPath}.fields.markedNameBox.hidden`] = marked;
+    valuesToSet[`${itemDataPath}.fields.unmarkedNameBox.hidden`] = !marked;
+
+    api.setValues(valuesToSet);
+  }
+
+  function onQuantityChange() {
+    // Recalculate the total and label
+    const items = record.data?.advancedAlchemyItems || [];
+    let total = 0;
+
+    const valuesToSet = {};
+
+    items.forEach((item, index) => {
+      let quantity = item.data?.quantity || 0;
+      if (item.data?.quantity === undefined || item.data?.quantity < 0) {
+        valuesToSet[`data.advancedAlchemyItems.${index}.data.quantity`] = 1;
+        quantity = 1;
+      }
+      total += quantity;
+    });
+
+    // Recalc label
+    const numDailyCrafting = record.data?.numDailyCrafting ?? 0;
+    const labelToSet = `Remaining: ${
+      numDailyCrafting - total
+    } out of ${numDailyCrafting}`;
+
+    valuesToSet["data.totalDailyCraftingLabel"] = labelToSet;
+
+    api.setValues(valuesToSet);
+  }
+</script>
+
+<div style="height: 30px; display: flex; gap: 4px; align-items: center">
+  <div style="width: 30px; min-width: 30px">
+    <portrait width="30px" height="30px" name="portrait"></portrait>
+  </div>
+  <div style="flex-grow: 1">
+    <box field="unmarkedNameBox">
+      <label field="namefield" size="sm" variant="bold"></label>
+    </box>
+    <box field="markedNameBox" hidden="true">
+      <div style="text-decoration: line-through; width: fit-content">
+        <label field="namefield" size="sm" variant="bold"></label>
+      </div>
+    </box>
+  </div>
+  <div style="width: 50px">
+    <numberfield
+      size="xs"
+      width="100%"
+      variant="tooltip"
+      label="Quantity"
+      minvalue="0"
+      field="quantity"
+      onchange="onQuantityChange()"
+      placeholder="0"
+    >
+    </numberfield>
+  </div>
+  <iconbutton
+    size="md"
+    variant="default"
+    field="craftingDeleteBtn"
+    icon="IconHammer"
+    options='[{"label": "Mark Crafted", "value": "markCrafted", "icon": "IconHammer"},
+    {"label": "Unmark Crafted", "value": "unmarkCrafted", "icon": "IconHammerOff"}]'
+    onclick="onMarkCrafted(value)"
+  ></iconbutton>
+</div>
