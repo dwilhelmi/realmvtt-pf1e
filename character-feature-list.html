@@ -1,0 +1,58 @@
+<script>
+  function getFeatureFilters() {
+    const level = record.data?.level || 0;
+    if (level > 0) {
+      const filters = [];
+      for (let i = 1; i <= level; i++) {
+        filters.push({
+          field: "level",
+          operator: "equals",
+          value: i,
+          isOr: i > 1,
+        });
+      }
+      filters.push({
+        field: "level",
+        operator: "is_empty",
+        isOr: true,
+      });
+      return filters;
+    }
+    return [
+      { field: "level", operator: "equals", value: record.data?.level || 0 },
+      { field: "level", operator: "is_empty", isOr: true },
+    ];
+  }
+</script>
+
+<div style="width: 100%; display: flex; flex-direction: column; gap: 2px">
+  <div style="width: 100%; display: flex; align-items: center">
+    <div style="width: 30px; height: 30px; min-height: 30px; min-width: 30px">
+      <portrait width="30px" height="30px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        margin-left: 4px;
+        align-items: center;
+        display: flex;
+        flex-direction: row;
+      "
+    >
+      <label size="sm" width="auto" field="namefield" variant="bold"></label>
+      <label
+        size="sm"
+        width="auto"
+        label="&nbsp;Features"
+        variant="bold"
+      ></label>
+    </div>
+  </div>
+
+  <list
+    listtype="class_feature_list"
+    emptylisttext="No Features"
+    field="features"
+    variant="outline-striped"
+    getfilters="return getFeatureFilters();"
+  ></list>
+</div>
