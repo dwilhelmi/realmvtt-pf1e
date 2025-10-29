@@ -1,0 +1,319 @@
+<script>
+  // Show or hide fields based on the type of NPC
+  function showHideFields(recordOverride, recordsToSet = undefined) {
+    record = recordOverride || record;
+    const npcDataPath = getNearestParentDataPath(dataPath);
+    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
+    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
+    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    // Check if traits is set
+    if (
+      npc.data?.traits &&
+      npc.data?.traits.length > 0 &&
+      !npc.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of npc.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    const type = npc.data?.type === undefined ? "npc" : npc.data?.type;
+    const typeLabel = type === "npc" ? "Creature" : capitalize(type);
+    const levelLabel = `${typeLabel}`;
+
+    if (npc.data?.levelLabel !== levelLabel) {
+      valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;
+    }
+
+    // Default values for adjustment tags
+    if (npc.data?.setElite !== "elite") {
+      valuesToSet[`${dataPrefix}.setElite`] = "elite";
+    }
+    if (npc.data?.setWeak !== "weak") {
+      valuesToSet[`${dataPrefix}.setWeak`] = "weak";
+    }
+    if (npc.data?.elite !== "elite") {
+      valuesToSet[`${dataPrefix}.elite`] = "elite";
+    }
+    if (npc.data?.weak !== "weak") {
+      valuesToSet[`${dataPrefix}.weak`] = "weak";
+    }
+
+    // Check if adjustment is set
+    const adjustment =
+      recordsToSet &&
+      Object.keys(recordsToSet).includes(`${dataPrefix}.adjustment`)
+        ? recordsToSet[`${dataPrefix}.adjustment`]
+        : npc.data?.adjustment || "";
+    if (adjustment === "elite" && npc.fields?.elite?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.setElite.hidden`] = true;
+      valuesToSet[`${fieldsPath}.elite.hidden`] = false;
+      valuesToSet[`${fieldsPath}.setWeak.hidden`] = false;
+      valuesToSet[`${fieldsPath}.weak.hidden`] = true;
+    }
+    if (adjustment === "weak" && npc.fields?.weak?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.setWeak.hidden`] = true;
+      valuesToSet[`${fieldsPath}.weak.hidden`] = false;
+      valuesToSet[`${fieldsPath}.setElite.hidden`] = false;
+      valuesToSet[`${fieldsPath}.elite.hidden`] = true;
+    }
+    if (adjustment === "" && npc.fields?.setElite?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.setElite.hidden`] = false;
+      valuesToSet[`${fieldsPath}.elite.hidden`] = true;
+    }
+    if (adjustment === "" && npc.fields?.setWeak?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.setWeak.hidden`] = false;
+      valuesToSet[`${fieldsPath}.weak.hidden`] = true;
+    }
+
+    if (recordsToSet) {
+      for (const key of Object.keys(valuesToSet)) {
+        recordsToSet[key] = valuesToSet[key];
+      }
+    } else if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function updateLevel(value) {
+    // TODO
+  }
+
+  function onAddRemoveElite(value) {
+    const npcDataPath = getNearestParentDataPath(dataPath);
+    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
+    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
+    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
+
+    const adjustment = record.data?.adjustment || "";
+
+    const valuesToSet = {};
+
+    if (adjustment === "elite") {
+      valuesToSet[`${dataPrefix}.adjustment`] = "";
+    } else {
+      valuesToSet[`${dataPrefix}.adjustment`] = "elite";
+    }
+
+    // TODO set adjustments due to elite
+
+    showHideFields(record, valuesToSet);
+
+    api.setValues(valuesToSet);
+  }
+
+  function onAddRemoveWeak(value) {
+    const npcDataPath = getNearestParentDataPath(dataPath);
+    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
+    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
+    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
+
+    const adjustment = record.data?.adjustment || "";
+
+    const valuesToSet = {};
+
+    if (adjustment === "weak") {
+      valuesToSet[`${dataPrefix}.adjustment`] = "";
+    } else {
+      valuesToSet[`${dataPrefix}.adjustment`] = "weak";
+    }
+
+    // TODO set adjustments due to weak
+
+    showHideFields(record, valuesToSet);
+
+    api.setValues(valuesToSet);
+  }
+
+  function onTraitsChange(traits) {
+    setTraits(traits, (recordUpdated) => {
+      showHideFields(recordUpdated);
+    });
+  }
+
+  function getEliteAdjustmentTooltip() {
+    return "Set Elite Adjustment";
+  }
+
+  function getWeakAdjustmentTooltip() {
+    return "Set Weak Adjustment";
+  }
+</script>
+
+<div style="display: flex; margin-top: 4px; flex-direction: row">
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      width: 150px;
+      margin-right: 4px;
+    "
+  >
+    <div style="display: flex; flex-direction: row; gap: 4px">
+      <div
+        style="display: flex; flex-direction: column; gap: 0px; width: 150px"
+      >
+        <div
+          style="
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+            min-height: 150px;
+            max-height: 150px;
+          "
+        >
+          <portrait width="150px" height="150px"></portrait>
+        </div>
+        <dropdown
+          size="xs"
+          width="100%"
+          hideonlocked="true"
+          field="type"
+          label="Type"
+          placeholder="NPC Type..."
+          onchange="showHideFields()"
+          options='[{"value": "npc", "label": "NPC"}, {"value": "vehicle", "label": "Vehicle"}, {"value": "hazard", "label": "Hazard"}, {"value": "familiar", "label": "Familiar"}]'
+        >
+        </dropdown>
+      </div>
+    </div>
+  </div>
+
+  <!-- Traits -->
+  <div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 4px;
+        background-color: rgb(
+          from var(--mantine-color-primary-filled) r g b / 0.25
+        );
+        border-radius: 4px;
+        margin-bottom: 4px;
+        padding: 0px 4px;
+        align-items: center;
+      "
+    >
+      <label
+        field="namefield"
+        placeholder="New NPC"
+        size="lg"
+        variant="bold"
+      ></label>
+      <div
+        style="
+          margin-left: auto;
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+        "
+      >
+        <label
+          field="levelLabel"
+          size="lg"
+          variant="bold"
+          hidewhenidentified="false"
+        ></label>
+        <div
+          style="
+            margin-bottom: 8px;
+            width: 40px;
+            border-bottom: 1px solid var(--mantine-color-primary-filled);
+          "
+        >
+          <numberfield
+            field="level"
+            variant="unstyled"
+            bold="true"
+            textalign="center"
+            size="md"
+            height="34px"
+            defaultvalue="0"
+            width="100%"
+            placeholder="0"
+            hidecontrols="true"
+            onchange="updateLevel(value);"
+          ></numberfield>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <list
+          width="100%"
+          hidewhenidentified="false"
+          listtype="traits_list"
+          field="traitsList"
+        ></list>
+        <!-- Elite and Weak Adjustments -->
+        <div style="display: flex; flex-direction: row; margin-left: auto">
+          <div style="background-color: var(--mantine-color-green-light)">
+            <tag
+              field="elite"
+              hidden="true"
+              label="Elite"
+              tooltipfunction="return getEliteAdjustmentTooltip();"
+              color="default"
+              onclick="onAddRemoveElite(value);"
+            ></tag>
+          </div>
+          <tag
+            field="setElite"
+            hidden="true"
+            label="Elite"
+            tooltipfunction="return getEliteAdjustmentTooltip();"
+            color="default"
+            onclick="onAddRemoveElite(value);"
+          ></tag>
+          <div style="background-color: var(--mantine-color-red-light)">
+            <tag
+              field="weak"
+              hidden="true"
+              label="Weak"
+              tooltipfunction="return getWeakAdjustmentTooltip();"
+              color="default"
+              onclick="onAddRemoveWeak(value);"
+            ></tag>
+          </div>
+          <tag
+            field="setWeak"
+            hidden="true"
+            label="Weak"
+            tooltipfunction="return getWeakAdjustmentTooltip();"
+            color="default"
+            onclick="onAddRemoveWeak(value);"
+          ></tag>
+        </div>
+      </div>
+
+      <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+        <dropdown
+          multiselect="100"
+          placeholder="Enter Traits..."
+          field="traits"
+          combo="true"
+          label="Traits"
+          optionsfunction="return getTraitOptions();"
+          hidewhenidentified="false"
+          onchange="onTraitsChange(value);"
+        >
+        </dropdown>
+      </box>
+    </div>
+  </div>
+</div>
