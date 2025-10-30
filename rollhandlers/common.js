@@ -6799,6 +6799,15 @@ function applyDamage(
       // Each entry has { dieType, damageType }
       const criticalOnlyDice = roll.metadata?.criticalOnlyDice || [];
 
+      // Get the base damage type from metadata to use for precision conversion
+      const baseDamageType = (
+        roll.metadata?.damageType || "untyped"
+      ).toLowerCase();
+
+      // Track which roll.types indices are precision damage
+      const precisionIndices = [];
+      let totalPrecisionDamage = 0;
+
       // First, calculate damage with PF2e critical rules
       // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
       // If target is immune to critical hits, treat as a normal hit
@@ -6823,8 +6832,15 @@ function applyDamage(
 
         // Process each damage type entry from the roll
         roll.types.forEach((type, index) => {
-          const damageType = type.type || "untyped";
+          let damageType = type.type || "untyped";
           let damageValue = type.value;
+
+          // Check if this is precision damage and convert to base damage type
+          if (damageType.toLowerCase() === "precision") {
+            precisionIndices.push(index);
+            totalPrecisionDamage += damageValue;
+            damageType = baseDamageType; // Convert precision to base damage type
+          }
 
           // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
           // or target is immune to critical hits
@@ -7095,6 +7111,98 @@ function applyDamage(
         (sum, dmg) => sum + dmg,
         0
       );
+
+      // Now apply precision-specific IWR adjustments
+      // We've tracked which damage was precision and converted it to base damage type
+      // Now we need to apply precision-specific IWR to that portion
+      if (precisionIndices.length > 0 && !isApplyingSplash) {
+        // Calculate precision damage after critical and half damage adjustments
+        let adjustedPrecisionDamage = totalPrecisionDamage;
+
+        // Apply critical doubling if applicable
+        if (isCritical && !immuneToCritical) {
+          adjustedPrecisionDamage *= 2;
+        }
+
+        // Apply half damage if needed
+        if (halfDamage && adjustedPrecisionDamage > 0) {
+          adjustedPrecisionDamage = Math.floor(adjustedPrecisionDamage / 2);
+          adjustedPrecisionDamage = Math.max(1, adjustedPrecisionDamage);
+        }
+
+        // Now apply precision-specific IWR
+        let precisionDamageAfterIWR = adjustedPrecisionDamage;
+
+        // Check precision immunity
+        const precisionImmunity = IWR.immunities["precision"];
+        if (precisionImmunity) {
+          if (
+            precisionImmunity.exceptions &&
+            rollMatchesCondition(roll, precisionImmunity.exceptions)
+          ) {
+            // Exception applies - ignore immunity
+          } else {
+            // Immune to precision - negate all precision damage
+            precisionDamageAfterIWR = 0;
+          }
+        }
+
+        // Apply precision weakness (if not immune)
+        if (precisionDamageAfterIWR > 0) {
+          const precisionWeakness = IWR.weaknesses["precision"];
+          if (precisionWeakness) {
+            if (
+              precisionWeakness.exceptions &&
+              rollMatchesCondition(roll, precisionWeakness.exceptions)
+            ) {
+              // Exception applies - ignore weakness
+            } else {
+              let weaknessValue = precisionWeakness.value;
+              if (
+                precisionWeakness.doubleVs &&
+                rollMatchesCondition(roll, precisionWeakness.doubleVs)
+              ) {
+                weaknessValue = weaknessValue * 2;
+              }
+              precisionDamageAfterIWR += weaknessValue;
+            }
+          }
+        }
+
+        // Apply precision resistance (if not immune)
+        if (precisionDamageAfterIWR > 0) {
+          const precisionResistance = IWR.resistances["precision"];
+          if (precisionResistance) {
+            if (
+              precisionResistance.exceptions &&
+              rollMatchesCondition(roll, precisionResistance.exceptions)
+            ) {
+              // Exception applies - ignore resistance
+            } else {
+              let resistanceValue = precisionResistance.value;
+              if (
+                precisionResistance.doubleVs &&
+                rollMatchesCondition(roll, precisionResistance.doubleVs)
+              ) {
+                resistanceValue = resistanceValue * 2;
+              }
+              precisionDamageAfterIWR -= resistanceValue;
+            }
+          }
+        }
+
+        // Ensure precision damage doesn't go below 0
+        precisionDamageAfterIWR = Math.max(0, precisionDamageAfterIWR);
+
+        // Calculate the difference and apply it to total damage
+        // This is the adjustment caused by precision-specific IWR
+        const precisionIWRDifference =
+          precisionDamageAfterIWR - adjustedPrecisionDamage;
+        damage += precisionIWRDifference;
+
+        // Ensure total damage doesn't go below 0
+        damage = Math.max(0, damage);
+      }
 
       // Subtract healing amount from damage (can make damage negative)
       damage -= healingAmount;

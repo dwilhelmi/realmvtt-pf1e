@@ -315,6 +315,7 @@ const damageMetadata = {
   hasDeathTrait: hasDeathTrait,
   criticalOnlyDice: criticalOnlyDice,
   isVitalityDual: isVitalityDual,
+  damageType: damageType,
 };
 
 // Add damage button to message
