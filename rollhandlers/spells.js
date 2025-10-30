@@ -487,6 +487,8 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   const precisionDamageComponents = []; // Separate array for precision damage
   const healingComponents = [];
   const persistentComponents = [];
+  let splashDamageValue = 0;
+  let splashDamageType = "untyped";
 
   let hasDamage = false;
   let hasHealing = false;
@@ -517,6 +519,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       if (category === "persistent") {
         if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
+        }
+      } else if (category === "splash") {
+        // Splash damage is tracked separately and not added to the main damage string
+        if (formula && isDamage) {
+          // Parse the splash damage value from the formula
+          const splashMatch = formula.match(/^(\d+)$/);
+          if (splashMatch) {
+            splashDamageValue = parseInt(splashMatch[1], 10);
+            splashDamageType = type;
+          }
         }
       } else if (category === "precision") {
         // Precision damage goes into separate array
@@ -573,6 +585,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       if (category === "persistent") {
         if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
+        }
+      } else if (category === "splash") {
+        // Splash damage is tracked separately and not added to the main damage string
+        if (formula && isDamage) {
+          // Parse the splash damage value from the formula
+          const splashMatch = formula.match(/^(\d+)$/);
+          if (splashMatch) {
+            splashDamageValue = parseInt(splashMatch[1], 10);
+            splashDamageType = type;
+          }
         }
       } else if (category === "precision") {
         // Precision damage goes into separate array
@@ -685,6 +707,8 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
     damageString,
     healingString,
     persistentDamage,
+    splashDamageValue,
+    splashDamageType,
     hasDamage,
     hasHealing,
     castingRank,
@@ -757,8 +781,24 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
     damageModifierTypes
   );
 
-  const damage = "${spellDamage.damageString}";
+  let damage = "${spellDamage.damageString}";
   const persistentDamage = "${spellDamage.persistentDamage}";
+  const splashDamageValue = ${spellDamage.splashDamageValue};
+  const splashDamageType = "${spellDamage.splashDamageType}";
+
+  // Build criticalOnlyDice array to track splash damage (so it doesn't get doubled)
+  const criticalOnlyDice = [];
+  if (splashDamageValue > 0) {
+    // Add splash damage to the damage string
+    damage = damage + " + " + splashDamageValue + " " + splashDamageType;
+
+    // Also track it in criticalOnlyDice so it doesn't get doubled on crits
+    criticalOnlyDice.push({
+      dieType: 0,
+      damageType: splashDamageType.toLowerCase(),
+      flatDamage: splashDamageValue,
+    });
+  }
 
   api.promptRoll(
     "${spellName}",
@@ -766,10 +806,12 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
     damageModifiers,
     {
       persistentDamage: persistentDamage,
+      splashDamage: splashDamageValue,
       isSpell: true,
       rollName: "${spellName} Damage",
       traits: ${JSON.stringify(traits)},
       isVitalityDual: ${isVitalityDual},
+      criticalOnlyDice: criticalOnlyDice,
     },
     "damage"
   );
@@ -921,6 +963,18 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
     ...spellAttackMods
   ];
   
+  // Build criticalOnlyDice array to track splash damage (so it doesn't get doubled)
+  const splashDamageValue = ${spellDamage.splashDamageValue};
+  const splashDamageType = "${spellDamage.splashDamageType}";
+  const criticalOnlyDice = [];
+  if (splashDamageValue > 0) {
+    criticalOnlyDice.push({
+      dieType: 0,
+      damageType: splashDamageType.toLowerCase(),
+      flatDamage: splashDamageValue,
+    });
+  }
+
   if (targets.length === 0) {
     // No target - just roll without target-specific modifiers
     const metadata = {
@@ -933,10 +987,12 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       damage: "${spellDamage.damageString}",
       damageType: "${primaryDamageType}",
       persistentDamage: "${spellDamage.persistentDamage}",
+      splashDamage: splashDamageValue,
       damageModifiers: damageModifiers,
       traits: ${JSON.stringify(traits)},
       animation: ${JSON.stringify(animation)},
       isVitalityDual: ${isVitalityDual},
+      criticalOnlyDice: criticalOnlyDice,
     };
   
     api.promptRoll(
@@ -1003,11 +1059,13 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
         damage: "${spellDamage.damageString}",
         damageType: "${primaryDamageType}",
         persistentDamage: "${spellDamage.persistentDamage}",
+        splashDamage: splashDamageValue,
         damageModifiers: damageModifiers,
         traits: ${JSON.stringify(traits)},
         showShieldDamage: targetShieldRaised && ${damageIsPhysical},
         animation: ${JSON.stringify(animation)},
         isVitalityDual: ${isVitalityDual},
+        criticalOnlyDice: criticalOnlyDice,
       };
   
       api.promptRoll(
