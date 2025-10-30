@@ -1,0 +1,38 @@
+<script>
+  function onModChange(value) {
+    const skillDataPath = getNearestParentDataPath(dataPath);
+    const skill = api.getValue(skillDataPath);
+    const skillName = skill?.name || "";
+    const mod = parseInt(value, 10);
+
+    // Format the modifier with a sign
+    const modString = mod >= 0 ? `+${mod}` : `${mod}`;
+    const skillWithMod = `${skillName} ${modString}`;
+
+    api.setValue(`${skillDataPath}.data.skillWithMod`, skillWithMod);
+  }
+</script>
+
+<div style="display: flex; flex-direction: row; gap: 4px; align-items: center">
+  <div style="width: 80px">
+    <label field="namefield" variant="bold" size="xs" textalign="left"></label>
+  </div>
+  <div style="flex: 1">
+    <stringfield
+      field="note"
+      placeholder="Enter Note..."
+      size="xs"
+      width="100%"
+    ></stringfield>
+  </div>
+  <div style="width: 50px">
+    <numberfield
+      field="mod"
+      placeholder="0"
+      size="xs"
+      width="100%"
+      showsign="true"
+      onchange="onModChange(value);"
+    ></numberfield>
+  </div>
+</div>

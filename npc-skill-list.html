@@ -1,0 +1,19 @@
+<script>
+  function onRollSkill() {
+    const skillDataPath = getNearestParentDataPath(dataPath);
+    const skill = api.getValue(skillDataPath);
+    const skillName = skill?.name || "";
+    const mod = parseInt(skill?.mod || "0", 10);
+
+    rollSkill(record, skillName);
+  }
+</script>
+
+<div style="display: flex; flex-direction: row; gap: 6px; align-items: center">
+  <tag
+    field="skillWithMod"
+    defaultvalue="New Skill"
+    tooltip="rollTooltip"
+    onclick="onRollSkill()"
+  ></tag>
+</div>

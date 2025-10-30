@@ -9,6 +9,13 @@
 
     const valuesToSet = {};
 
+    // Set default initiative skill to Perception if not set
+    if (npc.data?.initiativeSkill !== "Perception") {
+      valuesToSet[`${dataPrefix}.initiativeSkill`] = "Perception";
+      const perceptionMod = parseInt(npc.data?.perceptionMod || "0", 10);
+      valuesToSet[`${dataPrefix}.initiativeMod`] = perceptionMod;
+    }
+
     // Check if traits is set
     if (
       npc.data?.traits &&
@@ -50,6 +57,14 @@
       valuesToSet[`${dataPrefix}.weak`] = "weak";
     }
 
+    // Hide/unhide NPC props
+    if (type !== "npc" && npc.fields?.skills?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.npcProperties.hidden`] = true;
+    } else if (type === "npc" && npc.fields?.skills?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.npcProperties.hidden`] = false;
+    }
+
+    // Set skills list
     // Check if adjustment is set
     const adjustment =
       recordsToSet &&
@@ -149,6 +164,68 @@
   function getWeakAdjustmentTooltip() {
     return "Set Weak Adjustment";
   }
+
+  function updateInitiativeSkill(skillName) {
+    // Get the skill modifier for the selected skill
+    const skillFieldName = `${skillName.toLowerCase()}Mod`;
+    const skillMod = parseInt(record.data?.[skillFieldName] || "0", 10);
+
+    api.setValues({
+      "data.initiativeMod": skillMod,
+    });
+  }
+
+  function onAddSkill(value) {
+    const skillToAdd = record.data?.skillToAdd;
+    if (!skillToAdd) {
+      return;
+    }
+
+    // Add the skill to the skills list
+    const newSkill = {
+      _id: generateUuid(),
+      name: skillToAdd,
+      unidentifiedName: skillToAdd,
+      identified: true,
+      data: {
+        mod: 0,
+        skillWithMod: `${skillToAdd} +0`,
+        rollTooltip: `Roll ${skillToAdd} Check`,
+        note: "",
+      },
+    };
+
+    api.addValue("data.skills", newSkill, () => {
+      // Clear the dropdown
+      api.setValue("data.skillToAdd", "");
+    });
+  }
+
+  function onAddLoreSkill(value) {
+    const loreSkillToAdd = record.data?.loreSkillToAdd;
+    if (!loreSkillToAdd) {
+      return;
+    }
+
+    // Add the lore skill to the skills list
+    const newSkill = {
+      _id: generateUuid(),
+      name: loreSkillToAdd,
+      unidentifiedName: loreSkillToAdd,
+      identified: true,
+      data: {
+        mod: 0,
+        skillWithMod: `${loreSkillToAdd} +0`,
+        rollTooltip: `Roll ${loreSkillToAdd} Check`,
+        note: "",
+      },
+    };
+
+    api.addValue("data.skills", newSkill, () => {
+      // Clear the text field
+      api.setValue("data.loreSkillToAdd", "");
+    });
+  }
 </script>
 
 <div style="display: flex; margin-top: 4px; flex-direction: row">
@@ -188,10 +265,155 @@
         </dropdown>
       </div>
     </div>
+
+    <!-- AC Section -->
+    <div
+      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+        "
+      >
+        <label label="AC" variant="bold" size="xs"></label>
+        <div style="width: 80px; margin-left: auto">
+          <numberfield
+            placeholder="0"
+            width="100%"
+            icon="IconShirt"
+            size="xs"
+            field="ac"
+          ></numberfield>
+        </div>
+      </div>
+      <stringfield
+        width="100%"
+        size="xs"
+        variant="tooltip-underline"
+        field="acDetails"
+        placeholder="AC details..."
+      ></stringfield>
+    </div>
+
+    <!-- HP Section -->
+    <div
+      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+        "
+      >
+        <label label="HP" variant="bold" size="xs"></label>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-left: auto;
+          "
+        >
+          <numberfield
+            placeholder="0"
+            width="60px"
+            size="xs"
+            field="curhp"
+          ></numberfield>
+          <label label="/" size="xs" variant="bold"></label>
+          <numberfield
+            placeholder="0"
+            width="60px"
+            size="xs"
+            field="hitpoints"
+          ></numberfield>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: row; align-items: center">
+        <label label="Temp" variant="bold" size="xs"></label>
+        <div style="width: 60px; margin-left: auto">
+          <numberfield
+            placeholder="0"
+            width="100%"
+            size="xs"
+            field="tempHp"
+          ></numberfield>
+        </div>
+      </div>
+      <stringfield
+        width="100%"
+        size="xs"
+        variant="tooltip-underline"
+        field="hpDetails"
+        placeholder="HP details..."
+      ></stringfield>
+    </div>
+
+    <!-- Initiative Section -->
+    <div
+      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+        "
+      >
+        <label label="Initiative" variant="bold" size="xs"></label>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-left: auto;
+          "
+        >
+          <iconbutton
+            size="sm"
+            variant="light"
+            options='[{"icon": "D20", "label": "Roll Initiative", "value": "roll"}]'
+            onclick="performInitiativeRoll(record);"
+          ></iconbutton>
+          <numberfield
+            placeholder="+0"
+            width="60px"
+            size="xs"
+            showsign="true"
+            field="initiativeMod"
+          ></numberfield>
+        </div>
+      </div>
+      <dropdown
+        size="xs"
+        field="initiativeSkill"
+        width="100%"
+        placeholder="Perception"
+        defaultvalue="Perception"
+        onchange="updateInitiativeSkill(value)"
+        options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
+      ></dropdown>
+    </div>
   </div>
 
   <!-- Traits -->
-  <div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 4px;
+      margin-left: 4px;
+    "
+  >
     <div
       style="
         display: flex;
@@ -313,6 +535,289 @@
           onchange="onTraitsChange(value);"
         >
         </dropdown>
+      </box>
+
+      <!-- NPC Properties Sections -->
+      <!-- Attribute Modifiers and Senses Section - Side by Side -->
+      <box field="npcProperties">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+          "
+        >
+          <!-- Attribute Modifiers Section -->
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <divider
+              color="primary"
+              label="ATTRIBUTE MODIFIERS"
+              textalign="center"
+            ></divider>
+            <div
+              style="display: flex; flex-direction: row; gap: 8px; padding: 8px"
+            >
+              <!-- Left Column -->
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Str" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="str"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Dex" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="dex"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Con" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="con"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+              </div>
+              <!-- Right Column -->
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Int" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="int"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Wis" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="wis"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 4px;
+                  "
+                >
+                  <label label="Cha" variant="bold" size="xs"></label>
+                  <numberfield
+                    showsign="true"
+                    size="xs"
+                    width="60px"
+                    field="cha"
+                    placeholder="+0"
+                  ></numberfield>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Senses Section -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+            <divider
+              color="primary"
+              label="SENSES"
+              textalign="center"
+            ></divider>
+            <div
+              style="
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  flex-direction: row;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                <label label="Perception" variant="bold" size="xs"></label>
+                <numberfield
+                  showsign="true"
+                  size="xs"
+                  width="60px"
+                  field="perceptionMod"
+                  placeholder="+0"
+                ></numberfield>
+              </div>
+              <stringfield
+                width="100%"
+                multiline="true"
+                size="xs"
+                field="senses"
+                label="Senses"
+                placeholder="Enter Senses..."
+              ></stringfield>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skills Section -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+          <divider color="primary" label="SKILLS" textalign="center"></divider>
+          <div style="display: flex; flex-direction: row; align-items: center">
+            <!-- NPC Skills List-->
+            <list listtype="npc_skill_list" field="skills"></list>
+            <div style="display: flex; flex-direction: row; margin-left: auto">
+              <popover>
+                <popover.target>
+                  <iconbutton
+                    hideonlocked="true"
+                    size="sm"
+                    icon="IconPlus"
+                    variant="default"
+                    options='[{"icon": "IconEdit", "label": "Add Skill", "value": "addSkill"}]'
+                  ></iconbutton>
+                </popover.target>
+                <popover.dropdown>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: column;
+                      gap: 4px;
+                      max-width: 300px;
+                    "
+                  >
+                    <div style="display: flex; flex-direction: row; gap: 4px">
+                      <div style="width: 80px">
+                        <label
+                          label="Skill"
+                          variant="bold"
+                          size="xs"
+                          textalign="left"
+                        ></label>
+                      </div>
+                      <div style="flex: 1">
+                        <label
+                          label="Note"
+                          variant="bold"
+                          size="xs"
+                          textalign="left"
+                        ></label>
+                      </div>
+                      <div style="width: 70px">
+                        <label
+                          label="Modifier"
+                          variant="bold"
+                          size="xs"
+                          textalign="left"
+                        ></label>
+                      </div>
+                    </div>
+                    <list listtype="npc_skill_edit_list" field="skills"></list>
+                    <div style="display: flex; flex-direction: row; gap: 4px">
+                      <dropdown
+                        field="skillToAdd"
+                        placeholder="Select Skill..."
+                        width="100%"
+                        size="xs"
+                        options='[{"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
+                      ></dropdown>
+                      <button
+                        size="xs"
+                        width="120px"
+                        label="Add"
+                        icon="IconPlus"
+                        variant="outline"
+                        onclick="onAddSkill(value);"
+                      ></button>
+                    </div>
+                    <divider
+                      color="primary"
+                      label="LORE"
+                      textalign="center"
+                    ></divider>
+                    <div style="display: flex; flex-direction: row; gap: 4px">
+                      <stringfield
+                        field="loreSkillToAdd"
+                        placeholder="Enter Lore Skill..."
+                        width="100%"
+                        size="xs"
+                      ></stringfield>
+                      <button
+                        size="xs"
+                        width="120px"
+                        label="Add"
+                        icon="IconPlus"
+                        variant="outline"
+                        label="Add Skill"
+                        onclick="onAddLoreSkill(value);"
+                      ></button>
+                    </div>
+                  </div>
+                </popover.dropdown>
+              </popover>
+            </div>
+          </div>
+        </div>
       </box>
     </div>
   </div>

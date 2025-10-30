@@ -3785,22 +3785,33 @@ function rollSkill(
   const isPerception = skill === "perception";
 
   // Get the skill modifier from the record
-  const skillMod = isLore
+  let skillMod = isLore
     ? loreSkillMod
     : parseInt(record.data?.[`${skill}Mod`] || "0", 10);
 
-  // Get the proficiency level for display purposes
-  const proficiencyLevel = isLore
-    ? loreSkillTraining
-    : parseInt(record.data?.[skill] || "0", 10);
-  const proficiencyNames = [
-    "Untrained",
-    "Trained",
-    "Expert",
-    "Master",
-    "Legendary",
-  ];
-  const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+  const isNPC = record.data?.type === "npc" || record.recordType === "tokens";
+
+  // Get the proficiency level for display purposes (if character)
+  let skillModName = `${skillName} Modifier`;
+  if (!isNPC) {
+    const proficiencyLevel = isLore
+      ? loreSkillTraining
+      : parseInt(record.data?.[skill] || "0", 10);
+    const proficiencyNames = [
+      "Untrained",
+      "Trained",
+      "Expert",
+      "Master",
+      "Legendary",
+    ];
+    const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+    skillModName = `${skillName} (${proficiencyName})`;
+  } else if (isNPC & !isPerception) {
+    // NPCs need to get the skill mod from the .skills list
+    const skills = record.data?.skills || [];
+    const skillObj = skills.find((s) => s.name === skillName);
+    skillMod = skillObj?.data?.mod || 0;
+  }
 
   // Capitalize the skill name for display
   const skillDisplay = skill.charAt(0).toUpperCase() + skill.slice(1);
@@ -3811,7 +3822,7 @@ function rollSkill(
   // Add the total skill modifier (includes ability + proficiency)
   if (skillMod !== 0) {
     modifiers.push({
-      name: `${skillName} (${proficiencyName})`,
+      name: skillModName,
       type: "",
       value: skillMod,
       active: true,
