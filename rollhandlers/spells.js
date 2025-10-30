@@ -484,6 +484,7 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   let healingString = "";
   let persistentDamage = "";
   const damageComponents = [];
+  const precisionDamageComponents = []; // Separate array for precision damage
   const healingComponents = [];
   const persistentComponents = [];
 
@@ -516,6 +517,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       if (category === "persistent") {
         if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
+        }
+      } else if (category === "precision") {
+        // Precision damage goes into separate array
+        if (formula && isDamage) {
+          // Apply attribute modifier if applyMod is true
+          const effectFormula =
+            applyMod && attributeMod > 0
+              ? `${formula} + ${attributeMod} precision`.trim()
+              : `${formula} precision`.trim();
+          precisionDamageComponents.push(effectFormula);
         }
       } else {
         if (formula) {
@@ -562,6 +573,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       if (category === "persistent") {
         if (formula && isDamage) {
           persistentComponents.push(`${formula} ${type}`);
+        }
+      } else if (category === "precision") {
+        // Precision damage goes into separate array
+        if (formula && isDamage) {
+          // Apply attribute modifier if applyMod is true
+          const effectFormula =
+            applyMod && attributeMod > 0
+              ? `${formula} + ${attributeMod} precision`.trim()
+              : `${formula} precision`.trim();
+          precisionDamageComponents.push(effectFormula);
         }
       } else {
         if (formula) {
@@ -654,7 +675,9 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   }
 
   // Build final strings
-  damageString = damageComponents.join(" + ");
+  // Combine regular damage components first, then precision damage components
+  const allDamageComponents = [...damageComponents, ...precisionDamageComponents];
+  damageString = allDamageComponents.join(" + ");
   healingString = healingComponents.join(" + ");
   persistentDamage = persistentComponents.join(" + ");
 
