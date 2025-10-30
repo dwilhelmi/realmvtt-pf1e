@@ -4699,11 +4699,14 @@ function useAction(action) {
     portrait = "";
   }
 
+  const effectMacros = getEffectMacrosFor(action?.data?.effects || []);
+
   const message = `
 #### ${portrait}${actionName}${actionIcon ? "&nbsp;" : ""}${actionIcon}
 
 ---
 ${actionDescription}
+${effectMacros}
 `;
 
   // Send the message
@@ -7358,6 +7361,13 @@ function applyDamage(
           if (newDying >= 4) {
             api.addEffect("Dead", target);
             message += `\n**[center][color=red]DEAD (Dying ${newDying})[/color][/center]**`;
+          } else {
+            if (
+              target.effects.find((effect) => effect.name === "Unconscious") ===
+              undefined
+            ) {
+              api.addEffects(["Unconscious", "Prone"], target);
+            }
           }
         } else if (target.recordType === "npcs") {
           // NPCs just die at 0 HP
