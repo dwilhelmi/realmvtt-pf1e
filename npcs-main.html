@@ -267,6 +267,21 @@
   function updateLanguages(value) {
     setLanguages(value);
   }
+
+  function onAddImmunity() {
+    const immunities = record?.data?.immunities;
+    const valuesToSet = {};
+    immunities.forEach((immunity, index) => {
+      if (immunity.fields?.valueBox?.hidden !== true) {
+        valuesToSet[`data.immunities.${index}.fields.valueBox.hidden`] = true;
+        valuesToSet[`data.immunities.${index}.fields.doubleVs.hidden`] = true;
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
 </script>
 
 <style>
@@ -445,6 +460,152 @@
         onchange="updateInitiativeSkill(value)"
         options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
       ></dropdown>
+    </div>
+
+    <div style="margin-top: 4px">
+      <divider></divider>
+    </div>
+
+    <!-- IWR Section -->
+    <div
+      style="
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        margin-top: 4px;
+      "
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+          width: 100%;
+        "
+      >
+        <!-- Immunities -->
+        <div style="flex: 1">
+          <label label="Immunities" variant="bold" size="xs"></label>
+        </div>
+        <popover>
+          <popover.target>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              label="Edit Immunities"
+              options='[{"icon": "IconEdit", "label": "Edit Immunities", "value": "editImmunities"}]'
+            ></iconbutton>
+          </popover.target>
+          <popover.dropdown>
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                width: 550px;
+              "
+            >
+              <label label="Immunities" variant="bold" size="xs"></label>
+              <list
+                listtype="iwr_list"
+                field="immunities"
+                onchange="onAddImmunity()"
+              ></list>
+            </div>
+          </popover.dropdown>
+        </popover>
+      </div>
+      <div style="margin-top: 4px; margin-bottom: 4px">
+        <divider></divider>
+      </div>
+      <label field="immunitiesLabel" size="xs"></label>
+      <!-- Weaknesses -->
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+          width: 100%;
+        "
+      >
+        <div style="flex: 1">
+          <label label="Weaknesses" variant="bold" size="xs"></label>
+        </div>
+        <popover>
+          <popover.target>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              label="Edit Weaknesses"
+              options='[{"icon": "IconEdit", "label": "Edit Weaknesses", "value": "editWeaknesses"}]'
+            ></iconbutton>
+          </popover.target>
+          <popover.dropdown>
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                width: 550px;
+              "
+            >
+              <label label="Weaknesses" variant="bold" size="xs"></label>
+              <list listtype="iwr_list" field="weaknesses"></list>
+            </div>
+          </popover.dropdown>
+        </popover>
+      </div>
+      <div style="margin-top: 4px; margin-bottom: 4px">
+        <divider></divider>
+      </div>
+      <label field="weaknessesLabel" size="xs"></label>
+
+      <!-- Resistances -->
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+          width: 100%;
+        "
+      >
+        <div style="flex: 1">
+          <label label="Resistances" variant="bold" size="xs"></label>
+        </div>
+        <popover>
+          <popover.target>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              label="Edit Resistances"
+              options='[{"icon": "IconEdit", "label": "Edit Resistances", "value": "editResistances"}]'
+            ></iconbutton>
+          </popover.target>
+          <popover.dropdown>
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                width: 550px;
+              "
+            >
+              <label label="Resistances" variant="bold" size="xs"></label>
+              <list listtype="iwr_list" field="resistances"></list>
+            </div>
+          </popover.dropdown>
+        </popover>
+      </div>
+      <div style="margin-top: 4px; margin-bottom: 4px">
+        <divider></divider>
+      </div>
+      <label field="resistancesLabel" size="xs"></label>
     </div>
   </box>
 

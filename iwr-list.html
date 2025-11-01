@@ -1,4 +1,109 @@
-<div style="display: flex; flex-direction: row; gap: 4px; width: 100%">
+<script>
+  function updateIWRName() {
+    const parentPath = getNearestParentDataPath(dataPath);
+
+    // Determine which list we're in (immunities, resistances, or weaknesses)
+    // Path looks like: data.resistances.0.data or data.immunities.0.data
+    const pathParts = parentPath.split('.');
+    const listType = pathParts[1]; // e.g., 'immunities', 'resistances', 'weaknesses'
+
+    // Get all entries in this list
+    const listPath = `data.${listType}`;
+    const iwrList = api.getValue(listPath) || [];
+
+    const typeOptions = [
+      { label: "all damage", value: "all-damage" },
+      { label: "bludgeoning", value: "bludgeoning" },
+      { label: "piercing", value: "piercing" },
+      { label: "slashing", value: "slashing" },
+      { label: "acid", value: "acid" },
+      { label: "bleed", value: "bleed" },
+      { label: "cold", value: "cold" },
+      { label: "electricity", value: "electricity" },
+      { label: "fire", value: "fire" },
+      { label: "force", value: "force" },
+      { label: "mental", value: "mental" },
+      { label: "poison", value: "poison" },
+      { label: "precision", value: "precision" },
+      { label: "sonic", value: "sonic" },
+      { label: "spirit", value: "spirit" },
+      { label: "vitality", value: "vitality" },
+      { label: "void", value: "void" },
+    ];
+
+    // Build a string for each entry
+    const entryStrings = iwrList.map(iwrData => {
+      if (!iwrData?.data?.type) return '';
+
+      const typeOption = typeOptions.find((opt) => opt.value === iwrData.data.type);
+      const typeLabel = typeOption ? typeOption.label : iwrData.data.type || "";
+
+      let name = typeLabel;
+
+      // Add value if present and not hidden
+      if (iwrData.data.value && !iwrData.fields?.valueBox?.hidden) {
+        name += ` ${iwrData.data.value}`;
+      }
+
+      // Build exception clause
+      const exceptions =
+        Array.isArray(iwrData.data.exceptions) && iwrData.data.exceptions.length > 0
+          ? iwrData.data.exceptions
+          : [];
+      const doubleVs =
+        Array.isArray(iwrData.data.doubleVs) && iwrData.data.doubleVs.length > 0
+          ? iwrData.data.doubleVs
+          : [];
+
+      if (exceptions.length > 0 || doubleVs.length > 0) {
+        name += " (";
+
+        const clauses = [];
+
+        if (exceptions.length > 0) {
+          let exceptionText = "except ";
+          if (exceptions.length === 1) {
+            exceptionText += exceptions[0];
+          } else if (exceptions.length === 2) {
+            exceptionText += `${exceptions[0]} or ${exceptions[1]}`;
+          } else {
+            exceptionText +=
+              exceptions.slice(0, -1).join(", ") + ", or " + exceptions.slice(-1);
+          }
+          clauses.push(exceptionText);
+        }
+
+        if (doubleVs.length > 0) {
+          clauses.push(`double ${typeLabel} vs. ${doubleVs.join(", ")}`);
+        }
+
+        name += clauses.join("; ");
+        name += ")";
+      }
+
+      return name;
+    }).filter(str => str); // Remove empty strings
+
+    // Join all entries with semicolons
+    const fullLabel = entryStrings.join("; ");
+
+    // Set the appropriate label field based on list type
+    const labelField = `data.${listType}Label`;
+    api.setValues({
+      [labelField]: fullLabel,
+    });
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    width: 100%;
+    flex-wrap: wrap;
+  "
+>
   <div style="min-width: 100px">
     <dropdown
       size="xs"
@@ -7,6 +112,7 @@
       placeholder="Select Type..."
       combo="true"
       label="Type"
+      onchange="updateIWRName()"
       options='[{"label": "All Damage", "value": "all-damage"},
         {"label": "Bludgeoning", "value": "bludgeoning"},
         {"label": "Piercing", "value": "piercing"},
@@ -27,7 +133,7 @@
     ></dropdown>
   </div>
 
-  <box field="valueBox">
+  <box field="valueBox" width="60px">
     <div style="min-width: 60px">
       <numberfield
         width="100%"
@@ -35,29 +141,32 @@
         field="value"
         label="Value"
         placeholder="0"
+        onchange="updateIWRName()"
       ></numberfield>
     </div>
   </box>
 
   <dropdown
     size="xs"
-    width="100%"
+    width="150px"
     field="exceptions"
     combo="true"
     multiselect="100"
     label="Exceptions"
     placeholder="None"
     options="[]"
+    onchange="updateIWRName()"
   ></dropdown>
 
   <dropdown
     size="xs"
-    width="100%"
+    width="150px"
     field="doubleVs"
     combo="true"
     multiselect="100"
     label="Double Vs"
     placeholder="None"
     options="[]"
+    onchange="updateIWRName()"
   ></dropdown>
 </div>
