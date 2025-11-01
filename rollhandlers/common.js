@@ -4735,6 +4735,108 @@ ${effectMacros}
 }
 
 /**
+ * Set NPC attack damage fields based on damageRolls array
+ * Creates a string representation of the damage (e.g., "1d6 piercing + 1 fire")
+ * @param {Object} record - The NPC record (npcs/tokens) or individual NPC attack record (npc_attacks)
+ */
+function setNPCDamageFields(record) {
+  if (!record) {
+    return;
+  }
+
+  const valuesToSet = {};
+
+  // Determine if this is an NPC/token record or an individual attack record
+  const isNPCRecord =
+    record.recordType === "npcs" || record.recordType === "tokens";
+  const isAttackRecord = record.recordType === "npc_attacks";
+
+  if (!isNPCRecord && !isAttackRecord) {
+    return;
+  }
+
+  // Get attacks to process
+  let attacks = [];
+  if (isNPCRecord) {
+    // Process all attacks on the NPC
+    attacks = record.data?.attacks || [];
+  } else if (isAttackRecord) {
+    // Process just this single attack
+    attacks = [{ attack: record, index: null }];
+  }
+
+  // Process each attack
+  attacks.forEach((attackEntry, idx) => {
+    const attack = isNPCRecord ? attackEntry : attackEntry.attack;
+    const attackIndex = isNPCRecord ? idx : attackEntry.index;
+    const damageRolls = attack.data?.damageRolls || [];
+
+    // Build data path prefix based on whether we're processing an NPC or individual attack
+    const pathPrefix = isNPCRecord ? `data.attacks.${attackIndex}.` : "";
+
+    // Combine all damage rolls for the label (no category labels)
+    const allDamageRolls = damageRolls;
+
+    let damageString = "";
+    if (allDamageRolls.length > 0) {
+      const damageParts = allDamageRolls.map((roll) => {
+        const formula = roll.data?.formula || "0";
+        const type = roll.data?.type || "";
+        return type ? `${formula} ${type}` : formula;
+      });
+      damageString = damageParts.join(" + ");
+    }
+
+    // Set the damage field
+    if (damageString) {
+      const damageLabel = `${damageString}`;
+      if (attack.data?.damage !== damageLabel) {
+        valuesToSet[`${pathPrefix}data.damage`] = damageLabel;
+      }
+      if (attack.fields?.damage?.hidden !== false) {
+        valuesToSet[`${pathPrefix}fields.damage.hidden`] = false;
+      }
+
+      // Critical label is just "Critical"
+      const criticalLabel = "Critical";
+      if (attack.data?.critical !== criticalLabel) {
+        valuesToSet[`${pathPrefix}data.critical`] = criticalLabel;
+      }
+      if (attack.fields?.critical?.hidden !== false) {
+        valuesToSet[`${pathPrefix}fields.critical.hidden`] = false;
+      }
+    } else {
+      if (attack.fields?.damage?.hidden !== true) {
+        valuesToSet[`${pathPrefix}fields.damage.hidden`] = true;
+      }
+      if (attack.fields?.critical?.hidden !== true) {
+        valuesToSet[`${pathPrefix}fields.critical.hidden`] = true;
+      }
+    }
+
+    // Create tooltip strings
+    const damageTooltip = damageString
+      ? `Roll ${damageString} damage`
+      : "No damage";
+    const criticalTooltip = damageString
+      ? `Roll 2 * (${damageString}) damage`
+      : "No damage";
+
+    if (attack.data?.damageTooltip !== damageTooltip) {
+      valuesToSet[`${pathPrefix}data.damageTooltip`] = damageTooltip;
+    }
+    if (attack.data?.criticalTooltip !== criticalTooltip) {
+      valuesToSet[`${pathPrefix}data.criticalTooltip`] = criticalTooltip;
+    }
+  });
+
+  // Apply all updates at once
+  if (Object.keys(valuesToSet).length > 0) {
+    api.setValues(valuesToSet);
+  }
+}
+
+/**
  * Helper function to get damage type, string, and modifiers for a weapon/spell/item
  * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, deadlyDie, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
  */

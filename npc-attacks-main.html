@@ -126,6 +126,10 @@
       api.setValues(valuesToSet);
     }
   }
+
+  function onDamageChange(value) {
+    setNPCDamageFields(record);
+  }
 </script>
 
 <div
@@ -241,7 +245,11 @@
     </div>
   </div>
 
-  <list field="damageRolls" listtype="npc_attack_damage_list"></list>
+  <list
+    field="damageRolls"
+    listtype="npc_attack_damage_list"
+    onchange="onDamageChange()"
+  ></list>
 
   <dropdown
     size="sm"

@@ -55,6 +55,7 @@
       gap: 4px;
       align-items: center;
       margin-bottom: 4px;
+      flex-wrap: wrap;
     "
   >
     <!-- Roll Attack -->
@@ -84,26 +85,27 @@
     ></tag>
     <div>
       <!-- Roll Damage -->
-      <button
+      <tag
         size="xs"
-        radius="xs"
-        field="damageBtn"
-        label="Damage"
-        variant="light"
+        color="white"
+        backgroundcolor="red-light"
+        field="damage"
+        tooltip="damageTooltip"
         onclick="rollDamage(false);"
-      ></button>
+        hidden="true"
+      ></tag>
     </div>
     <!-- Roll Crit -->
     <div>
-      <button
+      <tag
         size="xs"
-        radius="xs"
-        field="critBtn"
-        label="Critical"
-        variant="light"
-        color="red"
+        color="white"
+        backgroundcolor="pink-light"
+        field="critical"
+        tooltip="criticalTooltip"
         onclick="rollDamage(true);"
-      ></button>
+        hidden="true"
+      ></tag>
     </div>
   </div>
   <div style="display: flex; flex-direction: row; gap: 4px">

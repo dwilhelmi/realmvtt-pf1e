@@ -1,3 +1,9 @@
+<script>
+  function onDamageChange() {
+    setNPCDamageFields(record);
+  }
+</script>
+
 <div
   style="
     display: flex;
@@ -13,6 +19,7 @@
       field="formula"
       label="Damage Roll"
       placeholder="Enter Roll..."
+      onchange="onDamageChange()"
     ></stringfield>
   </div>
   <dropdown
@@ -20,6 +27,7 @@
     field="type"
     label="Damage Type"
     placeholder="Select Type..."
+    onchange="onDamageChange()"
     options='[
     {"label": "Acid", "value": "acid"},
     {"label": "Bludgeoning", "value": "bludgeoning"},
