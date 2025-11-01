@@ -3808,7 +3808,9 @@ function rollSkill(
   } else if (isNPC & !isPerception) {
     // NPCs need to get the skill mod from the .skills list
     const skills = record.data?.skills || [];
-    const skillObj = skills.find((s) => s.name === skillName);
+    const skillObj = skills.find(
+      (s) => s?.name?.toLowerCase() === skillName?.toLowerCase()
+    );
     skillMod = skillObj?.data?.mod || 0;
   }
 

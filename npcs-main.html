@@ -10,7 +10,7 @@
     const valuesToSet = {};
 
     // Set default initiative skill to Perception if not set
-    if (npc.data?.initiativeSkill !== "Perception") {
+    if (!npc.data?.initiativeSkill) {
       valuesToSet[`${dataPrefix}.initiativeSkill`] = "Perception";
       const perceptionMod = parseInt(npc.data?.perceptionMod || "0", 10);
       valuesToSet[`${dataPrefix}.initiativeMod`] = perceptionMod;
@@ -188,12 +188,28 @@
 
   function updateInitiativeSkill(skillName) {
     // Get the skill modifier for the selected skill
-    const skillFieldName = `${skillName.toLowerCase()}Mod`;
-    const skillMod = parseInt(record.data?.[skillFieldName] || "0", 10);
+    const valuesToSet = {};
 
-    api.setValues({
-      "data.initiativeMod": skillMod,
-    });
+    if (skillName?.toLowerCase() === "perception") {
+      valuesToSet["data.initiativeMod"] = parseInt(
+        record.data?.perceptionMod || "0",
+        10
+      );
+    } else {
+      const skills = record.data?.skills || [];
+      const skill = skills.find(
+        (s) => s.name?.toLowerCase() === skillName?.toLowerCase()
+      );
+      if (skill) {
+        valuesToSet["data.initiativeMod"] = skill.data?.mod || 0;
+      } else {
+        valuesToSet["data.initiativeMod"] = 0;
+      }
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
   }
 
   function onAddSkill(value) {
@@ -253,15 +269,18 @@
   }
 </script>
 
-<div style="display: flex; margin-top: 4px; flex-direction: row">
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      width: 150px;
-      margin-right: 4px;
-    "
-  >
+<style>
+  .npc-left-column {
+    margin-right: 4px;
+  }
+
+  .npc-right-column {
+    margin-left: 4px;
+  }
+</style>
+
+<div style="display: flex; margin-top: 4px; flex-direction: row; height: 100%">
+  <box scrollarea="hover" width="160px" height="100%" class="npc-left-column">
     <div style="display: flex; flex-direction: row; gap: 4px">
       <div
         style="display: flex; flex-direction: column; gap: 0px; width: 150px"
@@ -427,18 +446,10 @@
         options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
       ></dropdown>
     </div>
-  </div>
+  </box>
 
   <!-- Traits -->
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      gap: 4px;
-      margin-left: 4px;
-    "
-  >
+  <box scrollarea="hover" width="100%" height="100%" class="npc-right-column">
     <div
       style="
         display: flex;
@@ -911,5 +922,5 @@
         </div>
       </box>
     </div>
-  </div>
+  </box>
 </div>
