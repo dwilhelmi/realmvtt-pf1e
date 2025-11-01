@@ -7810,6 +7810,10 @@ function performInitiativeRoll(record) {
     1,
     "int",
     false,
-    true
+    true,
+    undefined,
+    {
+      initiativeSkill: initiativeSkill,
+    }
   );
 }

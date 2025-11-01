@@ -17,5 +17,8 @@ rollSkill(
   "int",
   true,
   true,
-  (data?.tokens || []).map((token) => token?._id)
+  (data?.tokens || []).map((token) => token?._id),
+  {
+    initiativeSkill: initiativeSkill,
+  }
 );

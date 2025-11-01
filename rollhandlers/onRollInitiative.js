@@ -12,5 +12,9 @@ rollSkill(
   1,
   "int",
   true,
-  true
+  true,
+  undefined,
+  {
+    initiativeSkill: initiativeSkill,
+  }
 );

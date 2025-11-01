@@ -1,3 +1,4 @@
+const initiativeSkill = data.roll?.metadata?.initiativeSkill || "Perception";
 if (data.roll?.metadata?.group && data.roll?.metadata?.group.length > 0) {
   data.roll?.metadata?.group.forEach((tokenId) => {
     api.setValueOnTokenById(
@@ -13,8 +14,8 @@ if (data.roll?.metadata?.group && data.roll?.metadata?.group.length > 0) {
     [],
     [
       {
-        name: "Group Initiative",
-        tooltip: "Group Initiative Roll",
+        name: `Group Initiative (${initiativeSkill})`,
+        tooltip: `Group Initiative Roll with ${initiativeSkill}`,
       },
     ]
   );
@@ -26,8 +27,8 @@ if (data.roll?.metadata?.group && data.roll?.metadata?.group.length > 0) {
     [],
     [
       {
-        name: "Initiative",
-        tooltip: "Initiative Roll",
+        name: `Initiative (${initiativeSkill})`,
+        tooltip: `Initiative Roll with ${initiativeSkill}`,
       },
     ]
   );
