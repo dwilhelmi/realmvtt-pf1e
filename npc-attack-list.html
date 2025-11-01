@@ -1,0 +1,113 @@
+<script>
+  function handleRoll(attackNumber) {
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    performAttackRoll(record, weapon, weaponDataPath, attackNumber);
+  }
+
+  function rollDamage(isCritical) {
+    const weaponDataPath = getNearestParentDataPath(dataPath);
+    const weapon = api.getValue(weaponDataPath);
+    performDamageRoll(record, weapon, weaponDataPath, isCritical);
+  }
+</script>
+
+<div style="display: flex; flex-direction: column">
+  <!-- Main row for icon, name, buttons -->
+  <div style="display: flex; flex-direction: row; align-items: center">
+    <div
+      style="
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        margin-right: 4px;
+      "
+    >
+      <portrait width="30px" height="30px" field="portrait"></portrait>
+    </div>
+    <label size="xs" variant="bold" field="weaponType"></label>
+    <div min-width="10px; margin-left: 4px;">
+      <iconbutton
+        field="actions"
+        size="sm"
+        variant="subtle"
+        color="default"
+        disabled="true"
+        defaultvalue="one-action"
+        width="fit-content"
+        options='[{"label": "One Action", "value": "oneAction", "icon": "one-action"}]'
+      ></iconbutton>
+    </div>
+    <div style="width: 100%">
+      <namefield
+        field="namefield"
+        size="xs"
+        placeholder="Attack Name..."
+        variant="standard"
+      ></namefield>
+    </div>
+  </div>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      align-items: center;
+      margin-bottom: 4px;
+    "
+  >
+    <!-- Roll Attack -->
+    <tag
+      field="strike1"
+      tooltip="strikeTooktip"
+      onclick="handleRoll(1);"
+      color="white"
+      backgroundcolor="blue-light"
+      hidden="true"
+    ></tag>
+    <tag
+      field="strike2"
+      tooltip="strikeTooktip"
+      onclick="handleRoll(2);"
+      color="white"
+      backgroundcolor="blue-light"
+      hidden="true"
+    ></tag>
+    <tag
+      field="strike3"
+      tooltip="strikeTooktip"
+      onclick="handleRoll(3);"
+      color="white"
+      backgroundcolor="blue-light"
+      hidden="true"
+    ></tag>
+    <div>
+      <!-- Roll Damage -->
+      <button
+        size="xs"
+        radius="xs"
+        field="damageBtn"
+        label="Damage"
+        variant="light"
+        onclick="rollDamage(false);"
+      ></button>
+    </div>
+    <!-- Roll Crit -->
+    <div>
+      <button
+        size="xs"
+        radius="xs"
+        field="critBtn"
+        label="Critical"
+        variant="light"
+        color="red"
+        onclick="rollDamage(true);"
+      ></button>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: row; gap: 4px">
+    <label field="attackEffectsLabel" size="xs"></label>
+  </div>
+</div>
+<stringfield field="hideFromList" hidden="true"></stringfield>

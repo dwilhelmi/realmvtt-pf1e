@@ -1,0 +1,277 @@
+<script>
+  // Show or hide relevant values on load or change of type
+  function showHideFields() {
+    const actionDataPath = getNearestParentDataPath(dataPath);
+    const action = actionDataPath ? api.getValue(actionDataPath) : record;
+    const dataPrefix = actionDataPath ? `${actionDataPath}.data` : "data";
+    const fieldsPath = actionDataPath ? `${actionDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    // Map attack effect values to display names
+    const effectToName = {
+      grab: "Grab",
+      "improved-grab": "Improved Grab",
+      constrict: "Constrict",
+      "greater-constrict": "Greater Constrict",
+      knockdown: "Knockdown",
+      "improved-knockdown": "Improved Knockdown",
+      push: "Push",
+      "improved-push": "Improved Push",
+      trip: "Trip",
+    };
+
+    const attackEffects = action.data?.attackEffects || [];
+    let attackEffectsString = "";
+    if (attackEffects.length > 0) {
+      const effectNames = attackEffects.map(
+        (effect) => effectToName[effect] || effect
+      );
+
+      if (effectNames.length === 1) {
+        attackEffectsString = `(plus ${effectNames[0]})`;
+      } else if (effectNames.length === 2) {
+        attackEffectsString = `(plus ${effectNames[0]} and ${effectNames[1]})`;
+      } else {
+        const allButLast = effectNames.slice(0, -1).join(", ");
+        const last = effectNames[effectNames.length - 1];
+        attackEffectsString = `(plus ${allButLast}, and ${last})`;
+      }
+    }
+
+    if (action.data?.attackEffectsLabel !== attackEffectsString) {
+      valuesToSet[`${dataPrefix}.attackEffectsLabel`] = attackEffectsString;
+    }
+
+    // Calculate strike values with MAP
+    const hasAttackBonus =
+      action.data?.bonus !== undefined &&
+      action.data?.bonus !== null &&
+      action.data?.bonus !== "";
+
+    if (hasAttackBonus) {
+      const attackBonus = parseInt(action.data.bonus, 10);
+      const bonusString =
+        attackBonus >= 0 ? `+${attackBonus}` : `${attackBonus}`;
+
+      // Check if attack has agile trait
+      const traits = action.data?.traits || [];
+      const isAgile = traits.some((trait) => trait.toLowerCase() === "agile");
+      const mapPenalty1 = isAgile ? 4 : 5;
+      const mapPenalty2 = isAgile ? 8 : 10;
+
+      const strike1 = `Strike ${bonusString}`;
+      const strike2Bonus = attackBonus - mapPenalty1;
+      const strike2BonusString =
+        strike2Bonus >= 0 ? `+${strike2Bonus}` : `${strike2Bonus}`;
+      const strike2 = `${strike2BonusString} (MAP -${mapPenalty1})`;
+      const strike3Bonus = attackBonus - mapPenalty2;
+      const strike3BonusString =
+        strike3Bonus >= 0 ? `+${strike3Bonus}` : `${strike3Bonus}`;
+      const strike3 = `${strike3BonusString} (MAP -${mapPenalty2})`;
+
+      if (action.data?.strike1 !== strike1) {
+        valuesToSet[`${dataPrefix}.strike1`] = strike1;
+      }
+      if (action.data?.strike2 !== strike2) {
+        valuesToSet[`${dataPrefix}.strike2`] = strike2;
+      }
+      if (action.data?.strike3 !== strike3) {
+        valuesToSet[`${dataPrefix}.strike3`] = strike3;
+      }
+
+      // Show strike fields
+      if (action.fields?.strike1?.hidden !== false) {
+        valuesToSet[`${fieldsPath}.strike1.hidden`] = false;
+      }
+      if (action.fields?.strike2?.hidden !== false) {
+        valuesToSet[`${fieldsPath}.strike2.hidden`] = false;
+      }
+      if (action.fields?.strike3?.hidden !== false) {
+        valuesToSet[`${fieldsPath}.strike3.hidden`] = false;
+      }
+    } else {
+      // Hide strike fields when no attack bonus
+      if (action.fields?.strike1?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.strike1.hidden`] = true;
+      }
+      if (action.fields?.strike2?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.strike2.hidden`] = true;
+      }
+      if (action.fields?.strike3?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.strike3.hidden`] = true;
+      }
+    }
+
+    // Check if traits is set
+    if (
+      action.data?.traits &&
+      action.data?.traits.length > 0 &&
+      !action.data?.traitsList
+    ) {
+      const traitsObjects = [];
+      for (const trait of action.data.traits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+
+      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
+    }
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 4px;
+    background-color: rgb(
+      from var(--mantine-color-primary-filled) r g b / 0.25
+    );
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0px 4px;
+  "
+>
+  <label
+    field="namefield"
+    placeholder="New Action"
+    size="lg"
+    variant="bold"
+  ></label>
+  <iconbutton
+    field="actions"
+    size="md"
+    variant="subtle"
+    color="default"
+    disablediflocked="true"
+    hidden="true"
+    width="max-content"
+    options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+  {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+  {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+  {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
+  {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
+  {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+  {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+  ></iconbutton>
+  <div style="margin-left: auto">
+    <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
+  </div>
+</div>
+
+<div
+  style="
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 4px;
+  "
+>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <list
+      width="100%"
+      hidewhenidentified="false"
+      listtype="traits_list"
+      field="traitsList"
+    ></list>
+  </div>
+
+  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
+    <dropdown
+      multiselect="100"
+      placeholder="Enter Traits..."
+      field="traits"
+      combo="true"
+      label="Traits"
+      optionsfunction="return getTraitOptions();"
+      hidewhenidentified="false"
+      onchange="setTraits(value, showHideFields);"
+    >
+    </dropdown>
+  </box>
+
+  <div style="display: flex; gap: 4px">
+    <div
+      style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
+    >
+      <portrait width="125px" height="125px" field="portrait"></portrait>
+    </div>
+    <div
+      style="
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 4px;
+      "
+    >
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <dropdown
+          width="100%"
+          field="weaponType"
+          onchange="showHideFields();"
+          label="Attack Type"
+          defaultvalue="melee"
+          placeholder="Select Weapon Type..."
+          options='[{"label": "Melee", "value": "Melee"}, {"label": "Ranged", "value": "Ranged"}]'
+        ></dropdown>
+      </div>
+
+      <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+        <numberfield
+          width="100%"
+          field="bonus"
+          label="Attack Modifier"
+          onchange="showHideFields();"
+          placeholder="+0"
+          showsign="true"
+        ></numberfield>
+      </div>
+    </div>
+  </div>
+
+  <list field="damageRolls" listtype="npc_attack_damage_list"></list>
+
+  <dropdown
+    size="sm"
+    field="attackEffects"
+    width="100%"
+    label="Additional Attack Effects"
+    onchange="showHideFields();"
+    searchable="true"
+    multiselect="20"
+    combo="true"
+    placeholder="Select Additional Attack Effects..."
+    options='[{"label": "Grab", "value": "grab"},
+    {"label": "Improved Grab", "value": "improved-grab"},
+    {"label": "Constrict", "value": "constrict"},
+    {"label": "Greater Constrict", "value": "greater-constrict"},
+    {"label": "Knockdown", "value": "knockdown"},
+    {"label": "Improved Knockdown", "value": "improved-knockdown"},
+    {"label": "Push", "value": "push"},
+    {"label": "Improved Push", "value": "improved-push"},
+    {"label": "Trip", "value": "trip"}]'
+  >
+  </dropdown>
+
+  <div style="margin-top: 8px; margin-bottom: 8px">
+    <divider label="Description"></divider>
+  </div>
+
+  <richtextfield
+    field="description"
+    label="Description"
+    placeholder="Enter Attack description..."
+  ></richtextfield>
+</div>

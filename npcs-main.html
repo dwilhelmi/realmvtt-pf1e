@@ -35,7 +35,7 @@
       valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
     }
 
-    const type = npc.data?.type === undefined ? "npc" : npc.data?.type;
+    const type = !npc.data?.type ? "npc" : npc.data?.type;
     const typeLabel = type === "npc" ? "Creature" : capitalize(type);
     const levelLabel = `${typeLabel}`;
 
@@ -97,6 +97,27 @@
         recordsToSet[key] = valuesToSet[key];
       }
     } else if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function onAddRemoveAttack(value) {
+    const npcDataPath = getNearestParentDataPath(dataPath);
+    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
+    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
+    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
+
+    const valuesToSet = {};
+
+    const attacks = npc.data?.attacks || [];
+    // For any attacks with no type set, set to Melee
+    attacks.forEach((attack, index) => {
+      if (!attack.data?.weaponType) {
+        valuesToSet[`${dataPrefix}.attacks.${index}.data.weaponType`] = "Melee";
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }
   }
@@ -226,6 +247,10 @@
       api.setValue("data.loreSkillToAdd", "");
     });
   }
+
+  function updateLanguages(value) {
+    setLanguages(value);
+  }
 </script>
 
 <div style="display: flex; margin-top: 4px; flex-direction: row">
@@ -278,7 +303,7 @@
           align-items: center;
         "
       >
-        <label label="AC" variant="bold" size="xs"></label>
+        <label color="blue" label="AC" variant="bold" size="xs"></label>
         <div style="width: 80px; margin-left: auto">
           <numberfield
             placeholder="0"
@@ -310,7 +335,7 @@
           align-items: center;
         "
       >
-        <label label="HP" variant="bold" size="xs"></label>
+        <label color="pink" label="HP" variant="bold" size="xs"></label>
         <div
           style="
             display: flex;
@@ -483,28 +508,38 @@
           field="traitsList"
         ></list>
         <!-- Elite and Weak Adjustments -->
-        <div style="display: flex; flex-direction: row; margin-left: auto">
-          <div style="background-color: var(--mantine-color-green-light)">
+        <box field="npcProperties">
+          <div style="display: flex; flex-direction: row; margin-left: auto">
+            <div style="background-color: var(--mantine-color-green-light)">
+              <tag
+                field="elite"
+                hidden="true"
+                label="Elite"
+                tooltipfunction="return getEliteAdjustmentTooltip();"
+                color="default"
+                onclick="onAddRemoveElite(value);"
+              ></tag>
+            </div>
             <tag
-              field="elite"
+              field="setElite"
               hidden="true"
               label="Elite"
               tooltipfunction="return getEliteAdjustmentTooltip();"
               color="default"
               onclick="onAddRemoveElite(value);"
             ></tag>
-          </div>
-          <tag
-            field="setElite"
-            hidden="true"
-            label="Elite"
-            tooltipfunction="return getEliteAdjustmentTooltip();"
-            color="default"
-            onclick="onAddRemoveElite(value);"
-          ></tag>
-          <div style="background-color: var(--mantine-color-red-light)">
+            <div style="background-color: var(--mantine-color-red-light)">
+              <tag
+                field="weak"
+                hidden="true"
+                label="Weak"
+                tooltipfunction="return getWeakAdjustmentTooltip();"
+                color="default"
+                onclick="onAddRemoveWeak(value);"
+              ></tag>
+            </div>
             <tag
-              field="weak"
+              field="setWeak"
               hidden="true"
               label="Weak"
               tooltipfunction="return getWeakAdjustmentTooltip();"
@@ -512,15 +547,7 @@
               onclick="onAddRemoveWeak(value);"
             ></tag>
           </div>
-          <tag
-            field="setWeak"
-            hidden="true"
-            label="Weak"
-            tooltipfunction="return getWeakAdjustmentTooltip();"
-            color="default"
-            onclick="onAddRemoveWeak(value);"
-          ></tag>
-        </div>
+        </box>
       </div>
 
       <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
@@ -816,6 +843,70 @@
                 </popover.dropdown>
               </popover>
             </div>
+          </div>
+        </div>
+
+        <!-- Languages Section -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+          <divider
+            color="primary"
+            label="LANGUAGES"
+            textalign="center"
+          ></divider>
+          <div style="display: flex; flex-direction: row; align-items: center">
+            <list
+              field="languagesList"
+              listtype="language_list"
+              size="xs"
+            ></list>
+            <div style="display: flex; flex-direction: row; margin-left: auto">
+              <popover position="bottom" offset="4" witharrow="true">
+                <popover.target>
+                  <iconbutton
+                    size="sm"
+                    variant="default"
+                    hideonlocked="true"
+                    options='[{"icon": "IconEdit", "label": "Edit Languages", "value": "languages"}]'
+                    field="Edit Languages"
+                  ></iconbutton>
+                </popover.target>
+                <popover.dropdown>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: column;
+                      gap: 4px;
+                      width: 300px;
+                    "
+                  >
+                    <dropdown
+                      size="xs"
+                      field="languages"
+                      placeholder="Enter Languages..."
+                      multiselect="100"
+                      width="100%"
+                      combo="true"
+                      label="Languages"
+                      onchange="updateLanguages(value)"
+                      optionsfunction="return getLanguageOptions();"
+                    ></dropdown>
+                  </div>
+                </popover.dropdown>
+              </popover>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attacks Section -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+          <divider color="primary" label="ATTACKS" textalign="center"></divider>
+          <div style="display: flex; flex-direction: row; align-items: center">
+            <list
+              field="attacks"
+              listtype="npc_attack_list"
+              size="xs"
+              onchange="onAddRemoveAttack();"
+            ></list>
           </div>
         </div>
       </box>

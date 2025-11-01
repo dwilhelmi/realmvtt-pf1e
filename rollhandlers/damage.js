@@ -1,6 +1,7 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const traits = data.roll?.metadata?.traits || [];
 const splashDamage = data.roll?.metadata?.splashDamage || 0;
+const splashDamageType = data.roll?.metadata?.splashDamageType;
 const damageType = data.roll?.metadata?.damageType || "untyped";
 const tokenId = data.roll?.metadata?.tokenId || "";
 const tokenName = data.roll?.metadata?.tokenName || "";
@@ -194,17 +195,51 @@ applyDamage(null, ${JSON.stringify(spellDoubleDamageRoll)}, false);
 `
   : "";
 
-const splashDamageMetadata = {
-  value: splashDamage,
-  damageType: damageType,
-};
 const splashDamageMacro =
-  splashDamage > 0
+  splashDamage &&
+  splashDamage !== 0 &&
+  splashDamage !== "0" &&
+  splashDamage !== ""
     ? `
 \`\`\`Apply_Splash_Damage
-applyDamage(null, ${JSON.stringify(data.roll)}, false, ${JSON.stringify(
-        splashDamageMetadata
-      )});
+const roll = ${JSON.stringify(data.roll)};
+let splashTotal = ${JSON.stringify(splashDamage)};
+
+// If splash was a dice formula, it was rolled and we need to extract the value from the roll
+if (typeof splashTotal !== 'number') {
+  const criticalOnlyDice = roll.metadata?.criticalOnlyDice || [];
+  const rollTypes = roll.types || [];
+
+  // Find splash damage dice in criticalOnlyDice
+  const splashDice = criticalOnlyDice.filter(dice =>
+    dice.damageType === ${JSON.stringify(
+      (splashDamageType || damageType).toLowerCase()
+    )}
+  );
+
+  // Calculate total splash damage from the rolled values
+  splashTotal = 0;
+  if (splashDice.length > 0 && rollTypes.length > 0) {
+    // Match splash dice from the end of the roll (splash is added last)
+    const splashDiceToFind = [...splashDice];
+    for (let i = rollTypes.length - 1; i >= 0 && splashDiceToFind.length > 0; i--) {
+      const rollType = rollTypes[i];
+      const matchIndex = splashDiceToFind.findIndex(dice => dice.dieType === rollType.die);
+
+      if (matchIndex >= 0) {
+        splashTotal += rollType.value;
+        splashDiceToFind.splice(matchIndex, 1);
+      }
+    }
+  }
+}
+
+const splashMetadata = {
+  value: splashTotal,
+  damageType: ${JSON.stringify(splashDamageType || damageType)},
+};
+
+applyDamage(null, roll, false, splashMetadata);
 \`\`\`
 `
     : "";

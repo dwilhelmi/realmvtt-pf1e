@@ -10,7 +10,12 @@ const dcName = data?.roll?.metadata?.dcName || "AC";
 const persistentDamage = data?.roll?.metadata?.persistentDamage || "";
 let damageModifiers = data?.roll?.metadata?.damageModifiers || [];
 let splashDamage = data?.roll?.metadata?.splashDamage || 0;
+let splashDamageType = data?.roll?.metadata?.splashDamageType;
 let damageType = data?.roll?.metadata?.damageType || "untyped";
+// Default splash damage type to main damage type if not specified
+if (!splashDamageType) {
+  splashDamageType = damageType;
+}
 const damageIgnoresResistances =
   data?.roll?.metadata?.damageIgnoresResistances || "";
 const damageIgnoresImmunities =
@@ -214,11 +219,32 @@ const fatalDie = data?.roll?.metadata?.fatalDie;
 // - Major Striking (3): 3 deadly dice
 let criticalOnlyDice = [];
 
-if (splashDamage && splashDamage !== "") {
+if (
+  splashDamage &&
+  splashDamage !== "" &&
+  splashDamage !== 0 &&
+  splashDamage !== "0"
+) {
+  // Parse the splash damage to determine die type
+  let splashDieType = 0;
+  let splashFlatDamage = 0;
+  if (typeof splashDamage === "number") {
+    splashFlatDamage = splashDamage;
+  } else {
+    // It's a dice formula like "1d4", "2d6", or "d6" (shorthand for 1d6)
+    const diceMatch = String(splashDamage).match(/\d*d(\d+)/);
+    if (diceMatch) {
+      splashDieType = parseInt(diceMatch[1], 10);
+    } else {
+      // Fallback: try to parse as number
+      splashFlatDamage = parseInt(splashDamage, 10) || 0;
+    }
+  }
+
   criticalOnlyDice.push({
-    dieType: 0, // Flat damage, not a die
-    damageType: damageType.toLowerCase(),
-    flatDamage: splashDamage,
+    dieType: splashDieType,
+    damageType: splashDamageType.toLowerCase(),
+    flatDamage: splashFlatDamage,
   });
 }
 
@@ -305,6 +331,7 @@ const damageMetadata = {
   traits,
   damageCategories,
   splashDamage: splashDamage,
+  splashDamageType: splashDamageType,
   // So we can tell the damage handler script if it was a spell-related damage
   isSpell: isSpell,
   showShieldDamage: showShieldDamage,
@@ -329,7 +356,7 @@ if (isVitalityDual) {
 }
 
 const damageRollString = splashDamage
-  ? `${damage} + ${splashDamage} ${damageType}`
+  ? `${damage} + ${splashDamage} ${splashDamageType}`
   : damage;
 const damageButton =
   damage && damage !== ""

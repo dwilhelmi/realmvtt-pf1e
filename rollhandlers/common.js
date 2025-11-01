@@ -687,7 +687,6 @@ function getEffectsAndModifiersForToken(
         // Find the ammo item
         const ammoItem = items.find((item) => item._id === ammo);
         if (ammoItem) {
-          console.log("Adding ammo item to results:", ammoItem);
           ammoEffects.push({
             ...ammoItem,
             // Mark it as the itemId so we can use it to filter results
@@ -4738,13 +4737,140 @@ ${effectMacros}
  * @returns {Object} - { damageType, damageString, damageMod, strikingRuneMod, deadlyDie, isMelee, isThrown, isPropulsive, hasDeathTrait, isSpell, isItem }
  */
 function getWeaponDamageInfo(record, weapon) {
-  const isMelee = (weapon.data?.range || 0) === 0;
+  // Check if this is an NPC attack
+  const isNPCAttack = weapon.recordType === "npc_attacks";
+
+  const isMelee = isNPCAttack
+    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee"
+    : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("thrown")
   );
   const hasDeathTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("death")
   );
+
+  // Handle NPC attacks with damageRolls array
+  if (isNPCAttack) {
+    const damageRolls = weapon.data?.damageRolls || [];
+
+    // Build damage string from all standard damage rolls
+    const standardRolls = damageRolls.filter(
+      (roll) => !roll.data?.category || roll.data?.category === "standard"
+    );
+    const precisionRolls = damageRolls.filter(
+      (roll) => roll.data?.category === "precision"
+    );
+    const splashRolls = damageRolls.filter(
+      (roll) => roll.data?.category === "splash"
+    );
+    const persistentRolls = damageRolls.filter(
+      (roll) => roll.data?.category === "persistent"
+    );
+
+    let damageString = "";
+    let damageType = "";
+    let splashDamage = 0;
+    let splashDamageType = "";
+    let persistentDamage = "";
+
+    // Build main damage string from standard rolls
+    if (standardRolls.length > 0) {
+      const damageParts = standardRolls.map((roll) => {
+        const formula = roll.data?.formula || "0";
+        const type = roll.data?.type || "untyped";
+        return `${formula} ${type}`;
+      });
+      damageString = damageParts.join(" + ");
+      damageType = standardRolls[0].data?.type || "untyped";
+    }
+
+    // Handle splash damage
+    if (splashRolls.length > 0) {
+      const splashFormula = splashRolls[0].data?.formula || "0";
+      splashDamageType = splashRolls[0].data?.type || damageType;
+      // Check if it's a pure number or a dice formula
+      const splashNumber = Number(splashFormula);
+      if (!isNaN(splashNumber)) {
+        // It's a pure number like "3"
+        splashDamage = splashNumber;
+      } else {
+        // It's a dice formula like "1d4" or complex formula
+        splashDamage = splashFormula;
+      }
+    }
+
+    // Handle persistent damage
+    if (persistentRolls.length > 0) {
+      const persistentParts = persistentRolls.map((roll) => {
+        const formula = roll.data?.formula || "0";
+        const type = roll.data?.type || "untyped";
+        return `${formula} ${type}`;
+      });
+      persistentDamage = persistentParts.join(", ");
+    }
+
+    // Check for deadly/fatal traits
+    let deadlyDie = null;
+    const deadlyTrait = weapon.data?.traits?.find((trait) =>
+      trait.toLowerCase().startsWith("deadly")
+    );
+    if (deadlyTrait) {
+      const match = deadlyTrait.match(/deadly[\s\-]*(d\d+)/i);
+      if (match) {
+        deadlyDie = match[1].toLowerCase();
+      }
+    }
+
+    let fatalDie = null;
+    const fatalTrait = weapon.data?.traits?.find((trait) =>
+      trait.toLowerCase().startsWith("fatal")
+    );
+    if (fatalTrait) {
+      const match = fatalTrait.match(/fatal[\s\-]*(d\d+)/i);
+      if (match) {
+        fatalDie = match[1].toLowerCase();
+      }
+    }
+
+    // Calculate fatal damage string if fatal trait exists
+    // Fatal changes ALL damage dice to the fatal die size
+    let fatalDamageString = null;
+    if (fatalDie && standardRolls.length > 0) {
+      const fatalParts = standardRolls.map((roll) => {
+        const formula = roll.data?.formula || "0";
+        const type = roll.data?.type || "untyped";
+        // Replace die size with fatal die (e.g., "2d6" becomes "2d10" if fatal d10)
+        const fatalFormula = formula.replace(/d\d+/g, fatalDie);
+        return `${fatalFormula} ${type}`;
+      });
+      fatalDamageString = fatalParts.join(" + ");
+    }
+
+    // NPCs don't add stat modifiers or have runes
+    return {
+      damageType,
+      damageKind: "damage",
+      damageString,
+      damageMod: { name: "", value: 0, active: false, type: damageType },
+      splashDamage,
+      splashDamageType,
+      persistentDamage,
+      precisionDamage: precisionRolls,
+      strikingRuneMod: null,
+      deadlyDie,
+      fatalDie,
+      fatalDamageString,
+      isMelee,
+      isThrown: false,
+      isPropulsive: false,
+      hasDeathTrait,
+      isSpell: false,
+      isItem: false,
+      isNPCAttack: true,
+    };
+  }
+
   // Check for two-hand trait and parse the die size
   // Format: "Two Hand d10", "Two-Hand d10", "Two-Hand-d10", "TwoHand d10", etc.
   let twoHandDie = null;
@@ -5350,7 +5476,34 @@ function hasArmorSpecializationEffect(record, item) {
 
 function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const valuesToSet = {};
-  const isMelee = (weapon.data?.range || 0) === 0;
+
+  // Check if this is an NPC attack
+  const isNPCAttack = weapon.recordType === "npc_attacks";
+
+  // Helper function to get range from NPC attack traits
+  function getRangeFromTraits(traits) {
+    if (!traits || !Array.isArray(traits)) return 0;
+
+    for (const trait of traits) {
+      const traitLower = trait.toLowerCase();
+      // Match "range-increment-60", "range increment 60", or "range 60"
+      // First try to match with "increment" keyword
+      let match = traitLower.match(/range[-\s]increment[-\s](\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+      // Then try just "range" followed by a number
+      match = traitLower.match(/\brange[-\s](\d+)\b/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+    return 0;
+  }
+
+  const isMelee = isNPCAttack
+    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee"
+    : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("thrown")
   );
@@ -5360,7 +5513,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const hasAgileTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("agile")
   );
-  const range = weapon.data?.range || 0;
+  const range = isNPCAttack
+    ? getRangeFromTraits(weapon.data?.traits)
+    : weapon.data?.range || 0;
   const hasReachTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("reach")
   );
@@ -5402,7 +5557,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
-  const requiresReload = (weapon.data?.reload || 0) > 0 && !isMelee;
+  const requiresReload =
+    !isNPCAttack && (weapon.data?.reload || 0) > 0 && !isMelee;
 
   if (requiresReload && !weapon.data?.loadedAmmo) {
     api.showNotification("You need to reload first!", "red", "Out of Ammo");
@@ -5422,9 +5578,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   // Bombs and thrown weapons don't use ammo select
-  const isBomb = weapon?.data?.group?.toLowerCase() === "bomb";
+  const isBomb = !isNPCAttack && weapon?.data?.group?.toLowerCase() === "bomb";
 
-  if (isThrown || !isMelee) {
+  if (!isNPCAttack && (isThrown || !isMelee)) {
     // Thrown and ranged always use dex
     abilityScore = "dex";
     // Only if thrown
@@ -5556,6 +5712,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const damageType = weaponDamageInfo.damageType;
   const damage = weaponDamageInfo.damageString;
   const splashDamage = weaponDamageInfo.splashDamage;
+  const splashDamageType = weaponDamageInfo.splashDamageType || damageType;
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
@@ -5568,15 +5725,22 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   );
 
   // Check for persistent damage
-  const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
-  const persistentDie = weapon.data?.damage?.persistent?.faces
-    ? `d${weapon.data?.damage?.persistent?.faces}`
-    : "";
-  const persistentType = weapon.data?.damage?.persistent?.type || "acid";
-  const persistentDamage =
-    persistentDamageNumber > 0
-      ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+  let persistentDamage = "";
+  if (isNPCAttack) {
+    // For NPC attacks, persistent damage comes from weaponDamageInfo
+    persistentDamage = weaponDamageInfo.persistentDamage || "";
+  } else {
+    // For PC weapons, calculate from damage.persistent structure
+    const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
+    const persistentDie = weapon.data?.damage?.persistent?.faces
+      ? `d${weapon.data?.damage?.persistent?.faces}`
       : "";
+    const persistentType = weapon.data?.damage?.persistent?.type || "acid";
+    persistentDamage =
+      persistentDamageNumber > 0
+        ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+        : "";
+  }
 
   // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
   let damageMod = {
@@ -5624,50 +5788,67 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   });
 
-  // Determine base proficiency with weapon
-  const weaponCategory = (weapon.data?.itemCategory || "simple").toLowerCase();
-  const weaponGroup = weapon.data?.group || "";
-  // Check proficiency
-  const weaponProficiency = getProfiencyForWeapon(
-    record,
-    weaponCategory,
-    weaponGroup
-  );
-  const proficiencyNames = [
-    "Untrained",
-    "Trained",
-    "Expert",
-    "Master",
-    "Legendary",
-  ];
-  const proficiencyName = proficiencyNames[weaponProficiency] || "Untrained";
-
   const modifiers = [];
 
-  // Add the total proficiency modifier
-  if (weaponProficiency !== 0) {
-    // Calculate the modifier
-    const level = parseInt(record.data?.level || "0", 10);
-    let statMod = parseInt(record.data?.[`${abilityScore}`] || "0", 10);
-    let modifier = weaponProficiency * 2 + level + statMod;
-    modifiers.push({
-      name: `${weaponCategory} (${proficiencyName})`,
-      type: "",
-      value: modifier,
-      active: true,
-    });
-  }
+  // Determine weapon category and group (needed for metadata even for NPCs)
+  const weaponCategory = isNPCAttack
+    ? ""
+    : (weapon.data?.itemCategory || "simple").toLowerCase();
+  const weaponGroup = weapon.data?.group || "";
 
-  // Get bonuses for potenct runes
-  const potencyRune = parseInt(weapon.data?.runes?.potency || "0", 10);
-  if (potencyRune > 0) {
-    modifiers.push({
-      name: `Weapon Potency +${potencyRune}`,
-      value: potencyRune,
-      isPenalty: false,
-      active: true,
-      valueType: "number",
-    });
+  if (isNPCAttack) {
+    // For NPC attacks, use the simple bonus field
+    const attackBonus = parseInt(weapon.data?.bonus || "0", 10);
+    if (attackBonus !== 0) {
+      modifiers.push({
+        name: `Attack Bonus`,
+        type: "",
+        value: attackBonus,
+        active: true,
+      });
+    }
+  } else {
+    // PC weapon proficiency and potency runes
+    // Check proficiency
+    const weaponProficiency = getProfiencyForWeapon(
+      record,
+      weaponCategory,
+      weaponGroup
+    );
+    const proficiencyNames = [
+      "Untrained",
+      "Trained",
+      "Expert",
+      "Master",
+      "Legendary",
+    ];
+    const proficiencyName = proficiencyNames[weaponProficiency] || "Untrained";
+
+    // Add the total proficiency modifier
+    if (weaponProficiency !== 0) {
+      // Calculate the modifier
+      const level = parseInt(record.data?.level || "0", 10);
+      let statMod = parseInt(record.data?.[`${abilityScore}`] || "0", 10);
+      let modifier = weaponProficiency * 2 + level + statMod;
+      modifiers.push({
+        name: `${weaponCategory} (${proficiencyName})`,
+        type: "",
+        value: modifier,
+        active: true,
+      });
+    }
+
+    // Get bonuses for potency runes
+    const potencyRune = parseInt(weapon.data?.runes?.potency || "0", 10);
+    if (potencyRune > 0) {
+      modifiers.push({
+        name: `Weapon Potency +${potencyRune}`,
+        value: potencyRune,
+        isPenalty: false,
+        active: true,
+        valueType: "number",
+      });
+    }
   }
 
   // Get other bonuses and penalties
@@ -5758,6 +5939,19 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   // Push the damage mod, if there is one, to the top
   if (damageMod.value !== 0) {
     damageModifiers.unshift(damageMod);
+  }
+
+  // Add precision damage for NPC attacks
+  if (isNPCAttack && weaponDamageInfo.precisionDamage) {
+    weaponDamageInfo.precisionDamage.forEach((precisionRoll) => {
+      damageModifiers.push({
+        name: precisionRoll.name || "Precision Damage",
+        value: precisionRoll.data?.formula || "0",
+        active: true,
+        type: precisionRoll.data?.type || "untyped",
+        valueType: "string",
+      });
+    });
   }
 
   // Remove duplicates based on name and value
@@ -5960,6 +6154,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         persistentDamage: persistentDamage,
         damageType: damageType,
         splashDamage: splashDamage,
+        splashDamageType: splashDamageType,
         fatalDamageString: fatalDamageString,
         damageModifiers: finalDamageModifiers,
         damageIgnoresResistances: damageIgnoresResistances,
@@ -6010,6 +6205,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageType: damageType,
       showShieldDamage: targetShieldRaised && damageIsPhysical,
       splashDamage: splashDamage,
+      splashDamageType: splashDamageType,
       fatalDamageString: fatalDamageString,
       damageModifiers: filteredDamageModifiers,
       damageIgnoresResistances: damageIgnoresResistances,
@@ -6066,10 +6262,11 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const damageKind = weaponDamageInfo.damageKind;
   const damageType = weaponDamageInfo.damageType;
   const splashDamage = weaponDamageInfo.splashDamage;
+  const splashDamageType = weaponDamageInfo.splashDamageType || damageType;
   let damage = weaponDamageInfo.damageString;
 
-  if (splashDamage > 0) {
-    damage = `${damage} + ${splashDamage} ${damageType}`;
+  if (splashDamage && splashDamage !== 0 && splashDamage !== "0") {
+    damage = `${damage} + ${splashDamage} ${splashDamageType}`;
   }
 
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
@@ -6081,18 +6278,26 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const isThrown = weaponDamageInfo.isThrown;
   const hasDeathTrait = weaponDamageInfo.hasDeathTrait;
   const isSpell = weaponDamageInfo.isSpell;
+  const isNPCAttack = weaponDamageInfo.isNPCAttack;
   const propertyRunes = weapon.data?.runes?.property || [];
 
   // Check for persistent damage
-  const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
-  const persistentDie = weapon.data?.damage?.persistent?.faces
-    ? `d${weapon.data?.damage?.persistent?.faces}`
-    : "";
-  const persistentType = weapon.data?.damage?.persistent?.type || "acid";
-  const persistentDamage =
-    persistentDamageNumber > 0
-      ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+  let persistentDamage = "";
+  if (isNPCAttack) {
+    // For NPC attacks, persistent damage comes from weaponDamageInfo
+    persistentDamage = weaponDamageInfo.persistentDamage || "";
+  } else {
+    // For PC weapons, calculate from damage.persistent structure
+    const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
+    const persistentDie = weapon.data?.damage?.persistent?.faces
+      ? `d${weapon.data?.damage?.persistent?.faces}`
       : "";
+    const persistentType = weapon.data?.damage?.persistent?.type || "acid";
+    persistentDamage =
+      persistentDamageNumber > 0
+        ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
+        : "";
+  }
 
   // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
@@ -6172,16 +6377,45 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     damageModifiers.unshift(damageMod);
   }
 
+  // Add precision damage for NPC attacks
+  if (isNPCAttack && weaponDamageInfo.precisionDamage) {
+    weaponDamageInfo.precisionDamage.forEach((precisionRoll) => {
+      damageModifiers.push({
+        name: precisionRoll.name || "Precision Damage",
+        value: precisionRoll.data?.formula || "0",
+        active: true,
+        type: precisionRoll.data?.type || "untyped",
+        valueType: "string",
+      });
+    });
+  }
+
   // On critical hits, add deadly dice to damage modifiers
   // The number of deadly dice depends on striking runes
   let criticalOnlyDice = [];
 
   // Track splash damage so it doesn't get doubled on critical hits
-  if (splashDamage > 0) {
+  if (splashDamage && splashDamage !== 0 && splashDamage !== "0") {
+    // Parse the splash damage to determine die type
+    let splashDieType = 0;
+    let splashFlatDamage = 0;
+    if (typeof splashDamage === "number") {
+      splashFlatDamage = splashDamage;
+    } else {
+      // It's a dice formula like "1d4", "2d6", or "d6" (shorthand for 1d6)
+      const diceMatch = String(splashDamage).match(/\d*d(\d+)/);
+      if (diceMatch) {
+        splashDieType = parseInt(diceMatch[1], 10);
+      } else {
+        // Fallback: try to parse as number
+        splashFlatDamage = parseInt(splashDamage, 10) || 0;
+      }
+    }
+
     criticalOnlyDice.push({
-      dieType: 0, // Flat damage, not a die
-      damageType: damageType.toLowerCase(),
-      flatDamage: splashDamage,
+      dieType: splashDieType,
+      damageType: splashDamageType.toLowerCase(),
+      flatDamage: splashFlatDamage,
     });
   }
 
@@ -6346,6 +6580,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     }`,
     critical: isCritical,
     splashDamage: splashDamage,
+    splashDamageType: splashDamageType,
     damageType: damageType,
     persistentDamage: persistentDamage,
     damageIgnoresResistances: damageIgnoresResistances,

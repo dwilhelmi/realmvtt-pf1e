@@ -523,12 +523,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       } else if (category === "splash") {
         // Splash damage is tracked separately and not added to the main damage string
         if (formula && isDamage) {
-          // Parse the splash damage value from the formula
-          const splashMatch = formula.match(/^(\d+)$/);
-          if (splashMatch) {
-            splashDamageValue = parseInt(splashMatch[1], 10);
-            splashDamageType = type;
+          // Check if it's a pure number or a dice formula
+          const splashNumber = Number(formula);
+          if (!isNaN(splashNumber)) {
+            // It's a pure number like "3"
+            splashDamageValue = splashNumber;
+          } else {
+            // It's a dice formula like "1d4"
+            splashDamageValue = formula;
           }
+          splashDamageType = type;
         }
       } else if (category === "precision") {
         // Precision damage goes into separate array
@@ -589,12 +593,16 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       } else if (category === "splash") {
         // Splash damage is tracked separately and not added to the main damage string
         if (formula && isDamage) {
-          // Parse the splash damage value from the formula
-          const splashMatch = formula.match(/^(\d+)$/);
-          if (splashMatch) {
-            splashDamageValue = parseInt(splashMatch[1], 10);
-            splashDamageType = type;
+          // Check if it's a pure number or a dice formula
+          const splashNumber = Number(formula);
+          if (!isNaN(splashNumber)) {
+            // It's a pure number like "3"
+            splashDamageValue = splashNumber;
+          } else {
+            // It's a dice formula like "1d4"
+            splashDamageValue = formula;
           }
+          splashDamageType = type;
         }
       } else if (category === "precision") {
         // Precision damage goes into separate array
@@ -698,7 +706,10 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
 
   // Build final strings
   // Combine regular damage components first, then precision damage components
-  const allDamageComponents = [...damageComponents, ...precisionDamageComponents];
+  const allDamageComponents = [
+    ...damageComponents,
+    ...precisionDamageComponents,
+  ];
   damageString = allDamageComponents.join(" + ");
   healingString = healingComponents.join(" + ");
   persistentDamage = persistentComponents.join(" + ");
@@ -783,20 +794,44 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
 
   let damage = "${spellDamage.damageString}";
   const persistentDamage = "${spellDamage.persistentDamage}";
-  const splashDamageValue = ${spellDamage.splashDamageValue};
+  const splashDamageValue = ${
+    typeof spellDamage.splashDamageValue === "number"
+      ? spellDamage.splashDamageValue
+      : `"${spellDamage.splashDamageValue}"`
+  };
   const splashDamageType = "${spellDamage.splashDamageType}";
 
   // Build criticalOnlyDice array to track splash damage (so it doesn't get doubled)
   const criticalOnlyDice = [];
-  if (splashDamageValue > 0) {
+  if (splashDamageValue && splashDamageValue !== 0 && splashDamageValue !== "0") {
     // Add splash damage to the damage string
     damage = damage + " + " + splashDamageValue + " " + splashDamageType;
 
     // Also track it in criticalOnlyDice so it doesn't get doubled on crits
+    // Parse the splash damage to determine die type
+    let splashDieType = 0;
+    let splashFlatDamage = 0;
+
+    // Check if it's a dice formula first (e.g., "1d4", "2d6", "d6")
+    const diceMatch = String(splashDamageValue).match(/\\d*d(\\d+)/);
+    if (diceMatch) {
+      // It's a dice formula
+      splashDieType = parseInt(diceMatch[1], 10);
+    } else if (typeof splashDamageValue === 'number') {
+      // It's already a number
+      splashFlatDamage = splashDamageValue;
+    } else {
+      // Try to parse as a number string
+      const numValue = Number(splashDamageValue);
+      if (!isNaN(numValue)) {
+        splashFlatDamage = numValue;
+      }
+    }
+
     criticalOnlyDice.push({
-      dieType: 0,
+      dieType: splashDieType,
       damageType: splashDamageType.toLowerCase(),
-      flatDamage: splashDamageValue,
+      flatDamage: splashFlatDamage,
     });
   }
 
@@ -807,6 +842,8 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
     {
       persistentDamage: persistentDamage,
       splashDamage: splashDamageValue,
+      splashDamageType: splashDamageType,
+      damageType: "${primaryDamageType}",
       isSpell: true,
       rollName: "${spellName} Damage",
       traits: ${JSON.stringify(traits)},
@@ -964,14 +1001,38 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
   ];
   
   // Build criticalOnlyDice array to track splash damage (so it doesn't get doubled)
-  const splashDamageValue = ${spellDamage.splashDamageValue};
+  const splashDamageValue = ${
+    typeof spellDamage.splashDamageValue === "number"
+      ? spellDamage.splashDamageValue
+      : `"${spellDamage.splashDamageValue}"`
+  };
   const splashDamageType = "${spellDamage.splashDamageType}";
   const criticalOnlyDice = [];
-  if (splashDamageValue > 0) {
+  if (splashDamageValue && splashDamageValue !== 0 && splashDamageValue !== "0") {
+    // Parse the splash damage to determine die type
+    let splashDieType = 0;
+    let splashFlatDamage = 0;
+
+    // Check if it's a dice formula first (e.g., "1d4", "2d6", "d6")
+    const diceMatch = String(splashDamageValue).match(/\\d*d(\\d+)/);
+    if (diceMatch) {
+      // It's a dice formula
+      splashDieType = parseInt(diceMatch[1], 10);
+    } else if (typeof splashDamageValue === 'number') {
+      // It's already a number
+      splashFlatDamage = splashDamageValue;
+    } else {
+      // Try to parse as a number string
+      const numValue = Number(splashDamageValue);
+      if (!isNaN(numValue)) {
+        splashFlatDamage = numValue;
+      }
+    }
+
     criticalOnlyDice.push({
-      dieType: 0,
+      dieType: splashDieType,
       damageType: splashDamageType.toLowerCase(),
-      flatDamage: splashDamageValue,
+      flatDamage: splashFlatDamage,
     });
   }
 
@@ -988,6 +1049,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       damageType: "${primaryDamageType}",
       persistentDamage: "${spellDamage.persistentDamage}",
       splashDamage: splashDamageValue,
+      splashDamageType: splashDamageType,
       damageModifiers: damageModifiers,
       traits: ${JSON.stringify(traits)},
       animation: ${JSON.stringify(animation)},
@@ -1060,6 +1122,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
         damageType: "${primaryDamageType}",
         persistentDamage: "${spellDamage.persistentDamage}",
         splashDamage: splashDamageValue,
+        splashDamageType: splashDamageType,
         damageModifiers: damageModifiers,
         traits: ${JSON.stringify(traits)},
         showShieldDamage: targetShieldRaised && ${damageIsPhysical},
