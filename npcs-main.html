@@ -728,6 +728,91 @@
         hidecontrols="true"
       ></numberfield>
     </div>
+
+    <!-- Speeds section -->
+    <div
+      style="
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        margin-top: 4px;
+      "
+    >
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          align-items: center;
+          margin-bottom: 4px"
+        "
+      >
+        <div style="flex: 1">
+          <label label="Speeds" variant="bold" size="xs"></label>
+        </div>
+        <popover>
+          <popover.target>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              options='[{"icon": "IconEdit", "label": "Edit Speeds", "value": "editSpeeds"}]'
+              onclick="onEditSpeeds()"
+            ></iconbutton>
+          </popover.target>
+          <popover.dropdown>
+            <div
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 300px;
+              "
+            >
+              <label label="Speeds" variant="bold" size="xs"></label>
+              <list listtype="npc_speeds_edit_list" field="speeds"></list>
+            </div>
+          </popover.dropdown>
+        </popover>
+      </div>
+      <divider></divider>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          width: 100%;
+          margin-bottom: 4px;
+          justify-content: space-between;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            margin-top: 4px;
+          "
+        >
+          <numberfield
+            field="speed.value"
+            placeholder="0"
+            textalign="center"
+            width="60px"
+            hidecontrols="true"
+            size="xs"
+          ></numberfield>
+          <stringfield
+            field="speed.details"
+            placeholder="Speed details..."
+            width="100%"
+            size="xs"
+          ></stringfield>
+        </div>
+      </div>
+      <list listtype="npc_speeds_list" field="speeds"></list>
+    </div>
   </box>
 
   <!-- Traits -->
