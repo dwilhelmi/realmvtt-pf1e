@@ -286,6 +286,40 @@
   function performSaveRoll(save) {
     rollSave(record, save);
   }
+
+  function filterActions(type) {
+    if (type === "passive") {
+      return [
+        { field: "actionType", operator: "equals", value: "passive" },
+        { field: "actionType", operator: "is_empty", isOr: true },
+      ];
+    }
+    return [{ field: "actionType", operator: "equals", value: type }];
+  }
+
+  function onAddAction(type) {
+    const actions = record.data?.actions || [];
+    const newAction = {
+      _id: generateUuid(),
+      name: `New ${capitalize(type)}`,
+      unidentifiedName: `${capitalize(type)}`,
+      identified: true,
+      recordType: "actions",
+      icon: "IconRun",
+      data: {
+        actionType: type,
+        actions: type === "action" ? "oneAction" : undefined,
+        description: "",
+      },
+      fields: {
+        actions: {
+          hidden: type === "action" ? false : true,
+        },
+      },
+    };
+
+    api.addValue("data.actions", newAction);
+  }
 </script>
 
 <style>
@@ -744,7 +778,7 @@
           flex-direction: row;
           gap: 4px;
           align-items: center;
-          margin-bottom: 4px"
+          margin-bottom: 4px;
         "
       >
         <div style="flex: 1">
@@ -1284,6 +1318,78 @@
               listtype="npc_attack_list"
               size="xs"
               onchange="onAddRemoveAttack();"
+            ></list>
+          </div>
+        </div>
+
+        <!-- Actions Section -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              width: 100%;
+            "
+          >
+            <div style="width: 100%; margin-right: 4px">
+              <divider
+                color="primary"
+                width="100%"
+                label="ACTIONS"
+                textalign="center"
+              ></divider>
+            </div>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              options='[{"icon": "IconPlus", "label": "Add Action", "value": "addAction"}]'
+              onclick="onAddAction('action');"
+              field="addActionBtn"
+            ></iconbutton>
+          </div>
+          <div style="display: flex; flex-direction: row; align-items: center">
+            <list
+              listtype="npc_actions_list"
+              field="actions"
+              getfilters="return filterActions('action');"
+            ></list>
+          </div>
+        </div>
+
+        <!-- Passives Section -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              width: 100%;
+            "
+          >
+            <div style="width: 100%; margin-right: 4px">
+              <divider
+                color="primary"
+                width="100%"
+                label="PASSIVES"
+                textalign="center"
+              ></divider>
+            </div>
+            <iconbutton
+              size="sm"
+              variant="default"
+              hideonlocked="true"
+              options='[{"icon": "IconPlus", "label": "Add Passive", "value": "addPassive"}]'
+              onclick="onAddAction('passive');"
+              field="addPassiveBtn"
+            ></iconbutton>
+          </div>
+          <div style="display: flex; flex-direction: row; align-items: center">
+            <list
+              listtype="npc_actions_list"
+              field="actions"
+              getfilters="return filterActions('passive');"
             ></list>
           </div>
         </div>

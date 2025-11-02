@@ -1,0 +1,67 @@
+<script>
+  function onUseAction() {
+    // Get the action by path to ensure most up-to-date value
+    const actionDataPath = dataPath.replace(".data.useBtn", "");
+    const action = api.getValue(actionDataPath);
+    useAction(action);
+  }
+</script>
+
+<accordion
+  size="xs"
+  field="descriptionOpen"
+  label="Description"
+  variant="minimal"
+>
+  <accordion.control>
+    <div style="display: column; gap: 2px; width: 100%">
+      <div style="display: flex; gap: 2px; width: 100%; align-items: center">
+        <div
+          style="width: 30px; height: 30px; min-width: 30px; min-height: 30px"
+        >
+          <portrait width="30px" height="30px" field="portrait"></portrait>
+        </div>
+        <div min-width="10px; margin-left: 4px;">
+          <iconbutton
+            field="actions"
+            size="sm"
+            variant="subtle"
+            color="default"
+            disabled="true"
+            defaultvalue="one-action"
+            width="max-content"
+            options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
+              {"label": "One Action", "value": "oneAction", "icon": "one-action"},
+              {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
+              {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
+              {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
+              {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+              {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+          ></iconbutton>
+        </div>
+        <namefield
+          size="xs"
+          width="100%"
+          variant="unstyled"
+          field="namefield"
+          placeholder="Ability Name..."
+        ></namefield>
+        <div style="margin-left: auto">
+          <button
+            size="xs"
+            radius="xs"
+            field="useBtn"
+            label="Use"
+            variant="light"
+            onclick="onUseAction();"
+          ></button>
+        </div>
+      </div>
+    </div>
+  </accordion.control>
+  <richtextfield
+    disablecontrols="true"
+    field="description"
+    placeholder="Enter description..."
+  ></richtextfield>
+</accordion>
