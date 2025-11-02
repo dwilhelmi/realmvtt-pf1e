@@ -3578,19 +3578,30 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   // Get the save modifier from the record
   const saveMod = parseInt(record.data?.[`${saveType}Mod`] || "0", 10);
 
-  // Get the proficiency level for display purposes
-  const proficiencyLevel = parseInt(record.data?.[saveType] || "0", 10);
-  const proficiencyNames = [
-    "Untrained",
-    "Trained",
-    "Expert",
-    "Master",
-    "Legendary",
-  ];
-  const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+  // Get the proficiency level for display purposes (character only)
+  const isNPC = record.recordType === "tokens" || record.data?.type === "npc";
+  let modifierName = `${capitalize(saveType)} Modifier`;
+  let saveDisplay = `${capitalize(saveType)}`;
+  let npcSaveBonus = 0;
 
-  // Capitalize the save type for display
-  const saveDisplay = saveType.charAt(0).toUpperCase() + saveType.slice(1);
+  if (!isNPC) {
+    const proficiencyLevel = parseInt(record.data?.[saveType] || "0", 10);
+    const proficiencyNames = [
+      "Untrained",
+      "Trained",
+      "Expert",
+      "Master",
+      "Legendary",
+    ];
+    const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
+
+    // Capitalize the save type for display
+    const saveDisplay = saveType.charAt(0).toUpperCase() + saveType.slice(1);
+    modifierName = `${saveDisplay} (${proficiencyName})`;
+  } else {
+    // Get the bonus
+    npcSaveBonus = parseInt(record.data?.saveBonus || "0", 10);
+  }
 
   // Build modifiers array for the roll
   const modifiers = [];
@@ -3598,9 +3609,18 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   // Add the total save modifier (includes ability + proficiency)
   if (saveMod !== 0) {
     modifiers.push({
-      name: `${saveDisplay} (${proficiencyName})`,
+      name: modifierName,
       type: "",
       value: saveMod,
+      active: true,
+    });
+  }
+
+  if (npcSaveBonus !== 0) {
+    modifiers.push({
+      name: "Bonus to All Saves",
+      type: "",
+      value: npcSaveBonus,
       active: true,
     });
   }
