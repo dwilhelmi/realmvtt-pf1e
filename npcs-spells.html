@@ -1,0 +1,96 @@
+<div>
+  <label variant="bold" textalign="center" label="Spellcasting"></label>
+</div>
+
+<div style="width: 100%">
+  <list listtype="spellcasting_entry_list" field="spells"></list>
+  <popover>
+    <popover.target>
+      <div style="margin-top: 4px">
+        <button
+          size="xs"
+          variant="outline"
+          icon="IconPlus"
+          label="Add Spellcasting Entry"
+          hideonlocked="true"
+        ></button>
+      </div>
+    </popover.target>
+    <popover.dropdown>
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          width: 200px;
+          max-width: 200px;
+        "
+      >
+        <label
+          size="xs"
+          variant="bold"
+          label="Spellcasting Entry Settings"
+        ></label>
+        <dropdown
+          size="xs"
+          field="addType"
+          placeholder="Select Type..."
+          defaultvalue="prepared"
+          width="100%"
+          disablediflocked="false"
+          label="Spellcasting Type"
+          options='[{"label": "Prepared", "value": "prepared"},
+        {"label": "Spontaneous", "value": "spontaneous"},
+        {"label": "Innate", "value": "innate"},
+        {"label": "Focus", "value": "focus"}]'
+        ></dropdown>
+        <divider></divider>
+        <dropdown
+          size="xs"
+          field="addProficiency"
+          placeholder="Select Proficiency..."
+          width="100%"
+          disablediflocked="false"
+          defaultvalue="spell"
+          label="Proficiency"
+          options='[{"label": "Spell Attack Modifiers & DCs", "value": "spell"},
+        {"label": "Class DC", "value": "class"}]'
+        ></dropdown>
+        <dropdown
+          size="xs"
+          field="addTradition"
+          placeholder="Select Magic Tradition..."
+          width="100%"
+          disablediflocked="false"
+          defaultvalue="Arcane"
+          label="Magic Tradition"
+          options='[{"label": "Arcane", "value": "Arcane"},
+            {"label": "Divine", "value": "Divine"},
+            {"label": "Occult", "value": "Occult"},
+            {"label": "Primal", "value": "Primal"}]'
+        ></dropdown>
+        <dropdown
+          size="xs"
+          field="addAttribute"
+          placeholder="Select Attribute..."
+          defaultvalue="int"
+          width="100%"
+          label="Key Attribute"
+          disablediflocked="false"
+          options='[{"label": "Strength", "value": "str"},
+      {"label": "Dexterity", "value": "dex"},
+      {"label": "Constitution", "value": "con"},
+      {"label": "Intelligence", "value": "int"},
+      {"label": "Wisdom", "value": "wis"},
+      {"label": "Charisma", "value": "cha"}]'
+        ></dropdown>
+        <button
+          size="xs"
+          variant="outline"
+          label="Add"
+          onclick="onAddSpellcastingEntry();"
+        ></button>
+      </div>
+    </popover.dropdown>
+  </popover>
+</div>
