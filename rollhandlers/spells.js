@@ -13,26 +13,22 @@ function updateSpellcastingEntry(
 
   const name = `${tradition} ${capitalize(type)} Spells`;
   const isFocus = type === "focus";
+  const isItem = type === "item";
 
-  // Get current spellcasting training level
-  const currentTraining =
-    proficiency === "spell"
-      ? `${record.data?.spellcasting || "0"}`
-      : `${record.data?.classDCProficiency || "0"}`;
-  const newTraining = Math.max(parseInt(currentTraining, 10), training);
+  const isNPC = record.recordType === "npcs" || record.recordType === "tokens";
 
-  const proficiencyBonus = calculateProficiencyBonus(record, newTraining);
-  const attributeScore = record.data?.[`${attribute}`] || 0;
-
-  // Set the DC and Modifier based on the proficiency
-  const mod = attributeScore + proficiencyBonus;
-  const dc = 10 + mod;
+  // Get current spellcasting training level if not NPC and not Item type
+  let newTraining = undefined;
+  if (!isNPC && !isItem) {
+    const currentTraining =
+      proficiency === "spell"
+        ? `${record.data?.spellcasting || "0"}`
+        : `${record.data?.classDCProficiency || "0"}`;
+    newTraining = Math.max(parseInt(currentTraining, 10), training);
+  }
 
   const valuesToSet = {
     [`${spellcastingEntryDataPath}.name`]: name,
-    [`${spellcastingEntryDataPath}.data.dc`]: dc,
-    [`${spellcastingEntryDataPath}.data.mod`]: mod,
-    [`${spellcastingEntryDataPath}.data.training`]: newTraining,
     // If not in shownSpells, hide them
     [`${spellcastingEntryDataPath}.fields.cantripsBox.hidden`]: true,
     [`${spellcastingEntryDataPath}.fields.spells1Box.hidden`]: true,
@@ -49,7 +45,26 @@ function updateSpellcastingEntry(
     [`${spellcastingEntryDataPath}.fields.focusPoolLabel.hidden`]: !isFocus,
     [`${spellcastingEntryDataPath}.fields.focusPool.hidden`]: !isFocus,
     [`${spellcastingEntryDataPath}.fields.focusPoolMax.hidden`]: !isFocus,
+    // For items we hide the training field / label
+    [`${spellcastingEntryDataPath}.fields.tradition.hidden`]: isItem,
+    [`${spellcastingEntryDataPath}.fields.training.hidden`]: isItem,
   };
+
+  if (newTraining) {
+    valuesToSet[`${spellcastingEntryDataPath}.data.training`] = newTraining;
+  }
+
+  if (!isNPC) {
+    // Update dc and mod if not npc
+    const proficiencyBonus = calculateProficiencyBonus(record, newTraining);
+    const attributeScore = record.data?.[`${attribute}`] || 0;
+
+    // Set the DC and Modifier based on the proficiency
+    const mod = attributeScore + proficiencyBonus;
+    const dc = 10 + mod;
+    valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = dc;
+    valuesToSet[`${spellcastingEntryDataPath}.data.mod`] = mod;
+  }
 
   // Determine type-based field visibility
   const isSpontaneous = type === "spontaneous";
@@ -113,51 +128,45 @@ function updateSpellcastingEntry(
     const isCantrip = rank === 0;
     const currentSpells = spellcastingEntry.data?.[fieldName] || [];
 
-    // Keep all spells that are NOT empty slots (type !== "slot")
-    const filledSpells = currentSpells.filter(
-      (spell) => spell.data?.type !== "slot"
-    );
-
-    // Update field visibility for existing spells based on the type
-    filledSpells.forEach((spell) => {
-      if (spell.data?.type === "spell") {
-        // Initialize fields if they don't exist
-        if (!spell.fields) {
-          spell.fields = {};
-        }
-        if (!spell.data) {
-          spell.data = {};
-        }
-
-        // Reset used state when changing type
-        spell.data.used = false;
-
-        // Update field visibility
-        spell.fields.innateBox = { hidden: !isInnate || isCantrip };
-        spell.fields.used = {
-          hidden: isCantrip || isSpontaneousOrFocus || isInnate,
-        };
-        spell.fields.deleteBtn = {
-          hidden: !isSpontaneous && !isFocus && !isInnate,
-        };
-
-        // For non-prepared spellcasting, always show regular name and hide strikethrough name
-        // For prepared spellcasting, the visibility is controlled by the used checkbox state
-        if (!isPrepared) {
-          spell.fields.nameBox = { hidden: false };
-          spell.fields.nameUsedBox = { hidden: true };
-        }
-      }
-    });
-
-    // Only create new empty spell slots for prepared spellcasting
-    const newSlots = [];
     if (isPrepared) {
+      // For prepared spellcasting: manage slots and keep spells
+      // Keep all spells that are NOT empty slots (type !== "slot")
+      const filledSpells = currentSpells.filter(
+        (spell) => spell.data?.type !== "slot"
+      );
+
+      // Update field visibility for existing spells
+      filledSpells.forEach((spell) => {
+        if (spell.data?.type === "spell") {
+          // Initialize fields if they don't exist
+          if (!spell.fields) {
+            spell.fields = {};
+          }
+          if (!spell.data) {
+            spell.data = {};
+          }
+
+          // Reset used state when changing type
+          spell.data.used = false;
+
+          // Update field visibility
+          spell.fields.innateBox = { hidden: !isInnate || isCantrip };
+          spell.fields.used = {
+            hidden: isCantrip || isSpontaneousOrFocus || isInnate,
+          };
+          spell.fields.deleteBtn = {
+            hidden: !isSpontaneous && !isFocus && !isInnate && !isItem,
+          };
+        }
+      });
+
+      // Create new empty spell slots for prepared spellcasting
       const numSpells = parseInt(
         spellcastingEntry.data?.[`num${capitalize(fieldName)}`] || "0",
         10
       );
       const slotsNeeded = Math.max(0, numSpells - filledSpells.length);
+      const newSlots = [];
 
       for (let i = 0; i < slotsNeeded; i++) {
         newSlots.push({
@@ -178,16 +187,58 @@ function updateSpellcastingEntry(
             innateBox: { hidden: true },
             spellSlot: { hidden: false },
             used: { hidden: isCantrip },
+            deleteBtn: {
+              hidden: true, // Always hide delete button for new slots
+            },
           },
         });
       }
-    }
 
-    // Combine filled spells with new empty slots
-    valuesToSet[`${spellcastingEntryDataPath}.data.${fieldName}`] = [
-      ...filledSpells,
-      ...newSlots,
-    ];
+      // Combine filled spells with new empty slots
+      valuesToSet[`${spellcastingEntryDataPath}.data.${fieldName}`] = [
+        ...filledSpells,
+        ...newSlots,
+      ];
+    } else {
+      // For non-prepared spellcasting: just update field visibility on existing spells
+      // Don't recreate the list - spells are added manually and should persist
+      const updatedSpells = currentSpells.map((spell) => {
+        if (spell.data?.type === "spell") {
+          // Initialize fields if they don't exist
+          if (!spell.fields) {
+            spell.fields = {};
+          }
+          if (!spell.data) {
+            spell.data = {};
+          }
+
+          // Reset used state when changing type
+          spell.data.used = false;
+
+          // Update field visibility
+          spell.fields.innateBox = { hidden: !isInnate || isCantrip };
+          spell.fields.used = {
+            hidden: isCantrip || isSpontaneousOrFocus || isInnate,
+          };
+          spell.fields.deleteBtn = {
+            hidden: !isSpontaneous && !isFocus && !isInnate && !isItem,
+          };
+          spell.fields.nameBox = { hidden: false };
+          spell.fields.nameUsedBox = { hidden: true };
+        } else {
+          spell.fields.deleteBtn = {
+            hidden: !isSpontaneous && !isFocus && !isInnate && !isItem,
+          };
+        }
+        return spell;
+      });
+
+      // Only update if we actually modified something
+      if (currentSpells.length > 0) {
+        valuesToSet[`${spellcastingEntryDataPath}.data.${fieldName}`] =
+          updatedSpells;
+      }
+    }
   }
 
   // Get which ones are shown, if none are set, we always show cantrips and spells1
@@ -306,6 +357,8 @@ function addSpellcastingEntry(record) {
     const attribute = updatedRecord.data?.addAttribute || "int";
     const type = updatedRecord.data?.addType || "prepared";
 
+    const isItem = type === "item";
+
     const name = `${tradition} ${capitalize(type)} Spells`;
 
     let mod = 0;
@@ -350,6 +403,14 @@ function addSpellcastingEntry(record) {
         },
         // By default, we show these
         fields: {
+          training: {
+            // Item type casting will always be manually setting DC/Mod
+            hidden: isItem,
+          },
+          tradition: {
+            // This is the label for the training dropdown
+            hidden: isItem,
+          },
           cantripsBox: {
             hidden: false,
           },

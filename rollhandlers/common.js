@@ -2222,39 +2222,45 @@ function updateSpellcastingEntries(record, valuesToSet) {
     const proficiency = spellcastingEntry.data?.proficiency || "spell";
     const attribute = spellcastingEntry.data?.attribute || "int";
     const training = parseInt(spellcastingEntry.data?.training || "0", 10);
+    const isItem = spellcastingEntry.data?.type === "item";
 
-    // Get current spellcasting training level (check valuesToSet first)
-    const currentTraining =
-      proficiency === "spell"
-        ? `${
-            valuesToSet["data.spellcasting"] ?? record.data?.spellcasting ?? "0"
-          }`
-        : `${
-            valuesToSet["data.classDCProficiency"] ??
-            record.data?.classDCProficiency ??
-            "0"
-          }`;
-    const newTraining = Math.max(parseInt(currentTraining, 10), training);
+    // Don't auto-update item types since they might be manually set
+    if (!isItem) {
+      // Get current spellcasting training level (check valuesToSet first)
+      const currentTraining =
+        proficiency === "spell"
+          ? `${
+              valuesToSet["data.spellcasting"] ??
+              record.data?.spellcasting ??
+              "0"
+            }`
+          : `${
+              valuesToSet["data.classDCProficiency"] ??
+              record.data?.classDCProficiency ??
+              "0"
+            }`;
+      const newTraining = Math.max(parseInt(currentTraining, 10), training);
 
-    // Check if level is being updated in valuesToSet
-    const level = valuesToSet["data.level"] ?? record.data?.level ?? 1;
+      // Check if level is being updated in valuesToSet
+      const level = valuesToSet["data.level"] ?? record.data?.level ?? 1;
 
-    const proficiencyBonus = calculateProficiencyBonusForLevel(
-      level,
-      newTraining
-    );
+      const proficiencyBonus = calculateProficiencyBonusForLevel(
+        level,
+        newTraining
+      );
 
-    // Check if attribute is being updated in valuesToSet
-    const attributeScore =
-      valuesToSet[`data.${attribute}`] ?? record.data?.[`${attribute}`] ?? 0;
+      // Check if attribute is being updated in valuesToSet
+      const attributeScore =
+        valuesToSet[`data.${attribute}`] ?? record.data?.[`${attribute}`] ?? 0;
 
-    // Set the DC and Modifier based on the proficiency
-    const mod = attributeScore + proficiencyBonus;
-    const dc = 10 + mod;
+      // Set the DC and Modifier based on the proficiency
+      const mod = attributeScore + proficiencyBonus;
+      const dc = 10 + mod;
 
-    valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = dc;
-    valuesToSet[`${spellcastingEntryDataPath}.data.mod`] = mod;
-    valuesToSet[`${spellcastingEntryDataPath}.data.training`] = newTraining;
+      valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = dc;
+      valuesToSet[`${spellcastingEntryDataPath}.data.mod`] = mod;
+      valuesToSet[`${spellcastingEntryDataPath}.data.training`] = newTraining;
+    }
   });
 }
 

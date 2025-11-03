@@ -6,6 +6,7 @@
     const npc = npcDataPath ? api.getValue(npcDataPath) : record;
     const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
     const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
+    const tabsPath = npcDataPath ? `${npcDataPath}.tabs` : "tabs";
 
     const valuesToSet = {};
 
@@ -38,6 +39,13 @@
     const type = !npc.data?.type ? "npc" : npc.data?.type;
     const typeLabel = type === "npc" ? "Creature" : capitalize(type);
     const levelLabel = `${typeLabel}`;
+
+    // Only npc types have the Spells tab
+    if (type !== "npc" && npc.tabs?.Spells?.hidden !== true) {
+      valuesToSet[`${tabsPath}.Spells.hidden`] = true;
+    } else if (type === "npc" && npc.tabs?.Spells?.hidden !== false) {
+      valuesToSet[`${tabsPath}.Spells.hidden`] = false;
+    }
 
     if (npc.data?.levelLabel !== levelLabel) {
       valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;

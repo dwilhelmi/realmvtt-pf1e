@@ -10,7 +10,7 @@
 </div>
 
 <div style="width: 100%">
-  <list listtype="spellcasting_entry_list" field="spells"></list>
+  <list listtype="npc_spellcasting_entry_list" field="spells"></list>
   <popover>
     <popover.target>
       <div style="margin-top: 4px">
@@ -52,17 +52,6 @@
         {"label": "Focus", "value": "focus"}]'
         ></dropdown>
         <divider></divider>
-        <dropdown
-          size="xs"
-          field="addProficiency"
-          placeholder="Select Proficiency..."
-          width="100%"
-          disablediflocked="false"
-          defaultvalue="spell"
-          label="Proficiency"
-          options='[{"label": "Spell Attack Modifiers & DCs", "value": "spell"},
-        {"label": "Class DC", "value": "class"}]'
-        ></dropdown>
         <dropdown
           size="xs"
           field="addTradition"

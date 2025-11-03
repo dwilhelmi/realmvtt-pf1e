@@ -688,7 +688,9 @@
     // Detemine if any spells need to be reset
     const spellcastingEntries = record.data?.spells || [];
     spellcastingEntries.forEach((spellcastingEntry, spellListIndex) => {
-      const isInnate = spellcastingEntry.data?.type === "innate";
+      const isInnate =
+        spellcastingEntry.data?.type === "innate" ||
+        spellcastingEntry.data?.type === "item";
       const isFocus = spellcastingEntry.data?.type === "focus";
       const isSpontaneous = spellcastingEntry.data?.type === "spontaneous";
       const isPrepared =
