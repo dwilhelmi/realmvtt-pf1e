@@ -2284,3 +2284,7 @@ function getDCForSpellRank(rank) {
   };
   return dcByRank[rank] || 15;
 }
+
+function getObjectImmunitiesTooltip(object) {
+  return "Inanimate objects and hazards are immune to bleed, death effects, disease, healing, mental effects, nonlethal attacks, poison, spirit, vitality, void, as well as the doomed, drained, fatigued, paralyzed, sickened, and unconscious conditions. Conscious, thinking items are not immune to mental effects. Many objects are immune to other conditions, at the GM's discretion. For instance, a sword can't move, so it can't take a penalty to its Speed, but a spinning blade trap might be affected.";
+}

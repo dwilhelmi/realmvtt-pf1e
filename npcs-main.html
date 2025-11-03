@@ -130,56 +130,439 @@
     }
   }
 
-  function updateLevel(value) {
-    // TODO
+  function applyAdjustment(adjustmentType) {
+    const npcDataPath = getNearestParentDataPath(dataPath);
+    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
+    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
+
+    const valuesToSet = {};
+
+    if (adjustmentType === "remove") {
+      // Removing adjustment - restore from base values
+      valuesToSet[`${dataPrefix}.adjustment`] = "";
+
+      if (npc.data?.baseLevel !== undefined) {
+        valuesToSet[`${dataPrefix}.level`] = npc.data.baseLevel;
+      }
+      if (npc.data?.baseAC !== undefined) {
+        valuesToSet[`${dataPrefix}.ac`] = npc.data.baseAC;
+      }
+      if (npc.data?.basePerceptionMod !== undefined) {
+        valuesToSet[`${dataPrefix}.perceptionMod`] = npc.data.basePerceptionMod;
+      }
+      if (npc.data?.baseFortitudeMod !== undefined) {
+        valuesToSet[`${dataPrefix}.fortitudeMod`] = npc.data.baseFortitudeMod;
+      }
+      if (npc.data?.baseReflexMod !== undefined) {
+        valuesToSet[`${dataPrefix}.reflexMod`] = npc.data.baseReflexMod;
+      }
+      if (npc.data?.baseWillMod !== undefined) {
+        valuesToSet[`${dataPrefix}.willMod`] = npc.data.baseWillMod;
+      }
+      if (npc.data?.baseHP !== undefined) {
+        valuesToSet[`${dataPrefix}.hitpoints`] = npc.data.baseHP;
+      }
+      if (npc.data?.baseCurHP !== undefined) {
+        valuesToSet[`${dataPrefix}.curhp`] = npc.data.baseCurHP;
+      }
+      if (npc.data?.baseInitiativeMod !== undefined) {
+        valuesToSet[`${dataPrefix}.initiativeMod`] = npc.data.baseInitiativeMod;
+      }
+
+      // Restore skills
+      (npc.data?.skills || []).forEach((skill, idx) => {
+        if (skill.data?.baseMod !== undefined) {
+          const restoredMod = skill.data.baseMod;
+          valuesToSet[`${dataPrefix}.skills.${idx}.data.mod`] = restoredMod;
+          const modString =
+            restoredMod >= 0 ? `+${restoredMod}` : `${restoredMod}`;
+          valuesToSet[
+            `${dataPrefix}.skills.${idx}.data.skillWithMod`
+          ] = `${skill.name} ${modString}`;
+        }
+      });
+
+      // Restore attacks
+      (npc.data?.attacks || []).forEach((attack, idx) => {
+        let restoredBonus = attack.data?.bonus;
+        if (attack.data?.baseBonus !== undefined) {
+          restoredBonus = attack.data.baseBonus;
+          valuesToSet[`${dataPrefix}.attacks.${idx}.data.bonus`] =
+            attack.data.baseBonus;
+        }
+        // Only restore the first damage formula
+        const damageRolls = attack.data?.damageRolls || [];
+        if (
+          damageRolls.length > 0 &&
+          damageRolls[0].data?.baseFormula !== undefined
+        ) {
+          valuesToSet[
+            `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.formula`
+          ] = damageRolls[0].data.baseFormula;
+        }
+        // Update strike fields with restored bonus
+        updateAttackStrikeFields(
+          attack,
+          idx,
+          restoredBonus,
+          dataPrefix,
+          valuesToSet
+        );
+      });
+
+      // Restore spellcasting entries
+      (npc.data?.spells || []).forEach((spellEntry, idx) => {
+        if (spellEntry.data?.baseDC !== undefined) {
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.dc`] =
+            spellEntry.data.baseDC;
+        }
+        if (spellEntry.data?.baseMod !== undefined) {
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.mod`] =
+            spellEntry.data.baseMod;
+        }
+      });
+    } else {
+      // Applying weak or elite - save base values and apply adjustments
+      const isElite = adjustmentType === "elite";
+      const modifier = isElite ? 2 : -2;
+
+      valuesToSet[`${dataPrefix}.adjustment`] = adjustmentType;
+
+      // Use base values if they exist (from previous adjustment), otherwise use current values
+      const baseLevel =
+        npc.data?.baseLevel !== undefined
+          ? npc.data.baseLevel
+          : parseInt(npc.data?.level || "1");
+      const baseAC =
+        npc.data?.baseAC !== undefined
+          ? npc.data.baseAC
+          : parseInt(npc.data?.ac || "0");
+      const basePerception =
+        npc.data?.basePerceptionMod !== undefined
+          ? npc.data.basePerceptionMod
+          : parseInt(npc.data?.perceptionMod || "0");
+      const baseFortitude =
+        npc.data?.baseFortitudeMod !== undefined
+          ? npc.data.baseFortitudeMod
+          : parseInt(npc.data?.fortitudeMod || "0");
+      const baseReflex =
+        npc.data?.baseReflexMod !== undefined
+          ? npc.data.baseReflexMod
+          : parseInt(npc.data?.reflexMod || "0");
+      const baseWill =
+        npc.data?.baseWillMod !== undefined
+          ? npc.data.baseWillMod
+          : parseInt(npc.data?.willMod || "0");
+      const baseHP =
+        npc.data?.baseHP !== undefined
+          ? npc.data.baseHP
+          : parseInt(npc.data?.hitpoints || "0");
+      const baseCurHP =
+        npc.data?.baseCurHP !== undefined
+          ? npc.data.baseCurHP
+          : parseInt(npc.data?.curhp || "0");
+
+      // Save base values if not already saved
+      if (npc.data?.baseLevel === undefined) {
+        valuesToSet[`${dataPrefix}.baseLevel`] = baseLevel;
+      }
+      if (npc.data?.baseAC === undefined) {
+        valuesToSet[`${dataPrefix}.baseAC`] = baseAC;
+      }
+      if (npc.data?.basePerceptionMod === undefined) {
+        valuesToSet[`${dataPrefix}.basePerceptionMod`] = basePerception;
+      }
+      if (npc.data?.baseFortitudeMod === undefined) {
+        valuesToSet[`${dataPrefix}.baseFortitudeMod`] = baseFortitude;
+      }
+      if (npc.data?.baseReflexMod === undefined) {
+        valuesToSet[`${dataPrefix}.baseReflexMod`] = baseReflex;
+      }
+      if (npc.data?.baseWillMod === undefined) {
+        valuesToSet[`${dataPrefix}.baseWillMod`] = baseWill;
+      }
+      if (npc.data?.baseHP === undefined) {
+        valuesToSet[`${dataPrefix}.baseHP`] = baseHP;
+      }
+      if (npc.data?.baseCurHP === undefined) {
+        valuesToSet[`${dataPrefix}.baseCurHP`] = baseCurHP;
+      }
+
+      // Apply adjustments from base values
+      // Level: for weak decrease by 1 (or 2 if level 1), for elite increase by 1 (or 2 if level <=0)
+      let levelChange;
+      if (isElite) {
+        levelChange = baseLevel <= 0 ? 2 : 1;
+      } else {
+        levelChange = baseLevel === 1 ? -2 : -1;
+      }
+      valuesToSet[`${dataPrefix}.level`] = Math.max(
+        baseLevel + levelChange,
+        -1
+      );
+
+      // Stats: increase/decrease by 2
+      valuesToSet[`${dataPrefix}.ac`] = baseAC + modifier;
+      valuesToSet[`${dataPrefix}.perceptionMod`] = basePerception + modifier;
+      valuesToSet[`${dataPrefix}.fortitudeMod`] = baseFortitude + modifier;
+      valuesToSet[`${dataPrefix}.reflexMod`] = baseReflex + modifier;
+      valuesToSet[`${dataPrefix}.willMod`] = baseWill + modifier;
+
+      // HP: increase/decrease based on starting level
+      let hpChange;
+      if (baseLevel <= 1) hpChange = 10;
+      else if (baseLevel <= 4) hpChange = 15;
+      else if (baseLevel <= 19) hpChange = 20;
+      else hpChange = 30;
+
+      if (!isElite) hpChange = -hpChange; // Weak decreases HP
+
+      const newMaxHP = Math.max(baseHP + hpChange, 1);
+      const newCurHP = Math.max(baseCurHP + hpChange, 1);
+      valuesToSet[`${dataPrefix}.hitpoints`] = newMaxHP;
+      valuesToSet[`${dataPrefix}.curhp`] = newCurHP;
+
+      // Adjust skills
+      (npc.data?.skills || []).forEach((skill, idx) => {
+        const baseMod =
+          skill.data?.baseMod !== undefined
+            ? skill.data.baseMod
+            : parseInt(skill.data?.mod || "0");
+        if (skill.data?.baseMod === undefined) {
+          valuesToSet[`${dataPrefix}.skills.${idx}.data.baseMod`] = baseMod;
+        }
+        const adjustedMod = baseMod + modifier;
+        valuesToSet[`${dataPrefix}.skills.${idx}.data.mod`] = adjustedMod;
+        const modString =
+          adjustedMod >= 0 ? `+${adjustedMod}` : `${adjustedMod}`;
+        valuesToSet[
+          `${dataPrefix}.skills.${idx}.data.skillWithMod`
+        ] = `${skill.name} ${modString}`;
+      });
+
+      // Adjust initiative modifier based on selected initiative skill
+      const initiativeSkill = npc.data?.initiativeSkill;
+      const baseInitiativeMod =
+        npc.data?.baseInitiativeMod !== undefined
+          ? npc.data.baseInitiativeMod
+          : parseInt(npc.data?.initiativeMod || "0");
+
+      if (npc.data?.baseInitiativeMod === undefined) {
+        valuesToSet[`${dataPrefix}.baseInitiativeMod`] = baseInitiativeMod;
+      }
+
+      // Calculate new initiative mod based on which skill is selected
+      let newInitiativeMod = 0;
+      if (initiativeSkill?.toLowerCase() === "perception") {
+        // Use the adjusted perception mod
+        newInitiativeMod = basePerception + modifier;
+      } else if (initiativeSkill) {
+        // Find the skill and use its adjusted mod
+        const initSkill = (npc.data?.skills || []).find(
+          (s) => s.name?.toLowerCase() === initiativeSkill.toLowerCase()
+        );
+        if (initSkill) {
+          const skillBaseMod =
+            initSkill.data?.baseMod !== undefined
+              ? initSkill.data.baseMod
+              : parseInt(initSkill.data?.mod || "0");
+          newInitiativeMod = skillBaseMod + modifier;
+        }
+      }
+      valuesToSet[`${dataPrefix}.initiativeMod`] = newInitiativeMod;
+
+      // Adjust attacks
+      (npc.data?.attacks || []).forEach((attack, idx) => {
+        const baseBonus =
+          attack.data?.baseBonus !== undefined
+            ? attack.data.baseBonus
+            : parseInt(attack.data?.bonus || "0");
+        if (attack.data?.baseBonus === undefined) {
+          valuesToSet[`${dataPrefix}.attacks.${idx}.data.baseBonus`] =
+            baseBonus;
+        }
+        const adjustedBonus = baseBonus + modifier;
+        valuesToSet[`${dataPrefix}.attacks.${idx}.data.bonus`] = adjustedBonus;
+
+        // Adjust damage - only the FIRST damage roll
+        const damageRolls = attack.data?.damageRolls || [];
+        if (damageRolls.length > 0) {
+          const firstRoll = damageRolls[0];
+          const baseFormula =
+            firstRoll.data?.baseFormula !== undefined
+              ? firstRoll.data.baseFormula
+              : firstRoll.data?.formula || "0";
+          if (firstRoll.data?.baseFormula === undefined) {
+            valuesToSet[
+              `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.baseFormula`
+            ] = baseFormula;
+          }
+          valuesToSet[
+            `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.formula`
+          ] = adjustDamageFormula(baseFormula, modifier);
+        }
+
+        // Update strike fields with adjusted bonus
+        updateAttackStrikeFields(
+          attack,
+          idx,
+          adjustedBonus,
+          dataPrefix,
+          valuesToSet
+        );
+      });
+
+      // Adjust spellcasting entries
+      (npc.data?.spells || []).forEach((spellEntry, idx) => {
+        // Get current DC value
+        let currentDC = 0;
+        if (
+          spellEntry.data?.dc !== undefined &&
+          spellEntry.data.dc !== null &&
+          spellEntry.data.dc !== ""
+        ) {
+          currentDC =
+            typeof spellEntry.data.dc === "number"
+              ? spellEntry.data.dc
+              : parseInt(spellEntry.data.dc);
+        }
+
+        // Get current Mod value
+        let currentMod = 0;
+        if (
+          spellEntry.data?.mod !== undefined &&
+          spellEntry.data.mod !== null &&
+          spellEntry.data.mod !== ""
+        ) {
+          currentMod =
+            typeof spellEntry.data.mod === "number"
+              ? spellEntry.data.mod
+              : parseInt(spellEntry.data.mod);
+        }
+
+        const baseDC =
+          spellEntry.data?.baseDC !== undefined
+            ? spellEntry.data.baseDC
+            : currentDC;
+        const baseMod =
+          spellEntry.data?.baseMod !== undefined
+            ? spellEntry.data.baseMod
+            : currentMod;
+
+        // Only adjust if we have actual values to work with
+        if (baseDC !== 0 || baseMod !== 0) {
+          if (spellEntry.data?.baseDC === undefined) {
+            valuesToSet[`${dataPrefix}.spells.${idx}.data.baseDC`] = baseDC;
+          }
+          if (spellEntry.data?.baseMod === undefined) {
+            valuesToSet[`${dataPrefix}.spells.${idx}.data.baseMod`] = baseMod;
+          }
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.dc`] =
+            baseDC + modifier;
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.mod`] =
+            baseMod + modifier;
+        }
+      });
+    }
+
+    showHideFields(record, valuesToSet);
+
+    api.setValues(valuesToSet, () => {
+      // Update damage fields after adjusting formulas
+      setNPCDamageFields(api.getValue(npcDataPath || ""));
+    });
   }
 
   function onAddRemoveElite(value) {
-    const npcDataPath = getNearestParentDataPath(dataPath);
-    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
-    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
-    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
-
     const adjustment = record.data?.adjustment || "";
 
-    const valuesToSet = {};
-
     if (adjustment === "elite") {
-      valuesToSet[`${dataPrefix}.adjustment`] = "";
+      applyAdjustment("remove");
     } else {
-      valuesToSet[`${dataPrefix}.adjustment`] = "elite";
+      applyAdjustment("elite");
     }
-
-    // TODO set adjustments due to elite
-    // Also adjust all spellcasting entries
-
-    showHideFields(record, valuesToSet);
-
-    api.setValues(valuesToSet);
   }
 
   function onAddRemoveWeak(value) {
-    const npcDataPath = getNearestParentDataPath(dataPath);
-    const npc = npcDataPath ? api.getValue(npcDataPath) : record;
-    const dataPrefix = npcDataPath ? `${npcDataPath}.data` : "data";
-    const fieldsPath = npcDataPath ? `${npcDataPath}.fields` : "fields";
-
     const adjustment = record.data?.adjustment || "";
 
-    const valuesToSet = {};
-
     if (adjustment === "weak") {
-      valuesToSet[`${dataPrefix}.adjustment`] = "";
+      applyAdjustment("remove");
     } else {
-      valuesToSet[`${dataPrefix}.adjustment`] = "weak";
+      applyAdjustment("weak");
+    }
+  }
+
+  function adjustDamageFormula(formula, adjustment) {
+    // Parse formulas like "1d6", "2d8+3", "1d6+1d4"
+    // Adjust the static bonus by the adjustment amount
+    // If there's no static bonus, add one
+
+    if (!formula || formula === "0") return "0";
+
+    // Match pattern like "XdY+Z" or "XdY-Z" or just "XdY" or just "Z"
+    const dicePattern = /(\d+d\d+)/g;
+    const bonusPattern = /([+-]\d+)/g;
+
+    const dice = formula.match(dicePattern) || [];
+    const bonuses = formula.match(bonusPattern) || [];
+
+    // Calculate total current bonus
+    let totalBonus = bonuses.reduce((sum, b) => sum + parseInt(b), 0);
+    totalBonus += adjustment;
+
+    // Reconstruct formula
+    let result = dice.join("+");
+    if (totalBonus !== 0) {
+      result += (totalBonus > 0 ? "+" : "") + totalBonus;
     }
 
-    // TODO set adjustments due to weak
-    // Also adjust all spellcasting entries
+    return result || "0";
+  }
 
-    showHideFields(record, valuesToSet);
+  function updateAttackStrikeFields(
+    attack,
+    attackIndex,
+    newBonus,
+    dataPrefix,
+    valuesToSet
+  ) {
+    // Update strike1, strike2, strike3 fields based on attack bonus and traits
+    if (newBonus === undefined || newBonus === null || newBonus === "") {
+      return;
+    }
 
-    api.setValues(valuesToSet);
+    const attackBonus = parseInt(newBonus, 10);
+    const bonusString = attackBonus >= 0 ? `+${attackBonus}` : `${attackBonus}`;
+
+    // Check if attack has agile trait
+    const traits = attack.data?.traits || [];
+    const isAgile = traits.some((trait) => trait.toLowerCase() === "agile");
+    const mapPenalty1 = isAgile ? 4 : 5;
+    const mapPenalty2 = isAgile ? 8 : 10;
+
+    const strike1 = `Strike ${bonusString}`;
+    const strike2Bonus = attackBonus - mapPenalty1;
+    const strike2BonusString =
+      strike2Bonus >= 0 ? `+${strike2Bonus}` : `${strike2Bonus}`;
+    const strike2 = `${strike2BonusString} (MAP -${mapPenalty1})`;
+    const strike3Bonus = attackBonus - mapPenalty2;
+    const strike3BonusString =
+      strike3Bonus >= 0 ? `+${strike3Bonus}` : `${strike3Bonus}`;
+    const strike3 = `${strike3BonusString} (MAP -${mapPenalty2})`;
+
+    if (attack.data?.strike1 !== strike1) {
+      valuesToSet[`${dataPrefix}.attacks.${attackIndex}.data.strike1`] =
+        strike1;
+    }
+    if (attack.data?.strike2 !== strike2) {
+      valuesToSet[`${dataPrefix}.attacks.${attackIndex}.data.strike2`] =
+        strike2;
+    }
+    if (attack.data?.strike3 !== strike3) {
+      valuesToSet[`${dataPrefix}.attacks.${attackIndex}.data.strike3`] =
+        strike3;
+    }
   }
 
   function onTraitsChange(traits) {
@@ -189,11 +572,19 @@
   }
 
   function getEliteAdjustmentTooltip() {
-    return "Set Elite Adjustment";
+    const adjustment = record.data?.adjustment || "";
+    if (adjustment === "elite") {
+      return "Remove Elite Adjustment";
+    }
+    return "Apply Elite Adjustment";
   }
 
   function getWeakAdjustmentTooltip() {
-    return "Set Weak Adjustment";
+    const adjustment = record.data?.adjustment || "";
+    if (adjustment === "weak") {
+      return "Remove Weak Adjustment";
+    }
+    return "Apply Weak Adjustment";
   }
 
   function updateInitiativeSkill(skillName) {
@@ -915,7 +1306,6 @@
             width="100%"
             placeholder="0"
             hidecontrols="true"
-            onchange="updateLevel(value);"
           ></numberfield>
         </div>
       </div>
@@ -932,16 +1322,16 @@
         <!-- Elite and Weak Adjustments -->
         <box field="npcProperties">
           <div style="display: flex; flex-direction: row; margin-left: auto">
-            <div style="background-color: var(--mantine-color-green-light)">
-              <tag
-                field="elite"
-                hidden="true"
-                label="Elite"
-                tooltipfunction="return getEliteAdjustmentTooltip();"
-                color="default"
-                onclick="onAddRemoveElite(value);"
-              ></tag>
-            </div>
+            <tag
+              field="elite"
+              hidden="true"
+              bold="true"
+              label="Elite"
+              backgroundcolor="green-9"
+              tooltipfunction="return getEliteAdjustmentTooltip();"
+              color="#ffffff"
+              onclick="onAddRemoveElite(value);"
+            ></tag>
             <tag
               field="setElite"
               hidden="true"
@@ -950,16 +1340,16 @@
               color="default"
               onclick="onAddRemoveElite(value);"
             ></tag>
-            <div style="background-color: var(--mantine-color-red-light)">
-              <tag
-                field="weak"
-                hidden="true"
-                label="Weak"
-                tooltipfunction="return getWeakAdjustmentTooltip();"
-                color="default"
-                onclick="onAddRemoveWeak(value);"
-              ></tag>
-            </div>
+            <tag
+              field="weak"
+              hidden="true"
+              label="Weak"
+              bold="true"
+              tooltipfunction="return getWeakAdjustmentTooltip();"
+              backgroundcolor="red-9"
+              color="#ffffff"
+              onclick="onAddRemoveWeak(value);"
+            ></tag>
             <tag
               field="setWeak"
               hidden="true"
