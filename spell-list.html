@@ -199,7 +199,7 @@
       api.getValue(spellCastingEntryDataPath)?.data?.type || "prepared";
     const isSpontaneous = type === "spontaneous";
     const isFocus = type === "focus";
-    const isInnate = type === "innate";
+    const isInnate = type === "innate" || type === "item";
 
     let slotName = isCantrip ? "Cantrip Slot" : `Rank ${rank} Spell Slot`;
     if (isSpontaneous || isFocus || isInnate) {
@@ -455,13 +455,14 @@
             textalign="center"
           ></label>
         </div>
-        <div style="min-width: 60px; width: 60px">
+        <div style="min-width: 45px; width: 45px">
           <button
-            size="xs"
-            variant="light"
+            size="xxs"
+            variant="filled"
             width="100%"
             color="primary"
-            label="Cast"
+            label="CAST"
+            radius="xs"
             onclick="onCastSpell()"
           ></button>
         </div>

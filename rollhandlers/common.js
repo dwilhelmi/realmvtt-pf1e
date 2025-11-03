@@ -2211,6 +2211,10 @@ function showAlchemistFields(record, valuesToSet) {
 
 // Called by onAddEditSpellcastingEntry to update the DC and Mod for all spellcasting entries
 function updateSpellcastingEntries(record, valuesToSet) {
+  if (record.recordType !== "characters") {
+    return;
+  }
+
   const spellcastingEntries = record.data?.spells || [];
   spellcastingEntries.forEach((spellcastingEntry, index) => {
     const spellcastingEntryDataPath = `data.spells.${index}`;

@@ -59,53 +59,56 @@
     "
   >
     <!-- Roll Attack -->
-    <tag
+    <button
       field="strike1"
-      tooltip="strikeTooktip"
+      size="xxs"
+      radius="xs"
+      tooltip="Roll 1st Attack"
       onclick="handleRoll(1);"
-      color="white"
-      backgroundcolor="blue-light"
+      color="blue"
       hidden="true"
-    ></tag>
-    <tag
+    ></button>
+    <button
       field="strike2"
-      tooltip="strikeTooktip"
+      size="xxs"
+      radius="xs"
+      tooltip="Roll 2nd Attack with MAP"
       onclick="handleRoll(2);"
-      color="white"
-      backgroundcolor="blue-light"
+      color="blue"
       hidden="true"
-    ></tag>
-    <tag
+    ></button>
+    <button
       field="strike3"
-      tooltip="strikeTooktip"
+      size="xxs"
+      radius="xs"
+      tooltip="Roll 3rd Attack with MAP"
       onclick="handleRoll(3);"
-      color="white"
-      backgroundcolor="blue-light"
+      color="blue"
       hidden="true"
-    ></tag>
+    ></button>
     <div>
       <!-- Roll Damage -->
-      <tag
-        size="xs"
-        color="white"
-        backgroundcolor="red-light"
+      <button
+        size="xxs"
+        radius="xs"
+        color="red"
         field="damage"
-        tooltip="damageTooltip"
+        tooltip="Roll Damage"
         onclick="rollDamage(false);"
         hidden="true"
-      ></tag>
+      ></button>
     </div>
     <!-- Roll Crit -->
     <div>
-      <tag
-        size="xs"
-        color="white"
-        backgroundcolor="pink-light"
+      <button
+        size="xxs"
+        radius="xs"
+        color="pink"
         field="critical"
-        tooltip="criticalTooltip"
+        tooltip="Roll Critical Damage"
         onclick="rollDamage(true);"
         hidden="true"
-      ></tag>
+      ></button>
     </div>
   </div>
   <div style="display: flex; flex-direction: row; gap: 4px">
