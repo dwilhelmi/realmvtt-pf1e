@@ -7702,6 +7702,18 @@ function applyDamage(
       // Subtract healing amount from damage (can make damage negative)
       damage -= healingAmount;
 
+      // Apply target's hardness (for objects, hazards, and constructs)
+      // Hardness reduces damage before it's applied to HP
+      // Only apply if damage is positive (not healing)
+      let hardnessReduction = 0;
+      if (damage > 0) {
+        const targetHardness = parseInt(target.data?.hardness || "0", 10);
+        if (targetHardness > 0) {
+          hardnessReduction = Math.min(targetHardness, damage);
+          damage = Math.max(0, damage - targetHardness);
+        }
+      }
+
       // Handle shield damage if shieldDamage is true and shield is raised
       let shieldAbsorbed = 0;
       let shieldDamaged = false;
@@ -7914,6 +7926,11 @@ function applyDamage(
         }
       }
 
+      // Add hardness reduction message if applicable
+      if (hardnessReduction > 0) {
+        message += `\n**Hardness blocked ${hardnessReduction} damage**`;
+      }
+
       // Handle death conditions
       if (instantDeath) {
         message += `\n**[center][color=red]INSTANT DEATH (${deathReason})[/color][/center]**`;
@@ -7931,8 +7948,13 @@ function applyDamage(
         }
       } else if (curhp <= 0 && damage > 0) {
         // Not instant death, but reduced to 0 HP
-        if (target.recordType === "characters") {
-          // Characters gain Dying condition
+        const isObject =
+          target.recordType === "npcs" &&
+          (target.data?.type === "hazard" || target.data?.type === "vehicle");
+        const isCompanion =
+          target.recordType === "npcs" && target.data?.type === "familiar";
+        if (target.recordType === "characters" || isCompanion) {
+          // Characters and their companions gain Dying condition
           const currentDying = parseInt(target.data?.dying || "0", 10);
           const wounded = parseInt(target.data?.wounded || "0", 10);
           let newDying = currentDying + 1 + wounded;
@@ -7975,7 +7997,7 @@ function applyDamage(
         } else if (target.recordType === "npcs") {
           // NPCs just die at 0 HP
           api.addEffect("Dead", target);
-          message += `\n${targetName} is dead.`;
+          message += `\n${targetName} is ${isObject ? "destroyed" : "dead"}.`;
         }
       }
 
