@@ -38,13 +38,14 @@
 
     const type = !npc.data?.type ? "npc" : npc.data?.type;
     const isNPC = type === "npc";
+    const isFamiliar = type === "familiar";
     const typeLabel = type === "npc" ? "Creature" : capitalize(type);
     const levelLabel = `${typeLabel}`;
 
     // Only npc types have the Spells tab
-    if (type !== "npc" && npc.tabs?.Spells?.hidden !== true) {
+    if (!isNPC && npc.tabs?.Spells?.hidden !== true) {
       valuesToSet[`${tabsPath}.Spells.hidden`] = true;
-    } else if (type === "npc" && npc.tabs?.Spells?.hidden !== false) {
+    } else if (isNPC && npc.tabs?.Spells?.hidden !== false) {
       valuesToSet[`${tabsPath}.Spells.hidden`] = false;
     }
 
@@ -67,10 +68,30 @@
     }
 
     // Hide/unhide NPC props
-    if (type !== "npc" && npc.fields?.skills?.hidden !== true) {
+    if (!isNPC && !isFamiliar && npc.fields?.npcProperties?.hidden !== true) {
       valuesToSet[`${fieldsPath}.npcProperties.hidden`] = true;
-    } else if (type === "npc" && npc.fields?.skills?.hidden !== false) {
+    } else if (
+      (isNPC || isFamiliar) &&
+      npc.fields?.npcProperties?.hidden !== false
+    ) {
       valuesToSet[`${fieldsPath}.npcProperties.hidden`] = false;
+    }
+
+    // Hide/unhide attributeModifiers
+    if (isFamiliar && npc.fields?.attributeModifiers?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.attributeModifiers.hidden`] = true;
+    } else if (
+      !isFamiliar &&
+      npc.fields?.attributeModifiers?.hidden !== false
+    ) {
+      valuesToSet[`${fieldsPath}.attributeModifiers.hidden`] = false;
+    }
+
+    // Hide/unhide familiarProperties
+    if (isFamiliar && npc.fields?.familiarProperties?.hidden !== false) {
+      valuesToSet[`${fieldsPath}.familiarProperties.hidden`] = false;
+    } else if (!isFamiliar && npc.fields?.familiarProperties?.hidden !== true) {
+      valuesToSet[`${fieldsPath}.familiarProperties.hidden`] = true;
     }
 
     const isVehicle = type === "vehicle";
@@ -136,25 +157,57 @@
       Object.keys(recordsToSet).includes(`${dataPrefix}.adjustment`)
         ? recordsToSet[`${dataPrefix}.adjustment`]
         : npc.data?.adjustment || "";
-    if (adjustment === "elite" && npc.fields?.elite?.hidden !== false) {
+    if (
+      adjustment === "elite" &&
+      npc.fields?.elite?.hidden !== false &&
+      !isFamiliar
+    ) {
       valuesToSet[`${fieldsPath}.setElite.hidden`] = true;
       valuesToSet[`${fieldsPath}.elite.hidden`] = false;
       valuesToSet[`${fieldsPath}.setWeak.hidden`] = false;
       valuesToSet[`${fieldsPath}.weak.hidden`] = true;
     }
-    if (adjustment === "weak" && npc.fields?.weak?.hidden !== false) {
+    if (
+      adjustment === "weak" &&
+      npc.fields?.weak?.hidden !== false &&
+      !isFamiliar
+    ) {
       valuesToSet[`${fieldsPath}.setWeak.hidden`] = true;
       valuesToSet[`${fieldsPath}.weak.hidden`] = false;
       valuesToSet[`${fieldsPath}.setElite.hidden`] = false;
       valuesToSet[`${fieldsPath}.elite.hidden`] = true;
     }
-    if (adjustment === "" && npc.fields?.setElite?.hidden !== false) {
+    if (
+      adjustment === "" &&
+      npc.fields?.setElite?.hidden !== false &&
+      !isFamiliar
+    ) {
       valuesToSet[`${fieldsPath}.setElite.hidden`] = false;
       valuesToSet[`${fieldsPath}.elite.hidden`] = true;
     }
-    if (adjustment === "" && npc.fields?.setWeak?.hidden !== false) {
+    if (
+      adjustment === "" &&
+      npc.fields?.setWeak?.hidden !== false &&
+      !isFamiliar
+    ) {
       valuesToSet[`${fieldsPath}.setWeak.hidden`] = false;
       valuesToSet[`${fieldsPath}.weak.hidden`] = true;
+    }
+
+    // If familiar, hide the weak/elite fields
+    if (isFamiliar) {
+      if (npc.fields?.setElite?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.setElite.hidden`] = true;
+      }
+      if (npc.fields?.elite?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.elite.hidden`] = true;
+      }
+      if (npc.fields?.setWeak?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.setWeak.hidden`] = true;
+      }
+      if (npc.fields?.weak?.hidden !== true) {
+        valuesToSet[`${fieldsPath}.weak.hidden`] = true;
+      }
     }
 
     if (recordsToSet) {
@@ -919,6 +972,169 @@
 
     api.setValues({ "data.ac": newAC });
   }
+
+  function onSelectMaster() {
+    const master = record.data?.master;
+    if (!master) return;
+
+    try {
+      const masterObj = JSON.parse(master);
+      api.getRecord("characters", masterObj._id, (masterRecord) => {
+        if (!masterRecord) return;
+
+        const valuesToSet = {};
+        const masterLevel = parseInt(masterRecord.data?.level || "0", 10);
+
+        // Level: Pet's level equals master's level
+        valuesToSet["data.level"] = masterLevel;
+
+        // Hit Points: 5 HP per level, plus any hitpoints modifiers
+        let baseHP = 5 * masterLevel;
+
+        // Get hitpoints modifiers for the familiar
+        const hpMods = getEffectsAndModifiersForToken(record, ["hitpoints"]);
+
+        hpMods.forEach((mod) => {
+          const modValue = parseInt(mod.value || "0", 10);
+          if (!isNaN(modValue)) {
+            baseHP += modValue;
+          }
+        });
+
+        valuesToSet["data.hitpoints"] = Math.max(baseHP, 1);
+
+        // Set current HP to max if not already set or if max changed
+        if (!record.data?.curhp || record.data?.curhp > baseHP) {
+          valuesToSet["data.curhp"] = Math.max(baseHP, 1);
+        }
+
+        // AC: Equal to master's AC (before circumstance/status bonuses)
+        const masterAC = parseInt(masterRecord.data?.ac || "10", 10);
+        valuesToSet["data.ac"] = masterAC;
+
+        // Saves: Equal to master's saves (before circumstance/status bonuses)
+        const masterFortitude = parseInt(
+          masterRecord.data?.fortitudeMod || "0",
+          10
+        );
+        const masterReflex = parseInt(masterRecord.data?.reflexMod || "0", 10);
+        const masterWill = parseInt(masterRecord.data?.willMod || "0", 10);
+
+        valuesToSet["data.fortitudeMod"] = masterFortitude;
+        valuesToSet["data.reflexMod"] = masterReflex;
+        valuesToSet["data.willMod"] = masterWill;
+
+        // Get master's spellcasting attribute modifier for special skills
+        // Use the masterAttribute field to determine which attribute to use
+        const masterAttribute = record.data?.masterAttribute || "none";
+        let spellcastingMod = 0;
+
+        if (masterAttribute !== "none") {
+          // Get the specified attribute modifier from the master
+          spellcastingMod = parseInt(
+            masterRecord.data?.[masterAttribute] || "0",
+            10
+          );
+        }
+
+        // Perception, Acrobatics, and Stealth: 3 + level, or spellcasting mod + level if higher
+        const baseSkillMod = 3 + masterLevel;
+        const spellcastingSkillMod = spellcastingMod + masterLevel;
+        const specialSkillMod = Math.max(baseSkillMod, spellcastingSkillMod);
+
+        valuesToSet["data.perceptionMod"] = specialSkillMod;
+
+        // Define all default PF2e skills
+        const defaultSkills = [
+          "Acrobatics",
+          "Arcana",
+          "Athletics",
+          "Crafting",
+          "Deception",
+          "Diplomacy",
+          "Intimidation",
+          "Medicine",
+          "Nature",
+          "Occultism",
+          "Performance",
+          "Religion",
+          "Society",
+          "Stealth",
+          "Survival",
+          "Thievery",
+        ];
+
+        // Build complete skills array with updates and missing skills
+        const skills = record.data?.skills || [];
+        const existingSkillNames = skills.map(
+          (s) => s.name?.toLowerCase() || ""
+        );
+
+        // Start with updated existing skills
+        const updatedSkills = skills.map((skill) => {
+          const skillName = skill.name?.toLowerCase() || "";
+          let mod;
+          if (skillName === "acrobatics" || skillName === "stealth") {
+            mod = specialSkillMod;
+          } else {
+            mod = masterLevel;
+          }
+          const modString = mod >= 0 ? `+${mod}` : `${mod}`;
+
+          return {
+            ...skill,
+            data: {
+              ...skill.data,
+              mod: mod,
+              skillWithMod: `${skill.name} ${modString}`,
+            },
+          };
+        });
+
+        // Add any missing default skills
+        defaultSkills.forEach((skillName) => {
+          if (!existingSkillNames.includes(skillName.toLowerCase())) {
+            const isSpecialSkill =
+              skillName.toLowerCase() === "acrobatics" ||
+              skillName.toLowerCase() === "stealth";
+            const mod = isSpecialSkill ? specialSkillMod : masterLevel;
+            const modString = mod >= 0 ? `+${mod}` : `${mod}`;
+
+            updatedSkills.push({
+              _id: generateUuid(),
+              name: skillName,
+              unidentifiedName: skillName,
+              identified: true,
+              data: {
+                mod: mod,
+                skillWithMod: `${skillName} ${modString}`,
+                rollTooltip: `Roll ${skillName} Check`,
+                note: "",
+              },
+            });
+          }
+        });
+
+        // Set the complete skills array at once
+        valuesToSet["data.skills"] = updatedSkills;
+
+        // Set initiative mod to perception mod
+        valuesToSet["data.initiativeMod"] = specialSkillMod;
+
+        // Speed: 25 feet (default)
+        if (!record.data?.speed || record.data?.speed === "0") {
+          valuesToSet["data.speed"] = "25";
+        }
+
+        // Apply all changes
+        if (Object.keys(valuesToSet).length > 0) {
+          api.setValues(valuesToSet);
+        }
+      });
+    } catch (error) {
+      console.error("Error in onSelectMaster:", error);
+    }
+  }
 </script>
 
 <style>
@@ -954,6 +1170,7 @@
           hideonlocked="true"
           field="type"
           label="Type"
+          defaultvalue="npc"
           placeholder="NPC Type..."
           onchange="showHideFields()"
           options='[{"value": "npc", "label": "NPC"}, {"value": "vehicle", "label": "Vehicle"}, {"value": "hazard", "label": "Hazard"}, {"value": "familiar", "label": "Familiar"}]'
@@ -1029,6 +1246,40 @@
           placeholder="HP details..."
         ></stringfield>
       </div>
+      <!-- Familiars have a dying value -->
+      <box field="familiarProperties" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: left;
+            justify-content: space-between;
+            margin-bottom: 4px;
+          "
+        >
+          <counter
+            field="dying"
+            size="xs"
+            label="Dying"
+            color="red"
+            icon="IconSkull"
+            maxvalue="4"
+            textalign="left"
+            minvalue="0"
+          ></counter>
+          <counter
+            field="wounded"
+            size="xs"
+            label="Wounded"
+            color="red"
+            icon="IconDroplet"
+            maxvalue="3"
+            textalign="left"
+            minvalue="0"
+          ></counter>
+        </div>
+        <divider></divider>
+      </box>
     </box>
 
     <!-- Vehicle HP Section -->
@@ -1610,7 +1861,6 @@
                 variant="default"
                 hideonlocked="true"
                 options='[{"icon": "IconEdit", "label": "Edit Speeds", "value": "editSpeeds"}]'
-                onclick="onEditSpeeds()"
               ></iconbutton>
             </popover.target>
             <popover.dropdown>
@@ -1795,6 +2045,62 @@
         </dropdown>
       </box>
 
+      <!-- Familiar section to select a master -->
+      <box field="familiarProperties" hidden="true">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: flex-end;
+          "
+        >
+          <dropdown
+            field="master"
+            label="Master"
+            placeholder="Select Master..."
+            optionsquery='{"type": "characters", "query": {}}'
+            size="xs"
+            width="100%"
+            onchange="onSelectMaster();"
+          ></dropdown>
+          <dropdown
+            field="masterAttribute"
+            label="Master Attribute"
+            placeholder="Select Master Attribute..."
+            defaultvalue="none"
+            options='[{"label": "None (Pet)", "value": "none"},
+            {"label": "Strength", "value": "str"},
+            {"label": "Dexterity", "value": "dex"},
+            {"label": "Constitution", "value": "con"},
+            {"label": "Intelligence", "value": "int"},
+            {"label": "Wisdom", "value": "wis"},
+            {"label": "Charisma", "value": "cha"}]'
+            size="xs"
+            width="100%"
+            onchange="onSelectMaster();"
+          ></dropdown>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              align-items: center;
+              min-width: 80px;
+            "
+          >
+            <label label="Refresh Stats" variant="bold" size="xs"></label>
+            <iconbutton
+              size="md"
+              variant="default"
+              icon="IconRefresh"
+              options='[{"icon": "IconRefresh", "label": "Refresh Stats with Master", "value": "refresh"}]'
+              onclick="onSelectMaster();"
+            ></iconbutton>
+          </div>
+        </div>
+      </box>
+
       <!-- NPC Properties Sections -->
       <!-- Attribute Modifiers and Senses Section - Side by Side -->
       <box field="npcProperties">
@@ -1808,131 +2114,138 @@
           "
         >
           <!-- Attribute Modifiers Section -->
-          <div style="display: flex; flex-direction: column; gap: 4px">
-            <divider
-              color="primary"
-              label="ATTRIBUTE MODIFIERS"
-              textalign="center"
-            ></divider>
-            <div
-              style="display: flex; flex-direction: row; gap: 8px; padding: 8px"
-            >
-              <!-- Left Column -->
-              <div style="display: flex; flex-direction: column; gap: 4px">
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Str" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="str"
-                    placeholder="+0"
-                  ></numberfield>
+          <box field="attributeModifiers">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <divider
+                color="primary"
+                label="ATTRIBUTE MODIFIERS"
+                textalign="center"
+              ></divider>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: row;
+                  gap: 8px;
+                  padding: 8px;
+                "
+              >
+                <!-- Left Column -->
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Str" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="str"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Dex" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="dex"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Con" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="con"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
                 </div>
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Dex" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="dex"
-                    placeholder="+0"
-                  ></numberfield>
-                </div>
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Con" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="con"
-                    placeholder="+0"
-                  ></numberfield>
-                </div>
-              </div>
-              <!-- Right Column -->
-              <div style="display: flex; flex-direction: column; gap: 4px">
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Int" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="int"
-                    placeholder="+0"
-                  ></numberfield>
-                </div>
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Wis" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="wis"
-                    placeholder="+0"
-                  ></numberfield>
-                </div>
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 4px;
-                  "
-                >
-                  <label label="Cha" variant="bold" size="xs"></label>
-                  <numberfield
-                    showsign="true"
-                    size="xs"
-                    width="60px"
-                    field="cha"
-                    placeholder="+0"
-                  ></numberfield>
+                <!-- Right Column -->
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Int" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="int"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Wis" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="wis"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      justify-content: space-between;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <label label="Cha" variant="bold" size="xs"></label>
+                    <numberfield
+                      showsign="true"
+                      size="xs"
+                      width="60px"
+                      field="cha"
+                      placeholder="+0"
+                    ></numberfield>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </box>
 
           <!-- Senses Section -->
           <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">

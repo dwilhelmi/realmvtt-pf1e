@@ -144,18 +144,31 @@
       <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
         <dropdown
           size="sm"
-          field="effects"
+          field="actionCategory"
           width="100%"
-          label="Effects"
-          searchable="true"
-          multiselect="20"
-          description="Effects that this action can apply"
-          optionsquery='{"type": "effects", "query": {}}'
-          placeholder="Select Effects..."
+          label="Action Category"
+          combo="true"
+          placeholder="Select Action Category..."
+          options='[{"label": "Defensive", "value": "defensive"}, {"label": "Offensive", "value": "offensive"}, {"label": "Interaction", "value": "interaction"}, {"label": "Familiar", "value": "familiar"}]'
         >
         </dropdown>
       </div>
     </div>
+  </div>
+
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <dropdown
+      size="sm"
+      field="effects"
+      width="100%"
+      label="Effects"
+      searchable="true"
+      multiselect="20"
+      description="Effects that this action can apply"
+      optionsquery='{"type": "effects", "query": {}}'
+      placeholder="Select Effects..."
+    >
+    </dropdown>
   </div>
 
   <div style="margin-top: 8px; margin-bottom: 8px">

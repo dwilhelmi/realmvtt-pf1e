@@ -3704,7 +3704,7 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   const saveMod = parseInt(record.data?.[`${saveType}Mod`] || "0", 10);
 
   // Get the proficiency level for display purposes (character only)
-  const isNPC = record.recordType === "tokens" || record.data?.type === "npc";
+  const isNPC = record.recordType === "tokens" || record.recordType === "npcs";
   let modifierName = `${capitalize(saveType)} Modifier`;
   let saveDisplay = `${capitalize(saveType)}`;
   let npcSaveBonus = 0;
@@ -3933,7 +3933,7 @@ function rollSkill(
     ? loreSkillMod
     : parseInt(record.data?.[`${skill}Mod`] || "0", 10);
 
-  const isNPC = record.data?.type === "npc" || record.recordType === "tokens";
+  const isNPC = record.recordType === "npcs" || record.recordType === "tokens";
 
   // Get the proficiency level for display purposes (if character)
   let skillModName = `${skillName} Modifier`;
