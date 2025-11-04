@@ -898,6 +898,32 @@
   }
 
   function onAddAction(type) {
+    if (type === "familiar") {
+      // We prompt for familiar abilities
+      const onSelect = (value) => {
+        if (value && value.length > 0) {
+          value.forEach((ability) => {
+            api.addValue("data.actions", ability);
+          });
+        }
+      };
+      const optionsQuery = {
+        type: "actions",
+        query: {
+          "data.actionCategory": "familiar",
+        },
+      };
+      api.showPrompt(
+        `Select Familiar Ability`,
+        "Select Familiar Ability",
+        `Select an Ability...`,
+        null,
+        optionsQuery,
+        onSelect
+      );
+      return;
+    }
+
     const actions = record.data?.actions || [];
     const newAction = {
       _id: generateUuid(),
@@ -2047,6 +2073,7 @@
 
       <!-- Familiar section to select a master -->
       <box field="familiarProperties" hidden="true">
+        <divider label="FAMILIAR" textalign="center" color="primary"></divider>
         <div
           style="
             display: flex;
@@ -2098,6 +2125,21 @@
               onclick="onSelectMaster();"
             ></iconbutton>
           </div>
+        </div>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: flex-end;
+          "
+        >
+          <numberfield
+            field="numAbilities"
+            placeholder="0"
+            size="xs"
+            label="Total # of Familiar Abilities"
+          ></numberfield>
         </div>
       </box>
 
@@ -2583,6 +2625,49 @@
         ></richtextfield>
       </box>
     </div>
+
+    <!-- Familiar Properties -->
+    <box field="familiarProperties" hidden="true" width="100%">
+      <!-- Abilities Section -->
+      <div
+        style="
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 4px;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
+          "
+        >
+          <div style="width: 100%; margin-right: 4px">
+            <divider
+              color="primary"
+              width="100%"
+              label="ABILITIES"
+              textalign="center"
+            ></divider>
+          </div>
+          <iconbutton
+            size="sm"
+            variant="default"
+            hideonlocked="true"
+            options='[{"icon": "IconSearch", "label": "Add Ability", "value": "addAbility"}]'
+            onclick="onAddAction('familiar');"
+            field="addAbilityBtn"
+          ></iconbutton>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <list listtype="npc_actions_list" field="actions"></list>
+        </div>
+      </div>
+    </box>
 
     <!-- Proprties shared with other types -->
     <box field="sharedProperties">
