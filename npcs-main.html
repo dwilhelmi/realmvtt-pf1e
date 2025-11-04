@@ -72,6 +72,29 @@
       valuesToSet[`${fieldsPath}.npcProperties.hidden`] = false;
     }
 
+    const isVehicle = type === "vehicle";
+    const vehicleFieldsToShow = ["vehicleProperties", "Object Immunities"];
+
+    if (isVehicle) {
+      vehicleFieldsToShow.forEach((field) => {
+        if (npc.fields?.[field]?.hidden !== false) {
+          valuesToSet[`${fieldsPath}.${field}.hidden`] = false;
+        }
+      });
+      // Set BT if not set
+      const hitpoints = npc.data?.hitpoints || 0;
+      const brokenThreshold = Math.floor(hitpoints / 2);
+      if (npc.data?.brokenThreshold !== brokenThreshold) {
+        valuesToSet[`${dataPrefix}.brokenThreshold`] = brokenThreshold;
+      }
+    } else {
+      vehicleFieldsToShow.forEach((field) => {
+        if (npc.fields?.[field]?.hidden !== true) {
+          valuesToSet[`${fieldsPath}.${field}.hidden`] = true;
+        }
+      });
+    }
+
     // Set skills list
     // Check if adjustment is set
     const adjustment =
@@ -138,42 +161,67 @@
     const valuesToSet = {};
 
     if (adjustmentType === "remove") {
-      // Removing adjustment - restore from base values
+      // Removing adjustment - restore from base values and clear them
       valuesToSet[`${dataPrefix}.adjustment`] = "";
 
-      if (npc.data?.baseLevel !== undefined) {
+      if (npc.data?.baseLevel !== undefined && npc.data?.baseLevel !== null) {
         valuesToSet[`${dataPrefix}.level`] = npc.data.baseLevel;
+        valuesToSet[`${dataPrefix}.baseLevel`] = null;
       }
-      if (npc.data?.baseAC !== undefined) {
+      if (npc.data?.baseAC !== undefined && npc.data?.baseAC !== null) {
         valuesToSet[`${dataPrefix}.ac`] = npc.data.baseAC;
+        valuesToSet[`${dataPrefix}.baseAC`] = null;
       }
-      if (npc.data?.basePerceptionMod !== undefined) {
+      if (
+        npc.data?.basePerceptionMod !== undefined &&
+        npc.data?.basePerceptionMod !== null
+      ) {
         valuesToSet[`${dataPrefix}.perceptionMod`] = npc.data.basePerceptionMod;
+        valuesToSet[`${dataPrefix}.basePerceptionMod`] = null;
       }
-      if (npc.data?.baseFortitudeMod !== undefined) {
+      if (
+        npc.data?.baseFortitudeMod !== undefined &&
+        npc.data?.baseFortitudeMod !== null
+      ) {
         valuesToSet[`${dataPrefix}.fortitudeMod`] = npc.data.baseFortitudeMod;
+        valuesToSet[`${dataPrefix}.baseFortitudeMod`] = null;
       }
-      if (npc.data?.baseReflexMod !== undefined) {
+      if (
+        npc.data?.baseReflexMod !== undefined &&
+        npc.data?.baseReflexMod !== null
+      ) {
         valuesToSet[`${dataPrefix}.reflexMod`] = npc.data.baseReflexMod;
+        valuesToSet[`${dataPrefix}.baseReflexMod`] = null;
       }
-      if (npc.data?.baseWillMod !== undefined) {
+      if (
+        npc.data?.baseWillMod !== undefined &&
+        npc.data?.baseWillMod !== null
+      ) {
         valuesToSet[`${dataPrefix}.willMod`] = npc.data.baseWillMod;
+        valuesToSet[`${dataPrefix}.baseWillMod`] = null;
       }
-      if (npc.data?.baseHP !== undefined) {
+      if (npc.data?.baseHP !== undefined && npc.data?.baseHP !== null) {
         valuesToSet[`${dataPrefix}.hitpoints`] = npc.data.baseHP;
+        valuesToSet[`${dataPrefix}.baseHP`] = null;
       }
-      if (npc.data?.baseCurHP !== undefined) {
+      if (npc.data?.baseCurHP !== undefined && npc.data?.baseCurHP !== null) {
         valuesToSet[`${dataPrefix}.curhp`] = npc.data.baseCurHP;
+        valuesToSet[`${dataPrefix}.baseCurHP`] = null;
       }
-      if (npc.data?.baseInitiativeMod !== undefined) {
+      if (
+        npc.data?.baseInitiativeMod !== undefined &&
+        npc.data?.baseInitiativeMod !== null
+      ) {
         valuesToSet[`${dataPrefix}.initiativeMod`] = npc.data.baseInitiativeMod;
+        valuesToSet[`${dataPrefix}.baseInitiativeMod`] = null;
       }
 
       // Restore skills
       (npc.data?.skills || []).forEach((skill, idx) => {
-        if (skill.data?.baseMod !== undefined) {
+        if (skill.data?.baseMod !== undefined && skill.data?.baseMod !== null) {
           const restoredMod = skill.data.baseMod;
           valuesToSet[`${dataPrefix}.skills.${idx}.data.mod`] = restoredMod;
+          valuesToSet[`${dataPrefix}.skills.${idx}.data.baseMod`] = null;
           const modString =
             restoredMod >= 0 ? `+${restoredMod}` : `${restoredMod}`;
           valuesToSet[
@@ -185,20 +233,28 @@
       // Restore attacks
       (npc.data?.attacks || []).forEach((attack, idx) => {
         let restoredBonus = attack.data?.bonus;
-        if (attack.data?.baseBonus !== undefined) {
+        if (
+          attack.data?.baseBonus !== undefined &&
+          attack.data?.baseBonus !== null
+        ) {
           restoredBonus = attack.data.baseBonus;
           valuesToSet[`${dataPrefix}.attacks.${idx}.data.bonus`] =
             attack.data.baseBonus;
+          valuesToSet[`${dataPrefix}.attacks.${idx}.data.baseBonus`] = null;
         }
         // Only restore the first damage formula
         const damageRolls = attack.data?.damageRolls || [];
         if (
           damageRolls.length > 0 &&
-          damageRolls[0].data?.baseFormula !== undefined
+          damageRolls[0].data?.baseFormula !== undefined &&
+          damageRolls[0].data?.baseFormula !== null
         ) {
           valuesToSet[
             `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.formula`
           ] = damageRolls[0].data.baseFormula;
+          valuesToSet[
+            `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.baseFormula`
+          ] = null;
         }
         // Update strike fields with restored bonus
         updateAttackStrikeFields(
@@ -212,13 +268,21 @@
 
       // Restore spellcasting entries
       (npc.data?.spells || []).forEach((spellEntry, idx) => {
-        if (spellEntry.data?.baseDC !== undefined) {
+        if (
+          spellEntry.data?.baseDC !== undefined &&
+          spellEntry.data?.baseDC !== null
+        ) {
           valuesToSet[`${dataPrefix}.spells.${idx}.data.dc`] =
             spellEntry.data.baseDC;
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.baseDC`] = null;
         }
-        if (spellEntry.data?.baseMod !== undefined) {
+        if (
+          spellEntry.data?.baseMod !== undefined &&
+          spellEntry.data?.baseMod !== null
+        ) {
           valuesToSet[`${dataPrefix}.spells.${idx}.data.mod`] =
             spellEntry.data.baseMod;
+          valuesToSet[`${dataPrefix}.spells.${idx}.data.baseMod`] = null;
         }
       });
     } else {
@@ -230,61 +294,76 @@
 
       // Use base values if they exist (from previous adjustment), otherwise use current values
       const baseLevel =
-        npc.data?.baseLevel !== undefined
+        npc.data?.baseLevel !== undefined && npc.data?.baseLevel !== null
           ? npc.data.baseLevel
           : parseInt(npc.data?.level || "1");
       const baseAC =
-        npc.data?.baseAC !== undefined
+        npc.data?.baseAC !== undefined && npc.data?.baseAC !== null
           ? npc.data.baseAC
           : parseInt(npc.data?.ac || "0");
       const basePerception =
-        npc.data?.basePerceptionMod !== undefined
+        npc.data?.basePerceptionMod !== undefined &&
+        npc.data?.basePerceptionMod !== null
           ? npc.data.basePerceptionMod
           : parseInt(npc.data?.perceptionMod || "0");
       const baseFortitude =
-        npc.data?.baseFortitudeMod !== undefined
+        npc.data?.baseFortitudeMod !== undefined &&
+        npc.data?.baseFortitudeMod !== null
           ? npc.data.baseFortitudeMod
           : parseInt(npc.data?.fortitudeMod || "0");
       const baseReflex =
-        npc.data?.baseReflexMod !== undefined
+        npc.data?.baseReflexMod !== undefined &&
+        npc.data?.baseReflexMod !== null
           ? npc.data.baseReflexMod
           : parseInt(npc.data?.reflexMod || "0");
       const baseWill =
-        npc.data?.baseWillMod !== undefined
+        npc.data?.baseWillMod !== undefined && npc.data?.baseWillMod !== null
           ? npc.data.baseWillMod
           : parseInt(npc.data?.willMod || "0");
       const baseHP =
-        npc.data?.baseHP !== undefined
+        npc.data?.baseHP !== undefined && npc.data?.baseHP !== null
           ? npc.data.baseHP
           : parseInt(npc.data?.hitpoints || "0");
       const baseCurHP =
-        npc.data?.baseCurHP !== undefined
+        npc.data?.baseCurHP !== undefined && npc.data?.baseCurHP !== null
           ? npc.data.baseCurHP
           : parseInt(npc.data?.curhp || "0");
 
       // Save base values if not already saved
-      if (npc.data?.baseLevel === undefined) {
+      if (npc.data?.baseLevel === undefined || npc.data?.baseLevel === null) {
         valuesToSet[`${dataPrefix}.baseLevel`] = baseLevel;
       }
-      if (npc.data?.baseAC === undefined) {
+      if (npc.data?.baseAC === undefined || npc.data?.baseAC === null) {
         valuesToSet[`${dataPrefix}.baseAC`] = baseAC;
       }
-      if (npc.data?.basePerceptionMod === undefined) {
+      if (
+        npc.data?.basePerceptionMod === undefined ||
+        npc.data?.basePerceptionMod === null
+      ) {
         valuesToSet[`${dataPrefix}.basePerceptionMod`] = basePerception;
       }
-      if (npc.data?.baseFortitudeMod === undefined) {
+      if (
+        npc.data?.baseFortitudeMod === undefined ||
+        npc.data?.baseFortitudeMod === null
+      ) {
         valuesToSet[`${dataPrefix}.baseFortitudeMod`] = baseFortitude;
       }
-      if (npc.data?.baseReflexMod === undefined) {
+      if (
+        npc.data?.baseReflexMod === undefined ||
+        npc.data?.baseReflexMod === null
+      ) {
         valuesToSet[`${dataPrefix}.baseReflexMod`] = baseReflex;
       }
-      if (npc.data?.baseWillMod === undefined) {
+      if (
+        npc.data?.baseWillMod === undefined ||
+        npc.data?.baseWillMod === null
+      ) {
         valuesToSet[`${dataPrefix}.baseWillMod`] = baseWill;
       }
-      if (npc.data?.baseHP === undefined) {
+      if (npc.data?.baseHP === undefined || npc.data?.baseHP === null) {
         valuesToSet[`${dataPrefix}.baseHP`] = baseHP;
       }
-      if (npc.data?.baseCurHP === undefined) {
+      if (npc.data?.baseCurHP === undefined || npc.data?.baseCurHP === null) {
         valuesToSet[`${dataPrefix}.baseCurHP`] = baseCurHP;
       }
 
@@ -325,10 +404,10 @@
       // Adjust skills
       (npc.data?.skills || []).forEach((skill, idx) => {
         const baseMod =
-          skill.data?.baseMod !== undefined
+          skill.data?.baseMod !== undefined && skill.data?.baseMod !== null
             ? skill.data.baseMod
             : parseInt(skill.data?.mod || "0");
-        if (skill.data?.baseMod === undefined) {
+        if (skill.data?.baseMod === undefined || skill.data?.baseMod === null) {
           valuesToSet[`${dataPrefix}.skills.${idx}.data.baseMod`] = baseMod;
         }
         const adjustedMod = baseMod + modifier;
@@ -343,11 +422,15 @@
       // Adjust initiative modifier based on selected initiative skill
       const initiativeSkill = npc.data?.initiativeSkill;
       const baseInitiativeMod =
-        npc.data?.baseInitiativeMod !== undefined
+        npc.data?.baseInitiativeMod !== undefined &&
+        npc.data?.baseInitiativeMod !== null
           ? npc.data.baseInitiativeMod
           : parseInt(npc.data?.initiativeMod || "0");
 
-      if (npc.data?.baseInitiativeMod === undefined) {
+      if (
+        npc.data?.baseInitiativeMod === undefined ||
+        npc.data?.baseInitiativeMod === null
+      ) {
         valuesToSet[`${dataPrefix}.baseInitiativeMod`] = baseInitiativeMod;
       }
 
@@ -363,7 +446,8 @@
         );
         if (initSkill) {
           const skillBaseMod =
-            initSkill.data?.baseMod !== undefined
+            initSkill.data?.baseMod !== undefined &&
+            initSkill.data?.baseMod !== null
               ? initSkill.data.baseMod
               : parseInt(initSkill.data?.mod || "0");
           newInitiativeMod = skillBaseMod + modifier;
@@ -374,10 +458,14 @@
       // Adjust attacks
       (npc.data?.attacks || []).forEach((attack, idx) => {
         const baseBonus =
-          attack.data?.baseBonus !== undefined
+          attack.data?.baseBonus !== undefined &&
+          attack.data?.baseBonus !== null
             ? attack.data.baseBonus
             : parseInt(attack.data?.bonus || "0");
-        if (attack.data?.baseBonus === undefined) {
+        if (
+          attack.data?.baseBonus === undefined ||
+          attack.data?.baseBonus === null
+        ) {
           valuesToSet[`${dataPrefix}.attacks.${idx}.data.baseBonus`] =
             baseBonus;
         }
@@ -389,10 +477,14 @@
         if (damageRolls.length > 0) {
           const firstRoll = damageRolls[0];
           const baseFormula =
-            firstRoll.data?.baseFormula !== undefined
+            firstRoll.data?.baseFormula !== undefined &&
+            firstRoll.data?.baseFormula !== null
               ? firstRoll.data.baseFormula
               : firstRoll.data?.formula || "0";
-          if (firstRoll.data?.baseFormula === undefined) {
+          if (
+            firstRoll.data?.baseFormula === undefined ||
+            firstRoll.data?.baseFormula === null
+          ) {
             valuesToSet[
               `${dataPrefix}.attacks.${idx}.data.damageRolls.0.data.baseFormula`
             ] = baseFormula;
@@ -441,20 +533,28 @@
         }
 
         const baseDC =
-          spellEntry.data?.baseDC !== undefined
+          spellEntry.data?.baseDC !== undefined &&
+          spellEntry.data?.baseDC !== null
             ? spellEntry.data.baseDC
             : currentDC;
         const baseMod =
-          spellEntry.data?.baseMod !== undefined
+          spellEntry.data?.baseMod !== undefined &&
+          spellEntry.data?.baseMod !== null
             ? spellEntry.data.baseMod
             : currentMod;
 
         // Only adjust if we have actual values to work with
         if (baseDC !== 0 || baseMod !== 0) {
-          if (spellEntry.data?.baseDC === undefined) {
+          if (
+            spellEntry.data?.baseDC === undefined ||
+            spellEntry.data?.baseDC === null
+          ) {
             valuesToSet[`${dataPrefix}.spells.${idx}.data.baseDC`] = baseDC;
           }
-          if (spellEntry.data?.baseMod === undefined) {
+          if (
+            spellEntry.data?.baseMod === undefined ||
+            spellEntry.data?.baseMod === null
+          ) {
             valuesToSet[`${dataPrefix}.spells.${idx}.data.baseMod`] = baseMod;
           }
           valuesToSet[`${dataPrefix}.spells.${idx}.data.dc`] =
@@ -680,8 +780,20 @@
     });
 
     if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet);
+      api.setValues(valuesToSet, () => {
+        updateIWRName("immunities");
+      });
+    } else {
+      updateIWRName("immunities");
     }
+  }
+
+  function onAddWeakness() {
+    updateIWRName("weaknesses");
+  }
+
+  function onAddResistance() {
+    updateIWRName("resistances");
   }
 
   function performSaveRoll(save) {
@@ -764,62 +876,120 @@
       </div>
     </div>
 
-    <!-- HP Section -->
-    <div
-      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
-    >
+    <!-- NPC HP Section -->
+    <box field="npcProperties">
       <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          align-items: center;
-        "
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
       >
-        <label color="pink" label="HP" variant="bold" size="xs"></label>
         <div
           style="
             display: flex;
             flex-direction: row;
             gap: 4px;
             align-items: center;
-            margin-left: auto;
           "
         >
-          <numberfield
-            placeholder="0"
-            width="60px"
-            size="xs"
-            field="curhp"
-          ></numberfield>
-          <label label="/" size="xs" variant="bold"></label>
-          <numberfield
-            placeholder="0"
-            width="60px"
-            size="xs"
-            field="hitpoints"
-          ></numberfield>
+          <label color="pink" label="HP" variant="bold" size="xs"></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+              margin-left: auto;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="curhp"
+            ></numberfield>
+            <label label="/" size="xs" variant="bold"></label>
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="hitpoints"
+            ></numberfield>
+          </div>
         </div>
-      </div>
-      <div style="display: flex; flex-direction: row; align-items: center">
-        <label label="Temp" variant="bold" size="xs"></label>
-        <div style="width: 60px; margin-left: auto">
-          <numberfield
-            placeholder="0"
-            width="100%"
-            size="xs"
-            field="tempHp"
-          ></numberfield>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <label label="Temp" variant="bold" size="xs"></label>
+          <div style="width: 60px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              width="100%"
+              size="xs"
+              field="tempHp"
+            ></numberfield>
+          </div>
         </div>
+        <stringfield
+          width="100%"
+          size="xs"
+          variant="tooltip-underline"
+          field="hpDetails"
+          placeholder="HP details..."
+        ></stringfield>
       </div>
-      <stringfield
-        width="100%"
-        size="xs"
-        variant="tooltip-underline"
-        field="hpDetails"
-        placeholder="HP details..."
-      ></stringfield>
-    </div>
+    </box>
+
+    <!-- Vehicle HP Section -->
+    <box field="vehicleProperties" hidden="true">
+      <div
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label color="pink" label="HP" variant="bold" size="xs"></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+              margin-left: auto;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="curhp"
+            ></numberfield>
+            <label label="/" size="xs" variant="bold"></label>
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="hitpoints"
+              onchange="showHideFields()"
+            ></numberfield>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <label label="BT" variant="bold" size="xs"></label>
+          <div style="width: 60px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              label="BT"
+              variant="tooltip"
+              width="100%"
+              size="xs"
+              field="brokenThreshold"
+            ></numberfield>
+          </div>
+        </div>
+        <divider></divider>
+      </div>
+    </box>
 
     <!-- AC Section -->
     <div
@@ -959,6 +1129,11 @@
       <div style="margin-top: 4px; margin-bottom: 4px">
         <divider></divider>
       </div>
+      <tag
+        field="Object Immunities"
+        hidden="true"
+        tooltipfunction="return getObjectImmunitiesTooltip();"
+      ></tag>
       <label field="immunitiesLabel" size="xs"></label>
       <!-- Weaknesses -->
       <div
@@ -993,7 +1168,11 @@
               "
             >
               <label label="Weaknesses" variant="bold" size="xs"></label>
-              <list listtype="iwr_list" field="weaknesses"></list>
+              <list
+                listtype="iwr_list"
+                field="weaknesses"
+                onchange="onAddWeakness()"
+              ></list>
             </div>
           </popover.dropdown>
         </popover>
@@ -1036,7 +1215,11 @@
               "
             >
               <label label="Resistances" variant="bold" size="xs"></label>
-              <list listtype="iwr_list" field="resistances"></list>
+              <list
+                listtype="iwr_list"
+                field="resistances"
+                onchange="onAddResistance()"
+              ></list>
             </div>
           </popover.dropdown>
         </popover>
@@ -1792,6 +1975,96 @@
               getfilters="return filterActions('passive');"
             ></list>
           </div>
+        </div>
+      </box>
+
+      <!-- Vehicle Properties -->
+      <box field="vehicleProperties" hidden="true" width="100%">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            gap: 4px;
+            flex-wrap: wrap;
+          "
+        >
+          <div style="min-width: 50px; flex: 1">
+            <numberfield
+              width="100%"
+              size="xs"
+              field="space.long"
+              label="Length"
+              placeholder="0"
+            ></numberfield>
+          </div>
+          <div style="min-width: 50px; flex: 1">
+            <numberfield
+              width="100%"
+              size="xs"
+              field="space.wide"
+              label="Width"
+              placeholder="0"
+            ></numberfield>
+          </div>
+          <div style="min-width: 50px; flex: 1">
+            <numberfield
+              width="100%"
+              size="xs"
+              field="space.high"
+              label="Height"
+              placeholder="0"
+            ></numberfield>
+          </div>
+          <div style="min-width: 50px; flex: 1">
+            <numberfield
+              width="100%"
+              size="xs"
+              field="price"
+              label="Price"
+              placeholder="0"
+            ></numberfield>
+          </div>
+        </div>
+        <stringfield
+          width="100%"
+          size="xs"
+          field="speed.details"
+          label="Speed"
+          placeholder="Enter speed..."
+          multiline="true"
+        ></stringfield>
+        <stringfield
+          width="100%"
+          size="xs"
+          field="crew"
+          label="Crew"
+          placeholder="Enter crew..."
+          multiline="true"
+        ></stringfield>
+        <stringfield
+          width="100%"
+          size="xs"
+          field="passengers"
+          label="Passengers"
+          placeholder="Enter passengers..."
+          multiline="true"
+        ></stringfield>
+        <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+          <numberfield
+            width="100%"
+            size="xs"
+            field="collisionDC"
+            label="Collision DC"
+            placeholder="0"
+          ></numberfield>
+          <stringfield
+            width="100%"
+            size="xs"
+            field="collisionDamage"
+            label="Collision Damage"
+            placeholder="Enter damage..."
+          ></stringfield>
         </div>
       </box>
     </div>
