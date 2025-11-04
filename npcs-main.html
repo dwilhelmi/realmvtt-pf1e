@@ -1182,6 +1182,123 @@
       </div>
     </box>
 
+    <!-- Saves Section -->
+    <div
+      style="
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        margin-top: 4px;
+      "
+    >
+      <label label="Saves" variant="bold" size="xs"></label>
+      <divider></divider>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 4px;
+          width: 100%;
+          margin-bottom: 4px;
+          justify-content: space-between;
+        "
+      >
+        <div style="display: flex; flex-direction: column">
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+            "
+          >
+            <label label="Fort" variant="bold" size="xs"></label>
+            <iconbutton
+              size="xs"
+              variant="subtle"
+              options='[{"icon": "D20", "label": "Roll Fortitude Save", "value": "roll"}]'
+              onclick="performSaveRoll('fortitude')"
+            ></iconbutton>
+          </div>
+          <numberfield
+            field="fortitudeMod"
+            placeholder="+0"
+            textalign="center"
+            showsign="true"
+            hidecontrols="true"
+            width="40px"
+            size="xs"
+          ></numberfield>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+            "
+          >
+            <label label="Ref" variant="bold" size="xs"></label>
+            <iconbutton
+              size="xs"
+              variant="subtle"
+              options='[{"icon": "D20", "label": "Roll Reflex Save", "value": "roll"}]'
+              onclick="performSaveRoll('reflex')"
+            ></iconbutton>
+          </div>
+
+          <numberfield
+            field="reflexMod"
+            placeholder="+0"
+            textalign="center"
+            showsign="true"
+            width="40px"
+            hidecontrols="true"
+            size="xs"
+          ></numberfield>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+            "
+          >
+            <label label="Will" variant="bold" size="xs"></label>
+            <iconbutton
+              size="xs"
+              variant="subtle"
+              options='[{"icon": "D20", "label": "Roll Will Save", "value": "roll"}]'
+              onclick="performSaveRoll('will')"
+            ></iconbutton>
+          </div>
+          <numberfield
+            field="willMod"
+            placeholder="+0"
+            textalign="center"
+            showsign="true"
+            hidecontrols="true"
+            width="40px"
+            size="xs"
+          ></numberfield>
+        </div>
+      </div>
+      <numberfield
+        field="saveBonus"
+        width="100%"
+        placeholder="Bonus to all saves..."
+        size="xs"
+        textalign="center"
+        showsign="true"
+        variant="tooltip"
+        label="Bonus"
+        hidecontrols="true"
+      ></numberfield>
+    </div>
+
     <!-- IWR Section -->
     <div
       style="
@@ -1337,178 +1454,14 @@
       <label field="resistancesLabel" size="xs"></label>
     </div>
 
-    <!-- IWR Section -->
-    <div
-      style="
-        margin-top: 8px;
-        display: flex;
-        flex-direction: column;
-        margin-top: 4px;
-      "
-    >
-      <label label="Saves" variant="bold" size="xs"></label>
-      <divider></divider>
-      <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          width: 100%;
-          margin-bottom: 4px;
-          justify-content: space-between;
-        "
-      >
-        <div style="display: flex; flex-direction: column">
-          <div
-            style="
-              display: flex;
-              flex-direction: row;
-              gap: 4px;
-              align-items: center;
-            "
-          >
-            <label label="Fort" variant="bold" size="xs"></label>
-            <iconbutton
-              size="xs"
-              variant="subtle"
-              options='[{"icon": "D20", "label": "Roll Fortitude Save", "value": "roll"}]'
-              onclick="performSaveRoll('fortitude')"
-            ></iconbutton>
-          </div>
-          <numberfield
-            field="fortitudeMod"
-            placeholder="+0"
-            textalign="center"
-            showsign="true"
-            hidecontrols="true"
-            width="40px"
-            size="xs"
-          ></numberfield>
-        </div>
-        <div style="display: flex; flex-direction: column">
-          <div
-            style="
-              display: flex;
-              flex-direction: row;
-              gap: 4px;
-              align-items: center;
-            "
-          >
-            <label label="Ref" variant="bold" size="xs"></label>
-            <iconbutton
-              size="xs"
-              variant="subtle"
-              options='[{"icon": "D20", "label": "Roll Reflex Save", "value": "roll"}]'
-              onclick="performSaveRoll('reflex')"
-            ></iconbutton>
-          </div>
-
-          <numberfield
-            field="reflexMod"
-            placeholder="+0"
-            textalign="center"
-            showsign="true"
-            width="40px"
-            hidecontrols="true"
-            size="xs"
-          ></numberfield>
-        </div>
-        <div style="display: flex; flex-direction: column">
-          <div
-            style="
-              display: flex;
-              flex-direction: row;
-              gap: 4px;
-              align-items: center;
-            "
-          >
-            <label label="Will" variant="bold" size="xs"></label>
-            <iconbutton
-              size="xs"
-              variant="subtle"
-              options='[{"icon": "D20", "label": "Roll Will Save", "value": "roll"}]'
-              onclick="performSaveRoll('will')"
-            ></iconbutton>
-          </div>
-          <numberfield
-            field="willMod"
-            placeholder="+0"
-            textalign="center"
-            showsign="true"
-            hidecontrols="true"
-            width="40px"
-            size="xs"
-          ></numberfield>
-        </div>
-      </div>
-      <numberfield
-        field="saveBonus"
-        width="100%"
-        placeholder="Bonus to all saves..."
-        size="xs"
-        textalign="center"
-        showsign="true"
-        variant="tooltip"
-        label="Bonus"
-        hidecontrols="true"
-      ></numberfield>
-    </div>
-
     <!-- Speeds section -->
-    <div
-      style="
-        margin-top: 8px;
-        display: flex;
-        flex-direction: column;
-        margin-top: 4px;
-      "
-    >
+    <box field="npcProperties">
       <div
         style="
+          margin-top: 8px;
           display: flex;
-          flex-direction: row;
-          gap: 4px;
-          align-items: center;
-          margin-bottom: 4px;
-        "
-      >
-        <div style="flex: 1">
-          <label label="Speeds" variant="bold" size="xs"></label>
-        </div>
-        <popover>
-          <popover.target>
-            <iconbutton
-              size="sm"
-              variant="default"
-              hideonlocked="true"
-              options='[{"icon": "IconEdit", "label": "Edit Speeds", "value": "editSpeeds"}]'
-              onclick="onEditSpeeds()"
-            ></iconbutton>
-          </popover.target>
-          <popover.dropdown>
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 300px;
-              "
-            >
-              <label label="Speeds" variant="bold" size="xs"></label>
-              <list listtype="npc_speeds_edit_list" field="speeds"></list>
-            </div>
-          </popover.dropdown>
-        </popover>
-      </div>
-      <divider></divider>
-      <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          width: 100%;
-          margin-bottom: 4px;
-          justify-content: space-between;
+          flex-direction: column;
+          margin-top: 4px;
         "
       >
         <div
@@ -1517,27 +1470,76 @@
             flex-direction: row;
             gap: 4px;
             align-items: center;
-            margin-top: 4px;
+            margin-bottom: 4px;
           "
         >
-          <numberfield
-            field="speed.value"
-            placeholder="0"
-            textalign="center"
-            width="60px"
-            hidecontrols="true"
-            size="xs"
-          ></numberfield>
-          <stringfield
-            field="speed.details"
-            placeholder="Speed details..."
-            width="100%"
-            size="xs"
-          ></stringfield>
+          <div style="flex: 1">
+            <label label="Speeds" variant="bold" size="xs"></label>
+          </div>
+          <popover>
+            <popover.target>
+              <iconbutton
+                size="sm"
+                variant="default"
+                hideonlocked="true"
+                options='[{"icon": "IconEdit", "label": "Edit Speeds", "value": "editSpeeds"}]'
+                onclick="onEditSpeeds()"
+              ></iconbutton>
+            </popover.target>
+            <popover.dropdown>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  gap: 4px;
+                  min-width: 300px;
+                "
+              >
+                <label label="Speeds" variant="bold" size="xs"></label>
+                <list listtype="npc_speeds_edit_list" field="speeds"></list>
+              </div>
+            </popover.dropdown>
+          </popover>
         </div>
+        <divider></divider>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            width: 100%;
+            margin-bottom: 4px;
+            justify-content: space-between;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+              margin-top: 4px;
+            "
+          >
+            <numberfield
+              field="speed.value"
+              placeholder="0"
+              textalign="center"
+              width="60px"
+              hidecontrols="true"
+              size="xs"
+            ></numberfield>
+            <stringfield
+              field="speed.details"
+              placeholder="Speed details..."
+              width="100%"
+              size="xs"
+            ></stringfield>
+          </div>
+        </div>
+        <list listtype="npc_speeds_list" field="speeds"></list>
       </div>
-      <list listtype="npc_speeds_list" field="speeds"></list>
-    </div>
+    </box>
   </box>
 
   <!-- Traits -->
