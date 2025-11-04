@@ -6111,6 +6111,38 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     modifiers.push(mod);
   });
 
+  // Check if weapon has nonlethal trait and add option to make it lethal
+  const hasNonlethalTrait = traits.some(
+    (trait) =>
+      trait.toLowerCase().trim() === "nonlethal" ||
+      trait.toLowerCase().trim() === "non-lethal"
+  );
+
+  if (hasNonlethalTrait) {
+    // Check if there's already a circumstance penalty of -2 or more
+    // Circumstance penalties don't stack, so we only add this if needed
+    const existingCircumstancePenalties = otherBonusesAndPenalties.filter(
+      (mod) =>
+        mod.modifierType === "circumstance" &&
+        mod.value < 0 &&
+        Math.abs(mod.value) >= 2
+    );
+
+    let lethalPenaltyValue = -2;
+    if (existingCircumstancePenalties.length > 0) {
+      // Already have a -2 or worse circumstance penalty, so this adds nothing
+      lethalPenaltyValue = 0;
+    }
+
+    modifiers.push({
+      name: "Make Attack Lethal",
+      type: "circumstance",
+      value: lethalPenaltyValue,
+      active: false, // Inactive by default - player must opt in
+      modifierType: "circumstance",
+    });
+  }
+
   // If this is the second or third attach we add MAP
   if (attackNumber === 2 || attackNumber === 3) {
     let mapPenalty = attackNumber === 2 ? -5 : -10;
@@ -7041,6 +7073,54 @@ function getIWR(target, armorSpecDetails = null) {
     }
   }
 
+  // Check if target has object immunities
+  // Object immunities apply automatically to vehicles, or if explicitly listed in immunities
+  const isVehicle =
+    target.recordType === "npcs" && target.data?.type === "vehicle";
+  const hasObjectImmunitiesExplicit = immunityArray.some((immunity) => {
+    if (immunity?.data?.type) {
+      const type = immunity.data.type.toLowerCase().trim();
+      return (
+        type === "object-immunities" ||
+        type === "object immunities" ||
+        type === "object-immunity" ||
+        type === "object immunity"
+      );
+    }
+    return false;
+  });
+
+  // Apply object immunities if applicable
+  if (isVehicle || hasObjectImmunitiesExplicit) {
+    // Object Immunities: Inanimate objects and hazards are immune to:
+    // - Damage types: bleed, poison, spirit, vitality, void, mental, disease
+    // - Nonlethal attacks
+    // Note: Healing immunity is handled separately in applyDamage
+    // Note: Death effects check is handled separately in applyDamage
+    const objectImmuneDamageTypes = [
+      "bleed",
+      "poison",
+      "spirit",
+      "vitality",
+      "void",
+      "mental",
+      "disease",
+      "nonlethal",
+      "non-lethal",
+    ];
+
+    objectImmuneDamageTypes.forEach((type) => {
+      // Only add if not already present (explicit immunities take precedence)
+      if (!immunitiesMap[type]) {
+        immunitiesMap[type] = {
+          type: type,
+          doubleVs: null,
+          exceptions: null,
+        };
+      }
+    });
+  }
+
   return {
     immunities: immunitiesMap,
     weaknesses: weaknessesMap,
@@ -7498,6 +7578,32 @@ function applyDamage(
         Object.keys(damageByType).forEach((type) => {
           damageByTypeAfterHalf[type] = damageByType[type];
         });
+      }
+
+      // Check for nonlethal immunity (trait-based, not damage type)
+      // Nonlethal is a trait, so we check it separately before IWR
+      const isNonlethal = traits.some(
+        (trait) =>
+          trait.toLowerCase().trim() === "nonlethal" ||
+          trait.toLowerCase().trim() === "non-lethal"
+      );
+      const hasNonlethalImmunity =
+        IWR.immunities["nonlethal"] || IWR.immunities["non-lethal"];
+
+      // If target is immune to nonlethal and damage is nonlethal, negate all damage
+      if (isNonlethal && hasNonlethalImmunity && !isApplyingSplash) {
+        // Check if this immunity has an exception that matches the roll
+        if (
+          hasNonlethalImmunity.exceptions &&
+          rollMatchesCondition(roll, hasNonlethalImmunity.exceptions)
+        ) {
+          // Exception applies - ignore immunity, process damage normally
+        } else {
+          // Immune to nonlethal - set all damage to 0
+          Object.keys(damageByTypeAfterHalf).forEach((type) => {
+            damageByTypeAfterHalf[type] = 0;
+          });
+        }
       }
 
       // PF2e: Apply Immunities, Weaknesses, and Resistances

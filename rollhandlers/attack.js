@@ -1,8 +1,24 @@
 // Here we need to determine if it was a hit or miss and display in the chat.
 const rollName = data?.roll?.metadata?.rollName;
-const traits = data?.roll?.metadata?.traits || [];
+let traits = data?.roll?.metadata?.traits || [];
 const damageCategories = data?.roll?.metadata?.damageCategories || [];
 const propertyRunes = data?.roll?.metadata?.runes || [];
+
+// Check if "Make Attack Lethal" modifier was active
+// If so, remove nonlethal trait from traits array
+const modifiers = data?.roll?.metadata?.modifiers || [];
+const makeLethalModifier = modifiers.find(
+  (mod) => mod.name === "Make Attack Lethal" && mod.active === true
+);
+
+if (makeLethalModifier) {
+  // Remove nonlethal/non-lethal traits
+  traits = traits.filter(
+    (trait) =>
+      trait.toLowerCase().trim() !== "nonlethal" &&
+      trait.toLowerCase().trim() !== "non-lethal"
+  );
+}
 const attack = data?.roll?.metadata?.attack;
 const targetName = data?.roll?.metadata?.targetName;
 const tooltip = data?.roll?.metadata?.tooltip;
