@@ -991,89 +991,137 @@
       </div>
     </box>
 
-    <!-- AC Section -->
-    <div
-      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
-    >
+    <!-- NPC AC Section -->
+    <box field="npcProperties">
       <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          align-items: center;
-        "
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
       >
-        <label color="blue" label="AC" variant="bold" size="xs"></label>
-        <div style="width: 80px; margin-left: auto">
-          <numberfield
-            placeholder="0"
-            width="100%"
-            icon="IconShirt"
-            size="xs"
-            field="ac"
-          ></numberfield>
-        </div>
-      </div>
-      <stringfield
-        width="100%"
-        size="xs"
-        variant="tooltip-underline"
-        field="acDetails"
-        placeholder="AC details..."
-      ></stringfield>
-    </div>
-
-    <!-- Initiative Section -->
-    <div
-      style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
-    >
-      <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          align-items: center;
-        "
-      >
-        <label label="Initiative" variant="bold" size="xs"></label>
         <div
           style="
             display: flex;
             flex-direction: row;
             gap: 4px;
             align-items: center;
-            margin-left: auto;
           "
         >
-          <iconbutton
-            size="sm"
-            variant="light"
-            options='[{"icon": "D20", "label": "Roll Initiative", "value": "roll"}]'
-            onclick="performInitiativeRoll(record);"
-          ></iconbutton>
-          <numberfield
-            placeholder="+0"
-            width="60px"
-            size="xs"
-            showsign="true"
-            field="initiativeMod"
-          ></numberfield>
+          <label color="blue" label="AC" variant="bold" size="xs"></label>
+          <div style="width: 80px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              width="100%"
+              icon="IconShirt"
+              size="xs"
+              field="ac"
+            ></numberfield>
+          </div>
+        </div>
+        <stringfield
+          width="100%"
+          size="xs"
+          variant="tooltip-underline"
+          field="acDetails"
+          placeholder="AC details..."
+        ></stringfield>
+      </div>
+    </box>
+
+    <!-- Vehicle AC Section -->
+    <box field="vehicleProperties" hidden="true">
+      <div
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label color="blue" label="AC" variant="bold" size="xs"></label>
+          <div style="width: 80px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              width="100%"
+              icon="IconShirt"
+              size="xs"
+              field="ac"
+            ></numberfield>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <label label="Hardness" variant="bold" size="xs"></label>
+          <div style="width: 60px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              label="Hardness"
+              variant="tooltip"
+              width="100%"
+              size="xs"
+              field="hardness"
+            ></numberfield>
+          </div>
         </div>
       </div>
-      <dropdown
-        size="xs"
-        field="initiativeSkill"
-        width="100%"
-        placeholder="Perception"
-        defaultvalue="Perception"
-        onchange="updateInitiativeSkill(value)"
-        options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
-      ></dropdown>
-    </div>
 
-    <div style="margin-top: 4px">
-      <divider></divider>
-    </div>
+      <div style="margin-top: 4px">
+        <divider></divider>
+      </div>
+    </box>
+
+    <!-- Initiative Section -->
+    <box field="npcProperties">
+      <div
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label label="Initiative" variant="bold" size="xs"></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+              margin-left: auto;
+            "
+          >
+            <iconbutton
+              size="sm"
+              variant="light"
+              options='[{"icon": "D20", "label": "Roll Initiative", "value": "roll"}]'
+              onclick="performInitiativeRoll(record);"
+            ></iconbutton>
+            <numberfield
+              placeholder="+0"
+              width="60px"
+              size="xs"
+              showsign="true"
+              field="initiativeMod"
+            ></numberfield>
+          </div>
+        </div>
+        <dropdown
+          size="xs"
+          field="initiativeSkill"
+          width="100%"
+          placeholder="Perception"
+          defaultvalue="Perception"
+          onchange="updateInitiativeSkill(value)"
+          options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
+        ></dropdown>
+      </div>
+
+      <div style="margin-top: 4px">
+        <divider></divider>
+      </div>
+    </box>
 
     <!-- IWR Section -->
     <div
