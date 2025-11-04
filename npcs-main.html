@@ -37,6 +37,7 @@
     }
 
     const type = !npc.data?.type ? "npc" : npc.data?.type;
+    const isNPC = type === "npc";
     const typeLabel = type === "npc" ? "Creature" : capitalize(type);
     const levelLabel = `${typeLabel}`;
 
@@ -91,6 +92,39 @@
       vehicleFieldsToShow.forEach((field) => {
         if (npc.fields?.[field]?.hidden !== true) {
           valuesToSet[`${fieldsPath}.${field}.hidden`] = true;
+        }
+      });
+    }
+
+    const isHazard = type === "hazard";
+    const hazardFieldsToShow = ["hazardProperties"];
+    if (isHazard) {
+      hazardFieldsToShow.forEach((field) => {
+        if (npc.fields?.[field]?.hidden !== false) {
+          valuesToSet[`${fieldsPath}.${field}.hidden`] = false;
+        }
+      });
+    } else {
+      hazardFieldsToShow.forEach((field) => {
+        if (npc.fields?.[field]?.hidden !== true) {
+          valuesToSet[`${fieldsPath}.${field}.hidden`] = true;
+        }
+      });
+    }
+
+    // Shared properties
+    const sharedProperties = ["sharedProperties"];
+    // Hazards and NPCs both have sharedProperties box
+    if (isHazard || isNPC) {
+      sharedProperties.forEach((property) => {
+        if (npc.fields?.[property]?.hidden !== false) {
+          valuesToSet[`${fieldsPath}.${property}.hidden`] = false;
+        }
+      });
+    } else {
+      sharedProperties.forEach((property) => {
+        if (npc.fields?.[property]?.hidden !== true) {
+          valuesToSet[`${fieldsPath}.${property}.hidden`] = true;
         }
       });
     }
@@ -1053,6 +1087,89 @@
       </div>
     </box>
 
+    <!-- Hazard Defenses Section -->
+    <box field="hazardProperties" hidden="true">
+      <div
+        style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px"
+      >
+        <label label="Defenses" variant="bold" size="xs"></label>
+        <divider></divider>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label color="pink" label="HP" variant="bold" size="xs"></label>
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              gap: 4px;
+              align-items: center;
+              margin-left: auto;
+            "
+          >
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="curhp"
+            ></numberfield>
+            <label label="/" size="xs" variant="bold"></label>
+            <numberfield
+              placeholder="0"
+              width="60px"
+              size="xs"
+              field="hitpoints"
+              onchange="showHideFields()"
+            ></numberfield>
+          </div>
+        </div>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+          "
+        >
+          <label color="blue" label="AC" variant="bold" size="xs"></label>
+          <div style="width: 80px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              width="100%"
+              icon="IconShirt"
+              size="xs"
+              field="ac"
+            ></numberfield>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <label label="Hardness" variant="bold" size="xs"></label>
+          <div style="width: 60px; margin-left: auto">
+            <numberfield
+              placeholder="0"
+              label="Hardness"
+              variant="tooltip"
+              width="100%"
+              size="xs"
+              field="hardness"
+            ></numberfield>
+          </div>
+        </div>
+        <stringfield
+          width="100%"
+          size="xs"
+          variant="tooltip-underline"
+          field="hpDetails"
+          placeholder="HP details..."
+        ></stringfield>
+      </div>
+    </box>
+
     <!-- NPC AC Section -->
     <box field="npcProperties">
       <div
@@ -2010,91 +2127,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Attacks Section -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
-          <divider color="primary" label="ATTACKS" textalign="center"></divider>
-          <div style="display: flex; flex-direction: row; align-items: center">
-            <list
-              field="attacks"
-              listtype="npc_attack_list"
-              size="xs"
-              onchange="onAddRemoveAttack();"
-            ></list>
-          </div>
-        </div>
-
-        <!-- Actions Section -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
-          <div
-            style="
-              display: flex;
-              flex-direction: row;
-              align-items: center;
-              width: 100%;
-            "
-          >
-            <div style="width: 100%; margin-right: 4px">
-              <divider
-                color="primary"
-                width="100%"
-                label="ACTIONS"
-                textalign="center"
-              ></divider>
-            </div>
-            <iconbutton
-              size="sm"
-              variant="default"
-              hideonlocked="true"
-              options='[{"icon": "IconPlus", "label": "Add Action", "value": "addAction"}]'
-              onclick="onAddAction('action');"
-              field="addActionBtn"
-            ></iconbutton>
-          </div>
-          <div style="display: flex; flex-direction: row; align-items: center">
-            <list
-              listtype="npc_actions_list"
-              field="actions"
-              getfilters="return filterActions('action');"
-            ></list>
-          </div>
-        </div>
-
-        <!-- Passives Section -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
-          <div
-            style="
-              display: flex;
-              flex-direction: row;
-              align-items: center;
-              width: 100%;
-            "
-          >
-            <div style="width: 100%; margin-right: 4px">
-              <divider
-                color="primary"
-                width="100%"
-                label="PASSIVES"
-                textalign="center"
-              ></divider>
-            </div>
-            <iconbutton
-              size="sm"
-              variant="default"
-              hideonlocked="true"
-              options='[{"icon": "IconPlus", "label": "Add Passive", "value": "addPassive"}]'
-              onclick="onAddAction('passive');"
-              field="addPassiveBtn"
-            ></iconbutton>
-          </div>
-          <div style="display: flex; flex-direction: row; align-items: center">
-            <list
-              listtype="npc_actions_list"
-              field="actions"
-              getfilters="return filterActions('passive');"
-            ></list>
-          </div>
-        </div>
       </box>
 
       <!-- Vehicle Properties -->
@@ -2186,6 +2218,153 @@
           ></stringfield>
         </div>
       </box>
+
+      <!-- Hazard Properties -->
+      <box field="hazardProperties" hidden="true" width="100%">
+        <divider color="primary" label="STEALTH" textalign="center"></divider>
+        <div style="margin-bottom: 4px">
+          <numberfield
+            width="100%"
+            size="xs"
+            field="sealth.value"
+            label="Stealth DC"
+            placeholder="0"
+          ></numberfield>
+        </div>
+        <richtextfield
+          width="100%"
+          size="xs"
+          field="stealth.details"
+          placeholder="Enter stealth details..."
+        ></richtextfield>
+        <divider color="primary" label="DISABLE" textalign="center"></divider>
+        <richtextfield
+          width="100%"
+          size="xs"
+          field="disable"
+          placeholder="Enter disable details..."
+        ></richtextfield>
+        <divider color="primary" label="ROUTINE" textalign="center"></divider>
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-bottom: 4px;
+          "
+        >
+          <checkbox size="xs" field="isComplex" label="Is Complex"></checkbox>
+        </div>
+        <richtextfield
+          width="100%"
+          size="xs"
+          field="routine"
+          placeholder="Enter routine details..."
+        ></richtextfield>
+        <divider color="primary" label="RESET" textalign="center"></divider>
+        <richtextfield
+          width="100%"
+          size="xs"
+          field="reset"
+          placeholder="Enter reset details..."
+        ></richtextfield>
+      </box>
     </div>
+
+    <!-- Proprties shared with other types -->
+    <box field="sharedProperties">
+      <!-- Attacks Section -->
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+        <divider color="primary" label="ATTACKS" textalign="center"></divider>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <list
+            field="attacks"
+            listtype="npc_attack_list"
+            size="xs"
+            onchange="onAddRemoveAttack();"
+          ></list>
+        </div>
+      </div>
+
+      <!-- Actions Section -->
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
+          "
+        >
+          <div style="width: 100%; margin-right: 4px">
+            <divider
+              color="primary"
+              width="100%"
+              label="ACTIONS"
+              textalign="center"
+            ></divider>
+          </div>
+          <iconbutton
+            size="sm"
+            variant="default"
+            hideonlocked="true"
+            options='[{"icon": "IconPlus", "label": "Add Action", "value": "addAction"}]'
+            onclick="onAddAction('action');"
+            field="addActionBtn"
+          ></iconbutton>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <list
+            listtype="npc_actions_list"
+            field="actions"
+            getfilters="return filterActions('action');"
+          ></list>
+        </div>
+      </div>
+
+      <!-- Passives Section -->
+      <div
+        style="
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 4px;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
+          "
+        >
+          <div style="width: 100%; margin-right: 4px">
+            <divider
+              color="primary"
+              width="100%"
+              label="PASSIVES"
+              textalign="center"
+            ></divider>
+          </div>
+          <iconbutton
+            size="sm"
+            variant="default"
+            hideonlocked="true"
+            options='[{"icon": "IconPlus", "label": "Add Passive", "value": "addPassive"}]'
+            onclick="onAddAction('passive');"
+            field="addPassiveBtn"
+          ></iconbutton>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <list
+            listtype="npc_actions_list"
+            field="actions"
+            getfilters="return filterActions('passive');"
+          ></list>
+        </div>
+      </div>
+    </box>
   </box>
 </div>
