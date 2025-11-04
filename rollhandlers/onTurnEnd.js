@@ -44,34 +44,3 @@ if (modifiers.length > 0) {
     });
   }
 }
-
-// Check if the target's shield is up and is a character
-const shieldUp = token?.data?.shieldRaised === "true";
-const isCharacter = token?.recordType === "characters";
-if (shieldUp && token?.recordId) {
-  if (isCharacter) {
-    api.getRecord("characters", token?.recordId, (record) => {
-      if (record) {
-        const valuesToSet = {
-          "data.shieldRaised": "false",
-        };
-        api.setValuesOnRecord(record, valuesToSet, (updatedRecord) => {
-          // If update was successful, then recalc AC and  bonuses
-          onAddEditFeature(updatedRecord, undefined, true);
-        });
-      }
-    });
-  } else if (token?.recordType === "npcs" && token?.recordId) {
-    api.setValuesOnTokenById(
-      token?._id,
-      token?.recordType,
-      {
-        "data.shieldRaised": "false",
-      },
-      (updatedToken) => {
-        // If update was successful, then recalc AC and  bonuses
-        onAddEditFeature(updatedToken, undefined, true);
-      }
-    );
-  }
-}

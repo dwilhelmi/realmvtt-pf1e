@@ -833,6 +833,58 @@
 
     api.addValue("data.actions", newAction);
   }
+
+  function raiseShield(value) {
+    if (value === "true") {
+      const ourToken = api.getToken();
+      if (ourToken) {
+        api.floatText(ourToken, "Raising a Shield", "#0000ff");
+      }
+      api.sendMessage(
+        "**[center]Raising a Shield[/center]**",
+        undefined,
+        [],
+        [],
+        ourToken
+      );
+    }
+    if (value === "false") {
+      const ourToken = api.getToken();
+      if (ourToken) {
+        api.floatText(ourToken, "Lowering a Shield", "#0000ff");
+      }
+      api.sendMessage(
+        "**[center]Lowering a Shield[/center]**",
+        undefined,
+        [],
+        [],
+        ourToken
+      );
+    }
+
+    // Check for a shield in the inventory and use this AC, else default to 2
+    const inventory = record.data?.inventory || [];
+    const shield = inventory.find((item) => item.data?.type === "shield");
+    const equippedShield = inventory.find(
+      (item) =>
+        item.data?.carried === "equipped" && item.data?.type === "shield"
+    );
+    let shieldAc = 2;
+    if (equippedShield || shield) {
+      // Use equipped shield first, else the other one we find
+      shieldAc = equippedShield?.data?.acBonus || shield?.data?.acBonus || 0;
+    }
+
+    // If raising, add to AC, else subtract
+    let newAC = record.data?.ac || 0;
+    if (value === "true") {
+      newAC += shieldAc;
+    } else {
+      newAC -= shieldAc;
+    }
+
+    api.setValues({ "data.ac": newAC });
+  }
 </script>
 
 <style>
@@ -1014,6 +1066,13 @@
               field="ac"
             ></numberfield>
           </div>
+          <iconbutton
+            size="md"
+            variant="default"
+            options='[{"icon": "IconShield", "label": "Raise Shield", "value": "false"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "true"}]'
+            field="shieldRaised"
+            onchange="raiseShield(value)"
+          ></iconbutton>
         </div>
         <stringfield
           width="100%"
