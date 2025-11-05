@@ -1012,6 +1012,24 @@ function updateAllAttributes(record, callback = undefined) {
   }
 }
 
+// Get an effect macro for a given effect by its name and apply it a given number of times (max 4)
+function applyEffect(
+  effectName,
+  times = 1,
+  duration = undefined,
+  value = undefined
+) {
+  let targets = api.getSelectedOrDroppedToken();
+  targets.forEach((target) => {
+    const effects = [];
+    for (let i = 0; i < times; i++) {
+      effects.push(effectName);
+    }
+    console.log("Adding effects", effects);
+    api.addEffects(effects, target, duration, value);
+  });
+}
+
 // Gets macros for all effects that an ability can apply
 function getEffectMacrosFor(effects = []) {
   let effectButtons = "";
