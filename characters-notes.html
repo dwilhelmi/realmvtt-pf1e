@@ -1,3 +1,110 @@
+<script>
+  function onAddImmunity() {
+    const immunities = record?.data?.immunities;
+    const valuesToSet = {};
+    immunities.forEach((immunity, index) => {
+      if (immunity.fields?.valueBox?.hidden !== true) {
+        valuesToSet[`data.immunities.${index}.fields.valueBox.hidden`] = true;
+        valuesToSet[`data.immunities.${index}.fields.doubleVs.hidden`] = true;
+      }
+    });
+
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet);
+    }
+  }
+
+  function onSelectShapeshifting(recordLink) {
+    const npc = recordLink?.value;
+    const valuesToSet = {};
+
+    const tokenForRecord = api.getToken();
+    if (!tokenForRecord) {
+      api.showNotification(
+        `No token found for Token Change Effect.`,
+        "yellow",
+        "No Token"
+      );
+      return;
+    }
+
+    valuesToSet["fields.shapeshiftingNpc.hidden"] = false;
+    valuesToSet["fields.shapeshiftingNameNone.hidden"] = true;
+    valuesToSet["fields.Remove Shape-shift.hidden"] = false;
+
+    // First set the recordLink
+    const linkField = "data.shapeshiftingNpc";
+    api.setRecordLink(linkField, recordLink, () => {
+      //  Then set the values
+      api.setValues(valuesToSet, (record) => {
+        // Then we apply a token change effect
+        if (tokenForRecord) {
+          api.addTokenChangeEffect(npc._id, tokenForRecord);
+        } else {
+          api.showNotification(
+            `No token found for Token Change Effect.`,
+            "yellow",
+            "No Token"
+          );
+        }
+      });
+    });
+  }
+
+  function onDropNpc(recordLink) {
+    const npc = recordLink?.value;
+    api.showConfirm(
+      "Shape-shift (Token Change Effect)",
+      `Are you sure you want to shape-shift to "${npc.name}"?`,
+      "Yes",
+      "No",
+      () => {
+        onSelectShapeshifting(recordLink);
+      }
+    );
+  }
+
+  function onDrop(type, recordLink) {
+    if (type === "npcs") {
+      onDropNpc(recordLink);
+    }
+  }
+
+  function removeShapeshiftingEffect() {
+    // In both cases, we apply a token change effect
+    const tokenForRecord = api.getToken();
+    if (tokenForRecord) {
+      const effectToRemove = record?.effectIds?.find((effectId) =>
+        effectId.startsWith("token-")
+      );
+      if (effectToRemove) {
+        api.removeEffectById(effectToRemove, tokenForRecord);
+      }
+    } else {
+      api.showNotification(
+        `No token found for Token Change Effect.`,
+        "yellow",
+        "No Token"
+      );
+    }
+  }
+
+  function removeShapeshifting(value) {
+    api.setValues(
+      {
+        "data.shapeshiftingNpc": null,
+        "fields.shapeshiftingNpc.hidden": true,
+        "fields.shapeshiftingNameNone.hidden": false,
+        "fields.Remove Shape-shift.hidden": true,
+      },
+      () => {
+        // Then remove the effect
+        removeShapeshiftingEffect();
+      }
+    );
+  }
+</script>
+
 <div>
   <label variant="bold" textalign="center" label="Notes and Backstory"></label>
 </div>
@@ -53,4 +160,72 @@
     field="notes"
     placeholder="Enter additional details..."
   ></richtextfield>
+</div>
+
+<div style="margin-top: 8px">
+  <label
+    variant="bold"
+    textalign="center"
+    label="Resistances, Immunities, & Weaknesses"
+  ></label>
+</div>
+
+<list listtype="iwr_list" field="resistances" label="Resistances"></list>
+<list
+  listtype="iwr_list"
+  field="immunities"
+  label="Immunities"
+  onchange="onAddImmunity()"
+></list>
+<list listtype="iwr_list" field="weaknesses" label="Weaknesses"></list>
+
+<div style="margin-top: 8px">
+  <label variant="bold" textalign="center" label="Shape-shifting"></label>
+</div>
+
+<div style="margin-top: 4px">
+  <label
+    textalign="center"
+    size="sm"
+    label="Drag an NPC to this Tab to Set your Token to The NPC's"
+  ></label>
+</div>
+
+<div
+  style="
+    justify-content: center;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+  "
+>
+  <div style="display: flex; flex-direction: row; gap: 4px; margin-top: 4px">
+    <label
+      variant="bold"
+      size="sm"
+      textalign="left"
+      label="Shape-shifting: "
+    ></label>
+    <recordlink
+      field="shapeshiftingNpc"
+      hidden="true"
+      onchange="removeShapeshifting();"
+    ></recordlink>
+    <label
+      size="sm"
+      textalign="left"
+      field="shapeshiftingNameNone"
+      label="None"
+    ></label>
+    <iconbutton
+      field="Remove Shape-shift"
+      size="sm"
+      hidden="true"
+      variant="default"
+      options='[{"icon": "IconTrash", "label": "Remove", "value": "remove"}]'
+      onclick="removeShapeshifting();"
+    >
+    </iconbutton>
+  </div>
 </div>

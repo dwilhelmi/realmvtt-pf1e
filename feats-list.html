@@ -82,6 +82,7 @@
             featSlot: { hidden: true },
           },
         };
+
         api.setValues(valuesToSet, (updatedRecord) => {
           onAddEditFeature(updatedRecord);
         });
@@ -108,7 +109,6 @@
             featSlotType: featSlot?.data?.featSlotType,
             slotOrder: featSlot?.data?.slotOrder,
             actionType: "",
-            type: "",
             prerequisites: "",
             actions: [],
             levelLabel: "",
