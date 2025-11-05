@@ -1,125 +1,28 @@
 <script>
-  // TODO update for PF2e
-
-  function onSelectShapeshifting(value, recordLink) {
+  function onSelectShapeshifting(recordLink) {
     const npc = recordLink?.value;
-    const selectedValue = value[0];
     const valuesToSet = {};
+
+    const tokenForRecord = api.getToken();
+    if (!tokenForRecord) {
+      api.showNotification(
+        `No token found for Token Change Effect.`,
+        "yellow",
+        "No Token"
+      );
+      return;
+    }
 
     valuesToSet["fields.shapeshiftingNpc.hidden"] = false;
     valuesToSet["fields.shapeshiftingNameNone.hidden"] = true;
     valuesToSet["fields.Remove Shape-shift.hidden"] = false;
-
-    // If wildshape, we only set physical stats, polymorph sets all stats
-    let hasCircleForms = false; // True if we're wild shaping and have Circle Forms
-    if (selectedValue === "polymorph") {
-      // Polymorph also gets mental stats
-      valuesToSet["data.intelligence"] = npc?.data?.intelligence;
-      valuesToSet["data.wisdom"] = npc?.data?.wisdom;
-      valuesToSet["data.charisma"] = npc?.data?.charisma;
-      valuesToSet["data.intelligenceMod"] = npc?.data?.intelligenceMod;
-      valuesToSet["data.wisdomMod"] = npc?.data?.wisdomMod;
-      valuesToSet["data.charismaMod"] = npc?.data?.charismaMod;
-      valuesToSet["data.intelligenceSave"] = npc?.data?.intelligenceSave;
-      valuesToSet["data.wisdomSave"] = npc?.data?.wisdomSave;
-      valuesToSet["data.charismaSave"] = npc?.data?.charismaSave;
-
-      // You gain Temp HP equal the the HP of the new form
-      valuesToSet["data.tempHp"] = npc?.data?.hitpoints;
-    } else {
-      // Wild Shape gains Temp HP equal to your druid level
-      if (selectedValue === "wildshape") {
-        // NPCs use CR has level
-        let druidLevel = parseInt(npc?.data?.cr || "1", 10);
-        if (isNaN(druidLevel)) {
-          druidLevel = 1;
-        }
-        valuesToSet["data.tempHp"] = druidLevel;
-      } else {
-        // Animal Shapes gets animal HP as temp HP like polymorph
-        valuesToSet["data.tempHp"] = npc?.data?.hitpoints;
-      }
-    }
-
-    // Store old values for recovery later
-    valuesToSet["data.oldStrength"] = record?.data?.strength;
-    valuesToSet["data.oldDexterity"] = record?.data?.dexterity;
-    valuesToSet["data.oldConstitution"] = record?.data?.constitution;
-    valuesToSet["data.oldIntelligence"] = record?.data?.intelligence;
-    valuesToSet["data.oldWisdom"] = record?.data?.wisdom;
-    valuesToSet["data.oldCharisma"] = record?.data?.charisma;
-    valuesToSet["data.oldAc"] = record?.data?.ac;
-    valuesToSet["data.oldSenses"] = record?.data?.senses;
-    valuesToSet["data.oldSpeed"] = record?.data?.speed;
-    valuesToSet["data.oldResistances"] = record?.data?.resistances;
-    valuesToSet["data.oldImmunities"] = record?.data?.immunities;
-    valuesToSet["data.oldVulnerabilities"] = record?.data?.vulnerabilities;
-    valuesToSet["data.oldStrengthMod"] = record?.data?.strengthMod;
-    valuesToSet["data.oldDexterityMod"] = record?.data?.dexterityMod;
-    valuesToSet["data.oldConstitutionMod"] = record?.data?.constitutionMod;
-    valuesToSet["data.oldIntelligenceMod"] = record?.data?.intelligenceMod;
-    valuesToSet["data.oldWisdomMod"] = record?.data?.wisdomMod;
-    valuesToSet["data.oldCharismaMod"] = record?.data?.charismaMod;
-    valuesToSet["data.oldStrengthSave"] = record?.data?.strengthSave;
-    valuesToSet["data.oldDexteritySave"] = record?.data?.dexteritySave;
-    valuesToSet["data.oldConstitutionSave"] = record?.data?.constitutionSave;
-    valuesToSet["data.oldIntelligenceSave"] = record?.data?.intelligenceSave;
-    valuesToSet["data.oldWisdomSave"] = record?.data?.wisdomSave;
-    valuesToSet["data.oldCharismaSave"] = record?.data?.charismaSave;
-
-    // Set the new values
-    valuesToSet["data.strength"] = npc?.data?.strength;
-    valuesToSet["data.dexterity"] = npc?.data?.dexterity;
-    valuesToSet["data.constitution"] = npc?.data?.constitution;
-    valuesToSet["data.strengthMod"] = npc?.data?.strengthMod;
-    valuesToSet["data.dexterityMod"] = npc?.data?.dexterityMod;
-    valuesToSet["data.constitutionMod"] = npc?.data?.constitutionMod;
-    valuesToSet["data.strengthSave"] = npc?.data?.strengthSave;
-    valuesToSet["data.dexteritySave"] = npc?.data?.dexteritySave;
-    valuesToSet["data.constitutionSave"] = npc?.data?.constitutionSave;
-    valuesToSet["data.ac"] = npc?.data?.ac;
-    valuesToSet["data.senses"] = npc?.data?.senses;
-    valuesToSet["data.speed"] = npc?.data?.speed;
-    valuesToSet["data.resistances"] = npc?.data?.resistances;
-    valuesToSet["data.immunities"] = npc?.data?.immunities;
-    valuesToSet["data.vulnerabilities"] = npc?.data?.vulnerabilities;
 
     // First set the recordLink
     const linkField = "data.shapeshiftingNpc";
     api.setRecordLink(linkField, recordLink, () => {
       //  Then set the values
       api.setValues(valuesToSet, (record) => {
-        // Then set modifiers for the new values
-        const moreValuesToSet = {};
-        const statsUpdated = ["strength", "dexterity", "constitution"];
-        if (selectedValue === "polymorph") {
-          statsUpdated.push("intelligence", "wisdom", "charisma");
-        }
-        statsUpdated.forEach((attribute) => {
-          const value = npc?.data?.[attribute];
-          setModifier(value, attribute, {}, moreValuesToSet);
-        });
-
-        // Target retains their hitpoints
-        moreValuesToSet[`data.hitpoints`] = record?.data?.hitpoints;
-        // Override AC settings with what NPC had
-        if (!hasCircleForms) {
-          moreValuesToSet["data.ac"] = npc?.data?.ac;
-        } else {
-          // AC equals 13 plus your Wisdom modifier if that total is higher than the Beast’s AC.
-          const wisdomMod = parseInt(record?.data?.wisdomMod || "0", 10);
-          const newFormAc = 13 + wisdomMod;
-          if (newFormAc > npc?.data?.ac) {
-            moreValuesToSet["data.ac"] = newFormAc;
-          } else {
-            moreValuesToSet["data.ac"] = npc?.data?.ac;
-          }
-        }
-
-        api.setValues(moreValuesToSet);
-
         // Then we apply a token change effect
-        const tokenForRecord = api.getToken();
         if (tokenForRecord) {
           api.addTokenChangeEffect(npc._id, tokenForRecord);
         } else {
@@ -135,22 +38,14 @@
 
   function onDropNpc(recordLink) {
     const npc = recordLink?.value;
-    // Prompt User to select Polymorph or Wild Shape
-    const options = [
-      { label: "Polymorph", value: "polymorph" },
-      { label: "Wild Shape", value: "wildshape" },
-      { label: "Animal Shapes", value: "animalShapes" },
-    ];
-    api.showPrompt(
-      `Select Shape-shifting`,
-      `Select Shape-shifting for ${npc?.name}`,
-      `Select Shape-shifting...`,
-      options,
-      null,
-      (value) => onSelectShapeshifting(value, recordLink),
-      "OK",
-      "Cancel",
-      1
+    api.showConfirm(
+      "Shape-shift (Token Change Effect)",
+      `Are you sure you want to shape-shift to "${npc.name}"?`,
+      "Yes",
+      "No",
+      () => {
+        onSelectShapeshifting(recordLink);
+      }
     );
   }
 
@@ -180,42 +75,12 @@
   }
 
   function removeShapeshifting(value) {
-    if (value) {
-      return;
-    }
-
-    // We're removing it so proceed
     api.setValues(
       {
         "data.shapeshiftingNpc": null,
         "fields.shapeshiftingNpc.hidden": true,
         "fields.shapeshiftingNameNone.hidden": false,
         "fields.Remove Shape-shift.hidden": true,
-        "data.strength": record?.data?.oldStrength,
-        "data.dexterity": record?.data?.oldDexterity,
-        "data.constitution": record?.data?.oldConstitution,
-        "data.intelligence": record?.data?.oldIntelligence,
-        "data.wisdom": record?.data?.oldWisdom,
-        "data.charisma": record?.data?.oldCharisma,
-        "data.strengthSave": record?.data?.oldStrengthSave,
-        "data.dexteritySave": record?.data?.oldDexteritySave,
-        "data.constitutionSave": record?.data?.oldConstitutionSave,
-        "data.intelligenceSave": record?.data?.oldIntelligenceSave,
-        "data.wisdomSave": record?.data?.oldWisdomSave,
-        "data.charismaSave": record?.data?.oldCharismaSave,
-        "data.strengthMod": record?.data?.oldStrengthMod,
-        "data.dexterityMod": record?.data?.oldDexterityMod,
-        "data.constitutionMod": record?.data?.oldConstitutionMod,
-        "data.intelligenceMod": record?.data?.oldIntelligenceMod,
-        "data.wisdomMod": record?.data?.oldWisdomMod,
-        "data.charismaMod": record?.data?.oldCharismaMod,
-        "data.hitpoints": record?.data?.oldHitpoints,
-        "data.ac": record?.data?.oldAc,
-        "data.senses": record?.data?.oldSenses,
-        "data.speed": record?.data?.oldSpeed,
-        "data.resistances": record?.data?.oldResistances,
-        "data.immunities": record?.data?.oldImmunities,
-        "data.vulnerabilities": record?.data?.oldVulnerabilities,
       },
       () => {
         // Then remove the effect
@@ -231,24 +96,20 @@
 
 <div>
   <richtextfield
-    field="notes"
+    field="description"
     placeholder="Enter description..."
   ></richtextfield>
 </div>
 
 <div style="margin-top: 8px">
-  <label
-    variant="bold"
-    textalign="center"
-    label="Polymorph, Wild Shape, and Shape-shifting"
-  ></label>
+  <label variant="bold" textalign="center" label="Shape-shifting"></label>
 </div>
 
 <div style="margin-top: 4px">
   <label
     textalign="center"
     size="sm"
-    label="Drag an NPC to this Tab to use Shape-shifting"
+    label="Drag an NPC to this Tab to Set your Token to The NPC's"
   ></label>
 </div>
 
