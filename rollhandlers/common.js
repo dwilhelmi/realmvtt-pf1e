@@ -584,18 +584,241 @@ function getDamageEffectsForTarget(ourToken, target) {
   return results;
 }
 
-// Same as getEffectsAndModifiers but for a token that is passed
+/**
+ * Collects all relevant traits and properties from a token and context objects
+ * for predicate evaluation.
+ *
+ * @param {Object} token - The token/record to check
+ * @param {Object} context - Context object containing additional objects like weapon, spell, etc.
+ * @returns {Set} Set of all trait strings (e.g., "self:trait:fire", "item:damage:type:slashing")
+ */
+function collectTraitsAndProperties(token, context = {}) {
+  const traits = new Set();
+
+  // Collect traits from the token itself
+  if (token?.data?.traits) {
+    const tokenTraits = Array.isArray(token.data.traits)
+      ? token.data.traits
+      : [];
+
+    tokenTraits.forEach((trait) => {
+      const traitName = typeof trait === "string" ? trait : trait.name;
+      if (traitName) {
+        traits.add(`self:trait:${traitName.toLowerCase()}`);
+      }
+    });
+  }
+
+  // Collect token type (e.g., "npc", "character")
+  // recordType can be "tokens", "npcs", or "characters"
+  if (token?.recordType) {
+    if (token.recordType === "tokens" || token.recordType === "npcs") {
+      traits.add(`self:type:npc`);
+    } else if (token.recordType === "characters") {
+      traits.add(`self:type:character`);
+    }
+  }
+
+  // Collect action name if provided (e.g., "Subsist" becomes "action:subsist")
+  if (context.action && context.action.name) {
+    const actionName = context.action.name.toLowerCase().replace(/\s+/g, "-");
+    traits.add(`action:${actionName}`);
+  }
+
+  // Collect properties from context objects (weapon, spell, etc.)
+  Object.values(context).forEach((obj) => {
+    if (!obj) return;
+
+    // Collect item traits
+    if (obj.data?.traits) {
+      const itemTraits = Array.isArray(obj.data.traits) ? obj.data.traits : [];
+      itemTraits.forEach((trait) => {
+        const traitName = typeof trait === "string" ? trait : trait.name;
+        if (traitName) {
+          traits.add(`item:trait:${traitName.toLowerCase()}`);
+        }
+      });
+    }
+
+    // Collect damage types
+    if (obj.data?.damageType || obj.data?.damage?.damageType) {
+      const damageTypeLower = (
+        obj.data?.damageType ||
+        obj.data?.damage?.damageType ||
+        ""
+      ).toLowerCase();
+      traits.add(`item:damage:type:${damageTypeLower}`);
+
+      // Add damage category based on type
+      if (
+        ["bludgeoning", "piercing", "slashing", "bleed", "poison"].includes(
+          damageTypeLower
+        )
+      ) {
+        traits.add(`item:damage:category:physical`);
+      } else if (
+        ["acid", "cold", "electricity", "fire", "sonic"].includes(
+          damageTypeLower
+        )
+      ) {
+        traits.add(`item:damage:category:energy`);
+      } else if (damageTypeLower === "mental") {
+        traits.add(`item:damage:category:mental`);
+      }
+      // untyped, spirit, vitality, void, etc. won't get a category unless dmg.category is set
+    }
+
+    // Collect additional damage types from damage array
+    if (obj.data?.damage) {
+      const damageArray = Array.isArray(obj.data.damage)
+        ? obj.data.damage
+        : [obj.data.damage];
+      damageArray.forEach((dmg) => {
+        let damageType =
+          dmg?.type || dmg?.data?.type || dmg?.data?.damageType || "";
+        if (damageType) {
+          const damageTypeLower = damageType.toLowerCase();
+          traits.add(`item:damage:type:${damageTypeLower}`);
+
+          // Add damage category based on type
+          if (
+            ["bludgeoning", "piercing", "slashing", "bleed", "poison"].includes(
+              damageTypeLower
+            )
+          ) {
+            traits.add(`item:damage:category:physical`);
+          } else if (
+            ["acid", "cold", "electricity", "fire", "sonic"].includes(
+              damageTypeLower
+            )
+          ) {
+            traits.add(`item:damage:category:energy`);
+          } else if (damageTypeLower === "mental") {
+            traits.add(`item:damage:category:mental`);
+          }
+          // untyped, spirit, vitality, void, etc. won't get a category unless dmg.category is set
+        }
+        if (dmg?.category) {
+          traits.add(`item:damage:category:${dmg.category.toLowerCase()}`);
+        }
+      });
+    }
+
+    // If spell, add item:type:spell
+    if (obj.recordType === "spells") {
+      traits.add(`item:type:spell`);
+    } else if (obj.recordType === "items") {
+      traits.add(`item:type:item`);
+      traits.add(`item:type:equipment`);
+    }
+
+    // Collect property runes
+    if (obj.data?.runes?.property) {
+      const propertyRunes = Array.isArray(obj.data.runes.property)
+        ? obj.data.runes.property
+        : [];
+      propertyRunes.forEach((rune) => {
+        const runeName = typeof rune === "string" ? rune : rune.name;
+        if (runeName) {
+          traits.add(`item:rune:property:${runeName.toLowerCase()}`);
+        }
+      });
+    }
+  });
+
+  return traits;
+}
+
+/**
+ * Evaluates an effect predicate condition (JSON format) against a set of traits.
+ * This is different from the existing evaluatePredicate which handles string-based predicates.
+ *
+ * @param {Array|Object|String} predicate - The predicate to evaluate (JSON format)
+ * @param {Set} traits - Set of trait strings to check against
+ * @returns {boolean} Whether the predicate is satisfied
+ */
+function evaluateEffectPredicate(predicate, traits) {
+  // Base case: string predicate - check if trait exists
+  if (typeof predicate === "string") {
+    return traits.has(predicate);
+  }
+
+  // Array: treat as implicit AND - all items must be true
+  if (Array.isArray(predicate)) {
+    return predicate.every((item) => evaluateEffectPredicate(item, traits));
+  }
+
+  // Object: handle logical operators
+  if (typeof predicate === "object" && predicate !== null) {
+    // NOT operator
+    if ("not" in predicate) {
+      return !evaluateEffectPredicate(predicate.not, traits);
+    }
+
+    // OR operator
+    if ("or" in predicate) {
+      const orArray = Array.isArray(predicate.or)
+        ? predicate.or
+        : [predicate.or];
+      return orArray.some((item) => evaluateEffectPredicate(item, traits));
+    }
+
+    // AND operator (explicit)
+    if ("and" in predicate) {
+      const andArray = Array.isArray(predicate.and)
+        ? predicate.and
+        : [predicate.and];
+      return andArray.every((item) => evaluateEffectPredicate(item, traits));
+    }
+
+    // NAND operator (not and)
+    if ("nand" in predicate) {
+      const nandArray = Array.isArray(predicate.nand)
+        ? predicate.nand
+        : [predicate.nand];
+      return !nandArray.every((item) => evaluateEffectPredicate(item, traits));
+    }
+
+    // NOR operator (not or)
+    if ("nor" in predicate) {
+      const norArray = Array.isArray(predicate.nor)
+        ? predicate.nor
+        : [predicate.nor];
+      return !norArray.some((item) => evaluateEffectPredicate(item, traits));
+    }
+
+    // XOR operator (exclusive or)
+    if ("xor" in predicate) {
+      const xorArray = Array.isArray(predicate.xor)
+        ? predicate.xor
+        : [predicate.xor];
+      const trueCount = xorArray.filter((item) =>
+        evaluateEffectPredicate(item, traits)
+      ).length;
+      return trueCount === 1;
+    }
+  }
+
+  // Unknown predicate type - default to false
+  return false;
+}
+
+// Get all effects and modifiers for a speicifc token that match the given types, field, itemId, and appliedById
 function getEffectsAndModifiersForToken(
   target,
   types = [],
   field = "",
   itemId = undefined,
-  appliedById = undefined
+  appliedById = undefined,
+  context = {}
 ) {
   if (!target) {
     return [];
   }
   let results = [];
+
+  // Collect traits and properties for predicate evaluation
+  const traitsSet = collectTraitsAndProperties(target, context);
 
   // For effects we also need to check those that include -circumstance, -item, -status,
   // so make a new array to include those
@@ -616,6 +839,20 @@ function getEffectsAndModifiersForToken(
   effects.forEach((effect) => {
     const rules = effect.rules || [];
     rules.forEach((rule) => {
+      // Check for predicates in rule.data
+      if (rule.data && typeof rule.data === "object") {
+        if (rule.data.predicate) {
+          // Evaluate the predicate - if it fails, skip this rule
+          const predicatePassed = evaluateEffectPredicate(
+            rule.data.predicate,
+            traitsSet
+          );
+          if (!predicatePassed) {
+            return; // Skip this rule
+          }
+        }
+      }
+
       const ruleType = rule?.type || "";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = rule.value || "";
@@ -1025,7 +1262,6 @@ function applyEffect(
     for (let i = 0; i < times; i++) {
       effects.push(effectName);
     }
-    console.log("Adding effects", effects);
     api.addEffects(effects, target, duration, value);
   });
 }
@@ -3993,6 +4229,10 @@ function rollSkill(
     });
   }
 
+  // Build context object for action-based predicates
+  const actionName = additionalMetadata.action || "";
+  const context = actionName ? { action: { name: actionName } } : {};
+
   // Get skill-specific modifiers
   const additionalModsSet = new Set();
   let additionalMods;
@@ -4001,21 +4241,31 @@ function rollSkill(
     additionalMods = getEffectsAndModifiersForToken(
       record,
       [`perceptionBonus`, `perceptionPenalty`, `skillBonus`, `skillPenalty`],
-      "perception"
+      "perception",
+      undefined,
+      undefined,
+      context
     );
   } else {
     // Regular skills get skill bonuses
     additionalMods = getEffectsAndModifiersForToken(
       record,
       [`skillBonus`, `skillPenalty`],
-      skill
+      skill,
+      undefined,
+      undefined,
+      context
     );
   }
   if (isInitiative) {
-    const initiativeMods = getEffectsAndModifiersForToken(record, [
-      "initiativeBonus",
-      "initiativePenalty",
-    ]);
+    const initiativeMods = getEffectsAndModifiersForToken(
+      record,
+      ["initiativeBonus", "initiativePenalty"],
+      undefined,
+      undefined,
+      undefined,
+      context
+    );
     initiativeMods.forEach((mod) => {
       additionalMods.push(mod);
     });
@@ -4172,11 +4422,14 @@ function rollSavingThrow(save, dc) {
 }
 
 // For a quick custom skill macro
-function rollSkillCheck(skill, dc) {
+function rollSkillCheck(skill, dc, options = {}) {
   const escapedSkillName = skill.toLowerCase().replace(/'/g, "\\'");
   const selectedTokens = api.getSelectedOrDroppedToken();
+  const actionName = options.action || "";
   selectedTokens.forEach((token) => {
-    rollSkill(token, escapedSkillName, dc, false, 0, 1, "int", true);
+    rollSkill(token, escapedSkillName, dc, false, 0, 1, "int", true, false, undefined, {
+      action: actionName
+    });
   });
 }
 
@@ -6042,7 +6295,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     record,
     ["attackCalculation"],
     undefined,
-    weapon._id
+    weapon._id,
+    undefined,
+    { weapon }
   );
   attackCalculationMod.forEach((mod) => {
     const attackCalculation = mod.field;
@@ -6123,7 +6378,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     record,
     ["attackBonus", "attackPenalty"],
     isMelee ? "melee" : "ranged",
-    weapon._id
+    weapon._id,
+    undefined,
+    { weapon }
   );
   otherBonusesAndPenalties.forEach((mod) => {
     modifiers.push(mod);
@@ -6173,7 +6430,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       record,
       ["mapReduction"],
       undefined,
-      weapon._id
+      weapon._id,
+      undefined,
+      { weapon }
     );
 
     if (mapReductionMod.length) {
@@ -6215,7 +6474,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     record,
     ["damageBonus", "damagePenalty"],
     isMelee ? "melee" : "ranged",
-    weapon._id
+    weapon._id,
+    undefined,
+    { weapon }
   );
 
   // Preserve the modifierType before mapping to avoid losing deduplication info
@@ -6325,7 +6586,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           record,
           ["ignoreRangePenalty"],
           undefined,
-          weapon._id
+          weapon._id,
+          undefined,
+          { weapon }
         );
         let ignoreRangePenalty = 0;
         for (const mod of ignoreRangePenaltyMod) {
@@ -6644,14 +6907,18 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
         record,
         types,
         isMelee ? "melee" : "ranged",
-        weapon._id
+        weapon._id,
+        undefined,
+        { weapon }
       );
     } else {
       damageModifiers = getEffectsAndModifiersForToken(
         record,
         ["damageBonus", "damagePenalty"],
         isMelee ? "melee" : "ranged",
-        weapon._id
+        weapon._id,
+        undefined,
+        { weapon }
       );
     }
   }

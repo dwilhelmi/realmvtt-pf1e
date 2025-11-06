@@ -922,11 +922,18 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
   return `\`\`\`${macroName}
 // Lookup the record and then prompt the roll
 api.getRecord('${record.recordType}', '${record._id}', (record) => {
+  // Get the spell for context
+  const spell = api.getValueOnRecord(record, '${dataPathToSpell}');
+
   // Get damage modifiers based on spell type
   const damageModifierTypes = ${JSON.stringify(damageModifierTypes)};
   const damageModifiers = getEffectsAndModifiersForToken(
     record,
-    damageModifierTypes
+    damageModifierTypes,
+    "",
+    undefined,
+    undefined,
+    { spell }
   );
 
   let damage = "${spellDamage.damageString}";
@@ -1007,11 +1014,18 @@ function getSpellHealingMacro(record, spell, dataPathToSpell) {
   return `\`\`\`Roll_Healing
 // Lookup the record and then prompt the roll
 api.getRecord('${record.recordType}', '${record._id}', (record) => {
+  // Get the spell for context
+  const spell = api.getValueOnRecord(record, '${dataPathToSpell}');
+
   // Get healing modifiers based on spell type
   const healingModifierTypes = ${JSON.stringify(healingModifierTypes)};
   const healingModifiers = getEffectsAndModifiersForToken(
     record,
-    healingModifierTypes
+    healingModifierTypes,
+    "",
+    undefined,
+    undefined,
+    { spell }
   );
 
   const healing = "${spellEffect.healingString}";
@@ -1106,25 +1120,36 @@ function getSpellAttackMacro(
   return `\`\`\`Roll_Attack
 // Lookup the record and then prompt the roll
 api.getRecord('${record.recordType}', '${record._id}', (record) => {
+  // Get the spell for context
+  const spell = api.getValueOnRecord(record, '${dataPathToSpell}');
+
   const targets = api.getTargets();
   const ourToken = api.getToken();
   const recordId = record._id;
   const recordType = record.type;
-  
+
   // Get spell attack modifiers for the caster
   const spellAttackMods = getEffectsAndModifiersForToken(
     record,
-    ["spellAttackBonus", "spellAttackPenalty"]
+    ["spellAttackBonus", "spellAttackPenalty"],
+    "",
+    undefined,
+    undefined,
+    { spell }
   );
-  
+
   // Get damage modifiers based on spell type
   const damageModifierTypes = ${isCantrip}
     ? ["cantripDamageBonus", "cantripDamagePenalty"]
     : ["spellDamageBonus", "spellDamagePenalty"];
-  
+
   const damageModifiers = getEffectsAndModifiersForToken(
     record,
-    damageModifierTypes
+    damageModifierTypes,
+    "",
+    undefined,
+    undefined,
+    { spell }
   );
   
   const modifiers = [

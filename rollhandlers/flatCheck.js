@@ -51,11 +51,6 @@ if (dc <= 1) {
 
         if (persistentDamageEffect) {
           // Remove the specific instance
-          console.log(
-            "Removing persistent damage effect",
-            persistentDamageEffect?._id,
-            persistentPartIndex
-          );
           api.removeEffectById(persistentDamageEffect?._id, token, undefined, {
             instanceIndex: persistentPartIndex,
           });
