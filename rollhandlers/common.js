@@ -3748,114 +3748,9 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
     valuesToSet[`data.traitsList`] = newTraitsList;
   }
 
-  // Check for Resistance, Weakness, Immunity
-  const resistanceBonus = getEffectsAndModifiersForToken(record, [
-    "resistance",
-  ]);
-  const weaknessBonus = getEffectsAndModifiersForToken(record, ["weakness"]);
-  const immunityBonus = getEffectsAndModifiersForToken(record, ["immunity"]);
-
-  // Start with existing IWR entries from the record
-  const resistances = [...(record.data?.resistances || [])];
-  const weaknesses = [...(record.data?.weaknesses || [])];
-  const immunities = [...(record.data?.immunities || [])];
-
-  resistanceBonus.forEach((modifier) => {
-    const fieldValue = modifier.value || "";
-
-    // Parse field value like "cold 10" into type and value
-    const parts = fieldValue.trim().split(/\s+/);
-    const type = parts[0] || "";
-    const value = parts.length > 1 ? parseInt(parts[1], 10) : 0;
-
-    if (
-      type &&
-      !resistances.find((r) => r.data?.type === type && r.data?.value === value)
-    ) {
-      resistances.push({
-        _id: generateUuid(),
-        name: "IWR",
-        unidentifiedName: "IWR",
-        recordType: "records",
-        identified: true,
-        data: {
-          type: type,
-          value: value || undefined,
-        },
-      });
-    }
-  });
-
-  weaknessBonus.forEach((modifier) => {
-    const fieldValue = modifier.value || "";
-
-    // Parse field value like "cold 10" into type and value
-    const parts = fieldValue.trim().split(/\s+/);
-    const type = parts[0] || "";
-    const value = parts.length > 1 ? parseInt(parts[1], 10) : 0;
-
-    if (
-      type &&
-      !weaknesses.find((w) => w.data?.type === type && w.data?.value === value)
-    ) {
-      weaknesses.push({
-        _id: generateUuid(),
-        name: "IWR",
-        unidentifiedName: "IWR",
-        recordType: "records",
-        identified: true,
-        data: {
-          type: type,
-          value: value || undefined,
-        },
-      });
-    }
-  });
-
-  immunityBonus.forEach((modifier) => {
-    const fieldValue = modifier.value || "";
-
-    // Parse field value - immunities should just be the type (e.g., "piercing")
-    const type = fieldValue.trim().split(/\s+/)[0] || "";
-
-    if (type && !immunities.find((i) => i.data?.type === type)) {
-      immunities.push({
-        _id: generateUuid(),
-        name: "IWR",
-        unidentifiedName: "IWR",
-        recordType: "records",
-        identified: true,
-        data: {
-          type: type,
-        },
-        fields: {
-          valueBox: {
-            hidden: true,
-          },
-          doubleVs: {
-            hidden: true,
-          },
-        },
-      });
-    }
-  });
-
-  if (
-    JSON.stringify(resistances) !==
-    JSON.stringify(record.data?.resistances || [])
-  ) {
-    valuesToSet[`data.resistances`] = resistances;
-  }
-  if (
-    JSON.stringify(weaknesses) !== JSON.stringify(record.data?.weaknesses || [])
-  ) {
-    valuesToSet[`data.weaknesses`] = weaknesses;
-  }
-  if (
-    JSON.stringify(immunities) !== JSON.stringify(record.data?.immunities || [])
-  ) {
-    valuesToSet[`data.immunities`] = immunities;
-  }
+  // Note: IWR (Immunities, Weaknesses, Resistances) from effects and modifiers
+  // are now handled dynamically in getIWR() during damage calculation.
+  // This prevents double-counting and allows for conditional IWR based on predicates.
 
   // Show fields for alchemist if needed
   showAlchemistFields(record, valuesToSet);
@@ -7379,6 +7274,87 @@ function getIWR(target, armorSpecDetails = null) {
       }
     }
   }
+
+  // Get dynamic IWR from effects and modifiers
+  const iwrModifiers = getEffectsAndModifiersForToken(target, [
+    "immunity",
+    "weakness",
+    "resistance",
+  ]);
+
+  iwrModifiers.forEach((modifier) => {
+    const modifierType = modifier.modifierType || "";
+    const value = modifier.value || "";
+
+    if (typeof value !== "string") {
+      return; // Skip non-string values
+    }
+
+    // Parse the value string (e.g., "fire", "fire 4", "all damage 5")
+    // Find the last numeric value and treat everything before it as the type
+    const trimmedValue = value.trim();
+    const parts = trimmedValue.split(/\s+/);
+
+    // Check if the last part is a number
+    let damageType = "";
+    let numericValue = 0;
+
+    if (parts.length > 0) {
+      const lastPart = parts[parts.length - 1];
+      const parsedNumber = parseInt(lastPart, 10);
+
+      if (!isNaN(parsedNumber) && parsedNumber.toString() === lastPart) {
+        // Last part is a number - everything else is the type
+        numericValue = parsedNumber;
+        damageType = parts.slice(0, -1).join(" ").toLowerCase().trim();
+      } else {
+        // No number found - entire string is the type
+        damageType = trimmedValue.toLowerCase().trim();
+      }
+    }
+
+    if (!damageType) {
+      return; // Skip empty values
+    }
+
+    // Add to appropriate map based on modifier type
+    if (modifierType === "immunity") {
+      // Immunity is binary - just add the type
+      if (!immunitiesMap[damageType]) {
+        immunitiesMap[damageType] = {
+          type: damageType,
+          doubleVs: null,
+          exceptions: null,
+        };
+      }
+    } else if (modifierType === "weakness") {
+      // Keep the worst (highest) weakness for each type
+      if (
+        !weaknessesMap[damageType] ||
+        numericValue > weaknessesMap[damageType].value
+      ) {
+        weaknessesMap[damageType] = {
+          type: damageType,
+          value: numericValue,
+          doubleVs: null,
+          exceptions: null,
+        };
+      }
+    } else if (modifierType === "resistance") {
+      // Keep the best (highest) resistance for each type
+      if (
+        !resistancesMap[damageType] ||
+        numericValue > resistancesMap[damageType].value
+      ) {
+        resistancesMap[damageType] = {
+          type: damageType,
+          value: numericValue,
+          doubleVs: null,
+          exceptions: null,
+        };
+      }
+    }
+  });
 
   // Check if target has object immunities
   // Object immunities apply automatically to vehicles, or if explicitly listed in immunities
