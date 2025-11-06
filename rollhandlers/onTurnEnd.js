@@ -11,36 +11,53 @@ const modifiers = getEffectsAndModifiersForToken(
 if (modifiers.length > 0) {
   const effects = token?.effects || [];
   const effectValues = token?.effectValues || {};
-  const persistentDamageEffect = effects.find((effect) => {
+
+  // Find all persistent damage effects
+  const persistentDamageEffects = effects.filter((effect) => {
     const rules = effect?.rules || [];
     return rules.some((rule) => rule.type === "persistentDamage");
   });
-  const existingValue = persistentDamageEffect
-    ? effectValues[persistentDamageEffect?._id]
-    : undefined;
 
-  // Get the value of the persistent damage effect
-  const persistentDamageValue = existingValue
-    ? typeof existingValue === "object"
-      ? existingValue.value
-      : existingValue
-    : 0;
+  // Process each persistent damage effect
+  persistentDamageEffects.forEach((effect) => {
+    const existingValue = effectValues[effect?._id];
 
-  // Split persistent damage into parts by '+' and roll each separately
-  if (persistentDamageValue) {
-    // Split by '+' but preserve spaces around it
-    const damageParts = persistentDamageValue
-      .split("+")
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0);
+    if (!existingValue) {
+      return;
+    }
 
-    // Roll each damage part separately
-    damageParts.forEach((part, index) => {
+    // Get the value of the persistent damage effect
+    // Handle both object with .value property and direct values
+    const persistentDamageValue =
+      typeof existingValue === "object" && existingValue.value !== undefined
+        ? existingValue.value
+        : existingValue;
+
+    if (!persistentDamageValue) {
+      return;
+    }
+
+    // Handle string or array values
+    if (typeof persistentDamageValue === "string") {
+      // String: roll once with index 0
       api.roll(
-        part,
-        { isPersistant: true, persistentPartIndex: index },
+        persistentDamageValue,
+        { isPersistant: true, persistentPartIndex: 0 },
         "damage"
       );
-    });
-  }
+    } else if (Array.isArray(persistentDamageValue)) {
+      // Array: roll each value with index as partIndex
+      // Each element is an object with a value property
+      persistentDamageValue.forEach((item, index) => {
+        const value = item?.value || item;
+        if (value) {
+          api.roll(
+            value,
+            { isPersistant: true, persistentPartIndex: index },
+            "damage"
+          );
+        }
+      });
+    }
+  });
 }

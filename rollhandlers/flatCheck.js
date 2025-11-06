@@ -45,63 +45,21 @@ if (dc <= 1) {
       const token = api.getToken();
       if (token) {
         const effects = token?.effects || [];
-        const effectValues = token?.effectValues || {};
         const persistentDamageEffect = effects.find(
           (effect) => effect.name === "Persistent Damage"
         );
 
         if (persistentDamageEffect) {
-          const existingValue = effectValues[persistentDamageEffect?._id];
-          const existingValueString =
-            typeof existingValue === "object"
-              ? existingValue.value
-              : existingValue;
-
-          if (existingValue && existingValueString) {
-            // Split the persistent damage into parts
-            const damageParts = existingValueString
-              .split("+")
-              .map((part) => part.trim())
-              .filter((part) => part.length > 0);
-
-            // Remove the recovered part and save it for the message
-            const recoveredPart = damageParts[persistentPartIndex];
-            damageParts.splice(persistentPartIndex, 1);
-
-            if (damageParts.length > 0) {
-              // Still have persistent damage remaining, update the effect
-              const newValue = damageParts.join(" + ");
-              const tokenId =
-                existingValue && typeof existingValue === "object"
-                  ? existingValue.tokenId
-                  : undefined;
-              const tokenName =
-                existingValue && typeof existingValue === "object"
-                  ? existingValue.tokenName
-                  : undefined;
-              const effectValue =
-                tokenId && tokenName
-                  ? {
-                      value: newValue,
-                      _id: tokenId,
-                      name: tokenName,
-                    }
-                  : newValue;
-              api.removeEffectById(persistentDamageEffect?._id, token, () => {
-                api.addEffect(
-                  "Persistent Damage",
-                  token,
-                  undefined,
-                  effectValue
-                );
-              });
-              message += `\n\n**Recovered from persistent damage!**\n*Removed: ${recoveredPart}*\n*Remaining: ${newValue}*`;
-            } else {
-              // No more persistent damage, remove the effect entirely
-              api.removeEffectById(persistentDamageEffect?._id, token);
-              message += `\n\n**Fully recovered from persistent damage!**`;
-            }
-          }
+          // Remove the specific instance
+          console.log(
+            "Removing persistent damage effect",
+            persistentDamageEffect?._id,
+            persistentPartIndex
+          );
+          api.removeEffectById(persistentDamageEffect?._id, token, undefined, {
+            instanceIndex: persistentPartIndex,
+          });
+          message += `\n\n**Recovered from persistent damage!**`;
         }
       }
     }

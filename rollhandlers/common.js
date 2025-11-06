@@ -7167,43 +7167,15 @@ function doubleDamageDice(damage) {
 function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
   const targets = api.getSelectedOrDroppedToken();
   targets.forEach((target) => {
-    // Check if we already have the effect, if so, we update the value
-    const effects = target?.effects || [];
-    const effectValues = target?.effectValues || {};
-    const persistentDamageEffect = effects.find(
-      (effect) => effect.name === "Persistent Damage"
-    );
-    const existingValue = persistentDamageEffect
-      ? effectValues[persistentDamageEffect?._id]
-      : undefined;
-    if (existingValue) {
-      // New value concats both
-      const existingValueString =
-        typeof existingValue === "object" ? existingValue.value : existingValue;
-      const newValue = `${existingValueString} + ${persistentDamage}`;
-      const effectValue =
-        tokenId && tokenName
-          ? {
-              value: newValue,
-              _id: tokenId,
-              name: tokenName,
-            }
-          : newValue;
-      api.removeEffectById(persistentDamageEffect?._id, target, () => {
-        api.addEffect("Persistent Damage", target, undefined, effectValue);
-      });
-    } else {
-      // Else we add the effect with the value
-      const effectValue =
-        tokenId && tokenName
-          ? {
-              value: persistentDamage,
-              _id: tokenId,
-              name: tokenName,
-            }
-          : persistentDamage;
-      api.addEffect("Persistent Damage", target, undefined, effectValue);
-    }
+    const effectValue =
+      tokenId && tokenName
+        ? {
+            value: persistentDamage,
+            _id: tokenId,
+            name: tokenName,
+          }
+        : persistentDamage;
+    api.addEffect("Persistent Damage", target, undefined, effectValue);
   });
 }
 
