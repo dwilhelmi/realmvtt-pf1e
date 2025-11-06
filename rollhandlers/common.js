@@ -885,7 +885,12 @@ function getEffectsAndModifiersForToken(
       }
       // Check for strings that require replacements
       if (rule.valueType === "string") {
-        value = checkForReplacements(value, {}, target);
+        // Check if value references a data field on the record (e.g., "data.level")
+        if (typeof value === "string" && value.startsWith("data.")) {
+          value = api.getValueOnRecord(target, value) || 0;
+        } else {
+          value = checkForReplacements(value, {}, target);
+        }
       }
       if (
         value !== 0 &&
@@ -1080,7 +1085,12 @@ function getEffectsAndModifiersForToken(
 
       // Check for strings that require replacements
       if (modifier.data?.valueType === "string") {
-        value = checkForReplacements(value, {}, target);
+        // Check if value references a data field on the record (e.g., "data.level")
+        if (typeof value === "string" && value.startsWith("data.")) {
+          value = api.getValueOnRecord(target, value) || 0;
+        } else {
+          value = checkForReplacements(value, {}, target);
+        }
       }
 
       // Only relevant if it has a value
@@ -4427,9 +4437,21 @@ function rollSkillCheck(skill, dc, options = {}) {
   const selectedTokens = api.getSelectedOrDroppedToken();
   const actionName = options.action || "";
   selectedTokens.forEach((token) => {
-    rollSkill(token, escapedSkillName, dc, false, 0, 1, "int", true, false, undefined, {
-      action: actionName
-    });
+    rollSkill(
+      token,
+      escapedSkillName,
+      dc,
+      false,
+      0,
+      1,
+      "int",
+      true,
+      false,
+      undefined,
+      {
+        action: actionName,
+      }
+    );
   });
 }
 
