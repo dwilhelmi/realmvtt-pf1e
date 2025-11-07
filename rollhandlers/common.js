@@ -5229,7 +5229,8 @@ function getWeaponDamageInfo(record, weapon) {
   const isNPCAttack = weapon.recordType === "npc_attacks";
 
   const isMelee = isNPCAttack
-    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee"
+    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee" ||
+      (weapon.data?.weaponType || "melee").toLowerCase() === "unarmed"
     : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("thrown")
@@ -5267,7 +5268,17 @@ function getWeaponDamageInfo(record, weapon) {
       const damageParts = standardRolls.map((roll) => {
         const formula = roll.data?.formula || "0";
         const type = roll.data?.type || "untyped";
-        return `${formula} ${type}`;
+        // Check for modifier field and add it to the formula
+        let damagePart = `${formula} ${type}`;
+        if (roll.data?.modifier !== undefined && roll.data?.modifier !== null) {
+          const modifier = parseInt(roll.data.modifier, 10);
+          if (!isNaN(modifier) && modifier !== 0) {
+            // Add modifier to the damage string (e.g., "1d6 + 2 piercing")
+            const modifierSign = modifier >= 0 ? "+" : "";
+            damagePart = `${formula} ${modifierSign}${modifier} ${type}`;
+          }
+        }
+        return damagePart;
       });
       damageString = damageParts.join(" + ");
       damageType = standardRolls[0].data?.type || "untyped";
@@ -5990,7 +6001,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   const isMelee = isNPCAttack
-    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee"
+    ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee" ||
+      (weapon.data?.weaponType || "melee").toLowerCase() === "unarmed"
     : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("thrown")
