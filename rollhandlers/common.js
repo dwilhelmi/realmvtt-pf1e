@@ -619,6 +619,18 @@ function collectTraitsAndProperties(token, context = {}) {
     }
   }
 
+  // Collect conditions from effects (e.g., "Prone" becomes "self:condition:prone")
+  if (token?.effects) {
+    const effects = Array.isArray(token.effects) ? token.effects : [];
+    effects.forEach((effect) => {
+      const effectName = effect?.name || "";
+      if (effectName) {
+        const conditionName = effectName.toLowerCase().replace(/\s+/g, "-");
+        traits.add(`self:condition:${conditionName}`);
+      }
+    });
+  }
+
   // Collect action name if provided (e.g., "Subsist" becomes "action:subsist")
   if (context.action && context.action.name) {
     const actionName = context.action.name.toLowerCase().replace(/\s+/g, "-");
@@ -838,7 +850,14 @@ function getEffectsAndModifiersForToken(
   const effects = target?.effects || [];
   effects.forEach((effect) => {
     const rules = effect.rules || [];
+    // Get the relevant field for the rule
     rules.forEach((rule) => {
+      let field = rule?.field || "";
+      // Fields can reference other fields on the record in PF2e, so we need to resolve them
+      if (field && field.startsWith("data.")) {
+        field = String(api.getValueOnRecord(target, field) || "").toLowerCase();
+      }
+
       // Check for predicates in rule.data
       if (rule.data && typeof rule.data === "object") {
         if (rule.data.predicate) {
@@ -909,7 +928,7 @@ function getEffectsAndModifiersForToken(
             active: true,
             modifierType: ruleType,
             type: bonusPenaltyType,
-            field: rule?.field || "",
+            field: field,
             valueType: rule.valueType,
             isPenalty: isPenalty,
             isEffect: true,
@@ -4205,6 +4224,19 @@ function rollSkill(
     );
   }
 
+  // Get all bonuses/penalties that specifically reference this skill as the field
+  let allEffectMods2 = [];
+  if (attribute) {
+    allEffectMods2 = getEffectsAndModifiersForToken(
+      record,
+      ["allBonus", "allPenalty"],
+      skill,
+      undefined,
+      undefined,
+      context
+    );
+  }
+
   // Add skill-specific modifiers
   additionalMods.forEach((mod) => {
     const modString = JSON.stringify(mod);
@@ -4221,6 +4253,19 @@ function rollSkill(
 
   // Add attribute-based all bonuses/penalties
   allEffectMods.forEach((mod) => {
+    const modString = JSON.stringify(mod);
+    if (!additionalModsSet.has(modString)) {
+      additionalModsSet.add(modString);
+      modifiers.push({
+        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
+        type: mod.type || "",
+        value: mod.value,
+        active: true,
+      });
+    }
+  });
+
+  allEffectMods2.forEach((mod) => {
     const modString = JSON.stringify(mod);
     if (!additionalModsSet.has(modString)) {
       additionalModsSet.add(modString);
