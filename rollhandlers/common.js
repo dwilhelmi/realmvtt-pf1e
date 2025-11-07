@@ -7550,11 +7550,9 @@ function applyDamage(
 
   let targets = api.getSelectedOrDroppedToken();
 
-  // If record is not null, check if we're the GM or owner and use it
+  // If record is not null, use it
   if (record) {
-    if (isGM || record?.record?.ownerId === userId) {
-      targets = [record];
-    }
+    targets = [record];
   }
 
   // If we're a player and we did not drop on a record, get our owned tokens
@@ -8317,16 +8315,18 @@ function applyDamage(
         if (target.recordType === "characters" || isCompanion) {
           // Characters and their companions gain Dying condition
           const currentDying = parseInt(target.data?.dying || "0", 10);
-          const wounded = parseInt(target.data?.wounded || "0", 10);
-          let newDying = currentDying + 1 + wounded;
+          let wounded = 0;
+
+          // Only add wounded if we're gaining the dying condition (currentDying === 0)
+          if (currentDying === 0) {
+            wounded = parseInt(target.data?.wounded || "0", 10);
+          }
 
           // Store old values
           oldValues["data.dying"] = currentDying;
 
-          // Cap dying at 4 (death)
-          if (newDying > 4) {
-            newDying = 4;
-          }
+          // Calculate new dying value
+          let newDying = currentDying + 1 + wounded;
 
           // Check if this is from a critical hit (if isCritical is available)
           // If target is immune to critical hits, treat as normal hit
@@ -8339,6 +8339,11 @@ function applyDamage(
             message += `\n${targetName} gains Dying ${newDying} (critical hit increases dying by 2).`;
           } else {
             message += `\n${targetName} gains Dying ${newDying}.`;
+          }
+
+          // Cap dying at 4 (death)
+          if (newDying > 4) {
+            newDying = 4;
           }
 
           valuesToSet["data.dying"] = newDying;
