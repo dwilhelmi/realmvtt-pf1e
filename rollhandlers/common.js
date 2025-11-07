@@ -304,6 +304,12 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
   const actorLevel = parseInt(thisRecord?.data?.level || "1", 10);
   value = value.replaceAll("@actor.level", String(actorLevel));
 
+  // Replace all @record.data.... with the value of the field
+  value = value.replaceAll(/@record\.data\.([^\s)]+)/g, (match, field) => {
+    const fullPath = `data.${field}`;
+    return api.getValueOnRecord(thisRecord, fullPath) || "";
+  });
+
   // Case for 'Half Level' or 'Half Character Level'
   const matchHalfLevel =
     value.match(/[Hh]alf [Cc]haracter [Ll]evel/) ||
