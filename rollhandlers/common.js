@@ -305,7 +305,7 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
   value = value.replaceAll("@actor.level", String(actorLevel));
 
   // Replace all @record.data.... with the value of the field
-  value = value.replaceAll(/@record\.data\.([^\s)]+)/g, (match, field) => {
+  value = value.replaceAll(/@record\.data\.([\w.]+)/g, (_match, field) => {
     const fullPath = `data.${field}`;
     return api.getValueOnRecord(thisRecord, fullPath) || "";
   });
