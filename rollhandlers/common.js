@@ -84,15 +84,22 @@ function evaluateMath(stringValue) {
   if (!stringValue) return 0;
 
   try {
-    // Remove all whitespace and validate string only contains valid math characters
-    const sanitizedString = stringValue.replace(/\s+/g, "");
-    if (!/^[0-9+\-*/().]+$/.test(sanitizedString)) {
+    // Remove all whitespace
+    let sanitizedString = stringValue.replace(/\s+/g, "");
+
+    // Replace floor() and ceil() with Math.floor() and Math.ceil()
+    sanitizedString = sanitizedString.replace(/floor\(/g, "Math.floor(");
+    sanitizedString = sanitizedString.replace(/ceil\(/g, "Math.ceil(");
+
+    // Validate string only contains valid math characters and functions
+    // Allow: digits, operators, parentheses, and Math.floor/Math.ceil
+    if (!/^[0-9+\-*/().Mathflorceui]+$/.test(sanitizedString)) {
       return 0;
     }
 
     // Use Function constructor to safely evaluate the math expression
-    // Math.floor to match D&D's rounding down convention
-    return Math.floor(Function(`'use strict'; return (${sanitizedString})`)());
+    // Note: Result is not automatically floored to allow ceil() to work properly
+    return Function(`'use strict'; return (${sanitizedString})`)();
   } catch (e) {
     // Return 0 if evaluation fails
     return 0;
