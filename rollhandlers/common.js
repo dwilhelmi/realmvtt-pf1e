@@ -300,7 +300,7 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
     value = String(value || "");
   }
 
-  // Replace Foundry-style @actor.level with actual level
+  // Replace @actor.level with actual level
   const actorLevel = parseInt(thisRecord?.data?.level || "1", 10);
   value = value.replaceAll("@actor.level", String(actorLevel));
 
@@ -437,7 +437,7 @@ function evaluateFormula(formula) {
     if (ternaryMatch) {
       const { start, end, condition, trueValue, falseValue } = ternaryMatch;
       const conditionNum = parseFloat(condition.trim());
-      // In Foundry, any non-zero value is true
+      // Any non-zero value is true
       const result = conditionNum !== 0 ? trueValue.trim() : falseValue.trim();
       formula = formula.substring(0, start) + result + formula.substring(end);
     }
@@ -2701,7 +2701,7 @@ function setFeatSlots(record, valuesToSet) {
   const characterLevel = parseInt(record.data?.level || "1", 10);
 
   // Filter out empty feat slots that we are not high enough to have,
-  // incase we set the level lower TODO FIX
+  // incase we set the level lower
   currentFeats = currentFeats.filter((feat) => {
     const featLevel = feat.data?.level || 0;
     const isSlot = feat.data?.type === "slot";
@@ -3326,17 +3326,17 @@ function updateProficiencies(record, valuesToSet) {
 
   const currentUnarmed = parseInt(record.data?.attacks?.unarmed || "0", 10);
   if (currentUnarmed < proficiencies.unarmed || proficiencies.unarmed === 0) {
-    valuesToSet["data.attacks.unarmed"] = proficiencies.unarmed;
+    valuesToSet["data.attackProficiencies.unarmed"] = proficiencies.unarmed;
   }
 
   const currentSimple = parseInt(record.data?.attacks?.simple || "0", 10);
   if (currentSimple < proficiencies.simple || proficiencies.simple === 0) {
-    valuesToSet["data.attacks.simple"] = proficiencies.simple;
+    valuesToSet["data.attackProficiencies.simple"] = proficiencies.simple;
   }
 
   const currentMartial = parseInt(record.data?.attacks?.martial || "0", 10);
   if (currentMartial < proficiencies.martial || proficiencies.martial === 0) {
-    valuesToSet["data.attacks.martial"] = proficiencies.martial;
+    valuesToSet["data.attackProficiencies.martial"] = proficiencies.martial;
   }
 
   const currentAdvanced = parseInt(record.data?.attacks?.advanced || "0", 10);
@@ -3344,7 +3344,7 @@ function updateProficiencies(record, valuesToSet) {
     currentAdvanced < proficiencies.advanced ||
     proficiencies.advanced === 0
   ) {
-    valuesToSet["data.attacks.advanced"] = proficiencies.advanced;
+    valuesToSet["data.attackProficiencies.advanced"] = proficiencies.advanced;
   }
 
   // Set spellcasting proficiency
@@ -3620,8 +3620,6 @@ function setProvidedActions(record, callback = undefined) {
 }
 
 // This function is called after adding/editing a talent/feature or equipping an item
-// TODO make sure this works for NPCs, too (such as for shieldRaised) and
-// TODO make sure getBestArmor works for NPCs
 function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Calculate Pathfinder 2e ability boosts first
   const boostResults = calculateAbilityBoosts(record);
@@ -4514,39 +4512,95 @@ function isTokenIncapacitated(token) {
   return false;
 }
 
+// Helper function to parse reach from a traits array
+// Returns the reach in feet, or null if no reach trait found
+function parseReachFromTraits(traits, baseReach) {
+  if (!traits || !Array.isArray(traits)) {
+    return null;
+  }
+
+  for (const trait of traits) {
+    const traitLower = (trait || "").toString().toLowerCase().trim();
+
+    // Check if this is a reach trait
+    if (traitLower.startsWith("reach")) {
+      // Try to extract a number from "reach-#" or "reach #"
+      const match = traitLower.match(/^reach[-\s]?(\d+)$/);
+      if (match) {
+        // Specific reach distance (e.g., "reach-10" = 10 feet)
+        const reachDistance = parseInt(match[1], 10);
+        return isNaN(reachDistance) ? baseReach + 5 : reachDistance;
+      } else if (traitLower === "reach") {
+        // Just "reach" with no number = add 5 feet to base reach
+        return baseReach + 5;
+      }
+    }
+  }
+
+  return null;
+}
+
 // Helper function to get the reach of a token
-function getTokenReach(token) {
+// If weapon is provided, only check that specific weapon/attack's reach
+function getTokenReach(token, weapon = null) {
   if (!token) {
     return 5; // Default reach
   }
 
-  // Check if token has a record with a reach property (for NPCs)
-  // TODO CONFIRM THIS LOGIC
-  const baseReach = token.record?.data?.reach || 5;
+  // Start with the base reach (5 feet by default, or the token's reach property if specified)
+  let baseReach = parseInt(token?.data?.reach || "5", 10);
+  if (isNaN(baseReach) || baseReach < 5) {
+    baseReach = 5;
+  }
 
-  // Check equipped melee weapons for reach trait
-  const inventory = token.record?.data?.inventory || [];
-  const equippedMeleeWeapons = inventory.filter((item) => {
-    const isMelee = (item.data?.range || 0) === 0;
-    const isEquipped = item.data?.carried === "equipped";
-    return isMelee && isEquipped;
-  });
-
-  // Check if any equipped melee weapon has the reach trait
-  let hasReachWeapon = false;
-  for (const weapon of equippedMeleeWeapons) {
+  // If a specific weapon is provided, only check that weapon's reach
+  if (weapon) {
     const traits = weapon.data?.traits || [];
-    const hasReachTrait = traits.some((trait) =>
-      trait.toLowerCase().includes("reach")
-    );
-    if (hasReachTrait) {
-      hasReachWeapon = true;
-      break;
+    const weaponReach = parseReachFromTraits(traits, baseReach);
+    // If weapon has reach trait, use it; otherwise use base reach
+    return weaponReach !== null ? weaponReach : baseReach;
+  }
+
+  // No specific weapon provided - find the maximum reach across all weapons
+  let maxReach = baseReach;
+
+  // Check equipped melee weapons for reach trait (for PCs)
+  const inventory = token?.data?.inventory;
+  if (Array.isArray(inventory)) {
+    const equippedMeleeWeapons = inventory.filter((item) => {
+      const isMelee = (item.data?.range || 0) === 0;
+      const isEquipped = item.data?.carried === "equipped";
+      return isMelee && isEquipped;
+    });
+
+    // Check if any equipped melee weapon has the reach trait
+    for (const equippedWeapon of equippedMeleeWeapons) {
+      const traits = equippedWeapon.data?.traits || [];
+      const weaponReach = parseReachFromTraits(traits, baseReach);
+      if (weaponReach !== null && weaponReach > maxReach) {
+        maxReach = weaponReach;
+      }
     }
   }
 
-  // Reach weapons add 5 feet to the base reach
-  return hasReachWeapon ? baseReach + 5 : baseReach;
+  // Always check NPC Attacks for reach - use largest melee reach
+  const npcAttacks = token?.data?.attacks;
+  if (Array.isArray(npcAttacks)) {
+    for (const attack of npcAttacks) {
+      const weaponType = (attack.data?.weaponType || "").toLowerCase();
+      const isMelee = weaponType === "melee" || weaponType === "unarmed";
+
+      if (isMelee) {
+        const traits = attack.data?.traits || [];
+        const attackReach = parseReachFromTraits(traits, baseReach);
+        if (attackReach !== null && attackReach > maxReach) {
+          maxReach = attackReach;
+        }
+      }
+    }
+  }
+
+  return maxReach;
 }
 
 function isOffGuard(token) {
@@ -6058,11 +6112,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
-  // TODO make sure this is right for NPC's reach later
-  let reach = record.data?.reach || 5;
-  if (hasReachTrait) {
-    reach += 5;
-  }
+  let reach = getTokenReach(record, weapon);
 
   const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
   const requiresReload =
@@ -6722,7 +6772,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         api.floatText(target?.token, "Off-Guard (Flanked)", "#ff7700");
       }
 
-      // TODO set metadata needed in attack handler for target
       api.promptRoll(
         `Attack with ${weapon.name}`,
         diceRoll,

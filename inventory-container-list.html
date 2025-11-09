@@ -1,6 +1,6 @@
 <script>
   function onItemsChanged() {
-    // Requuery the record first to prevent race conditions when transferring items to containers
+    // Requery the record first to prevent race conditions when transferring items to containers
     const recordId = record?._id;
     const recordType = record?.recordType;
     const containerDataPath = getNearestParentDataPath(dataPath);
@@ -42,10 +42,6 @@
     );
   }
 </script>
-
-<!-- Todo: show container bulk values -->
-<!-- Todo allow us to unequip backpack -->
-<!-- Todup update bulk calculation to add bulk of items in backpack depending on values and if it's equipped or stowed -->
 
 <div
   style="

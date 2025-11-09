@@ -135,7 +135,6 @@ if (partyTokens.length > 0) {
   // Adjust XP awards based on party size
   // Formula: (Total XP × 4) ÷ Party Size = XP per character
   // This normalizes progression for non-standard party sizes
-  // Using Math.floor to match Foundry PF2e implementation
   const adjustedXP = Math.floor((totalXP * 4) / (partySize || 4));
 
   // Build party size adjustment message if not standard
