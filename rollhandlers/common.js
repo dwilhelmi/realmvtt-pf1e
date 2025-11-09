@@ -362,6 +362,14 @@ function checkForReplacements(value, replacements = {}, recordOverride = null) {
   // This handles expressions like: ternary(lt(@actor.level, 5), 1, 2)
   value = evaluateFormula(value);
 
+  // Evaluate mathematical expressions in curly braces
+  // Example: {5*(@record.data.effects.energyAbsorption.level - 1)}
+  value = value.replace(/\{([^}]+)\}/g, (_match, expression) => {
+    // The expression should already have @record.data references replaced
+    const result = evaluateMath(expression);
+    return String(result);
+  });
+
   return value;
 }
 
