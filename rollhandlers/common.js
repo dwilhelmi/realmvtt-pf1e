@@ -5855,6 +5855,17 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
         hasTrait ? "1" : "0"
       );
     }
+
+    // Handle origin:X patterns
+    // TODO: Implement proper origin predicate evaluation
+    // For now, we ignore origin predicates by treating them as true (1)
+    // Origin predicates reference properties of the entity that created/applied the effect
+    const originMatches = Array.from(
+      evaluatedPredicate.matchAll(/origin:[\w:]+/g)
+    );
+    for (const match of originMatches) {
+      evaluatedPredicate = evaluatedPredicate.replace(match[0], "1");
+    }
   } catch (error) {
     console.error("Error in evaluatePredicate variable replacement:", error);
     console.error("Predicate:", predicate);
