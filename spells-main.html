@@ -90,9 +90,19 @@
       (trait) => trait?.toLowerCase() === "cantrip"
     );
 
+    const isFocus = (spell.data?.traits || []).some(
+      (trait) => trait?.toLowerCase() === "focus"
+    );
+
     const level = spell.data?.level || 1;
     const levelLabel = `${
-      isCantrip ? "Cantrip" : showRitualBox ? "Ritual" : "Spell"
+      isCantrip
+        ? "Cantrip"
+        : showRitualBox
+        ? "Ritual"
+        : isFocus
+        ? "Focus"
+        : "Spell"
     } ${level}`;
     if (levelLabel && spell.fields?.levelLabel?.hidden !== false) {
       valuesToSet[`${fieldsPath}.levelLabel.hidden`] = false;
