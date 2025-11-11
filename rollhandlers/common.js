@@ -299,7 +299,12 @@ function getDamageType(rollString) {
 }
 
 // Checks for replacements in a string modifier
-function checkForReplacements(value, replacements = {}, recordOverride = null, effectContext = null) {
+function checkForReplacements(
+  value,
+  replacements = {},
+  recordOverride = null,
+  effectContext = null
+) {
   let thisRecord = recordOverride || record;
 
   // Ensure value is a string for regex operations
@@ -310,7 +315,8 @@ function checkForReplacements(value, replacements = {}, recordOverride = null, e
   // Replace @effect.count with the number of times this effect appears
   if (value.includes("@effect.count") && effectContext?._id) {
     const effectIds = thisRecord?.effectIds || [];
-    const count = effectIds.filter((id) => id === effectContext._id).length || 1;
+    const count =
+      effectIds.filter((id) => id === effectContext._id).length || 1;
     value = value.replaceAll("@effect.count", String(count));
   }
 
@@ -1954,9 +1960,8 @@ function getSaveDCForToken(token, saveType) {
   let saveDC = 10 + saveValue;
 
   saveMods.forEach((mod) => {
-    if (typeof mod.value === "number") {
-      saveDC += mod.value;
-    }
+    const value = parseInt(mod.value || 0, 10);
+    saveDC += value;
   });
 
   return saveDC;
@@ -1983,9 +1988,8 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   // Apply all modifiers from getEffectsAndModifiersForToken
   // (already returns highest of each type)
   acModifiers.forEach((mod) => {
-    if (typeof mod.value === "number") {
-      ac += mod.value;
-    }
+    const value = parseInt(mod.value || 0, 10);
+    ac += value;
   });
 
   // Handle flanking: -2 circumstance penalty
