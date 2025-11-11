@@ -6159,6 +6159,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   let abilityScore = "str";
+  let damageScore = "";
   let addStrengthToDamage = true;
   let isPropulsive = false;
   // If the weapon has the propulsive trait we only do half strength
@@ -6343,6 +6344,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   // In attack rolls, we use addStrengthToDamage instead of the helper's logic
   if (isMelee || addStrengthToDamage || isPropulsive) {
     const isPositive = record.data?.str > 0;
+    damageScore = "str";
     if (isPropulsive) {
       // Add half strength for propulsive weapons if positive, else add whole strength
       if (isPositive) {
@@ -6363,7 +6365,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     ? weapon?.data?.animation
     : undefined;
 
-  // Check attackCalculation modifier to see if we use a differenet stat
+  // Check attackCalculation modifier to see if we use a different stat
   const attackCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["attackCalculation"],
@@ -6447,6 +6449,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   // Get other bonuses and penalties
+  const seenAttackModifiers = new Set();
   const otherBonusesAndPenalties = getEffectsAndModifiersForToken(
     record,
     ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
@@ -6456,7 +6459,28 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     { weapon }
   );
   otherBonusesAndPenalties.forEach((mod) => {
-    modifiers.push(mod);
+    const modString = JSON.stringify(mod);
+    if (!seenAttackModifiers.has(modString)) {
+      seenAttackModifiers.add(modString);
+      modifiers.push(mod);
+    }
+  });
+
+  // Get bonuses and penalties for stat-based checks
+  const statBonusesAndPenalties = getEffectsAndModifiersForToken(
+    record,
+    ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
+    abilityScore,
+    weapon._id,
+    undefined,
+    { weapon }
+  );
+  statBonusesAndPenalties.forEach((mod) => {
+    const modString = JSON.stringify(mod);
+    if (!seenAttackModifiers.has(modString)) {
+      seenAttackModifiers.add(modString);
+      modifiers.push(mod);
+    }
   });
 
   // Check if weapon has nonlethal trait and add option to make it lethal
@@ -6551,6 +6575,29 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     undefined,
     { weapon }
   );
+
+  // Damage stat modifiers
+  if (damageScore) {
+    const damageStatModifiers = getEffectsAndModifiersForToken(
+      record,
+      ["damageBonus", "damagePenalty"],
+      damageScore,
+      weapon._id,
+      undefined,
+      { weapon }
+    );
+    // Create a Set from existing damage modifiers to avoid duplicates
+    const seenDamageModifiers = new Set(
+      damageModifiers.map((mod) => JSON.stringify(mod))
+    );
+    damageStatModifiers.forEach((mod) => {
+      const modString = JSON.stringify(mod);
+      if (!seenDamageModifiers.has(modString)) {
+        seenDamageModifiers.add(modString);
+        damageModifiers.push(mod);
+      }
+    });
+  }
 
   // Preserve the modifierType before mapping to avoid losing deduplication info
   damageModifiers = damageModifiers.map((mod) => {
@@ -6962,6 +7009,17 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
+  // Determine damage stat (for stat-based damage modifiers)
+  let damageScore = "";
+  const isPropulsive = weapon.data?.traits?.some((trait) =>
+    trait.toLowerCase().includes("propulsive")
+  );
+  const addStrengthToDamage = isMelee || isThrown;
+
+  if (isMelee || addStrengthToDamage || isPropulsive) {
+    damageScore = "str";
+  }
+
   // Get damage modifiers
   let damageModifiers = [];
   if (!weaponDamageInfo.isItem) {
@@ -6993,6 +7051,29 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
         { weapon }
       );
     }
+  }
+
+  // Damage stat modifiers (if using a stat for damage)
+  if (damageScore && !weaponDamageInfo.isItem) {
+    const damageStatModifiers = getEffectsAndModifiersForToken(
+      record,
+      ["damageBonus", "damagePenalty"],
+      damageScore,
+      weapon._id,
+      undefined,
+      { weapon }
+    );
+    // Create a Set from existing damage modifiers to avoid duplicates
+    const seenDamageModifiers = new Set(
+      damageModifiers.map((mod) => JSON.stringify(mod))
+    );
+    damageStatModifiers.forEach((mod) => {
+      const modString = JSON.stringify(mod);
+      if (!seenDamageModifiers.has(modString)) {
+        seenDamageModifiers.add(modString);
+        damageModifiers.push(mod);
+      }
+    });
   }
 
   damageModifiers = damageModifiers.map((mod) => {
