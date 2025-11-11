@@ -299,12 +299,19 @@ function getDamageType(rollString) {
 }
 
 // Checks for replacements in a string modifier
-function checkForReplacements(value, replacements = {}, recordOverride = null) {
+function checkForReplacements(value, replacements = {}, recordOverride = null, effectContext = null) {
   let thisRecord = recordOverride || record;
 
   // Ensure value is a string for regex operations
   if (typeof value !== "string") {
     value = String(value || "");
+  }
+
+  // Replace @effect.count with the number of times this effect appears
+  if (value.includes("@effect.count") && effectContext?._id) {
+    const effectIds = thisRecord?.effectIds || [];
+    const count = effectIds.filter((id) => id === effectContext._id).length || 1;
+    value = value.replaceAll("@effect.count", String(count));
   }
 
   // Replace @actor.level with actual level
@@ -929,7 +936,7 @@ function getEffectsAndModifiersForToken(
         if (typeof value === "string" && value.startsWith("data.")) {
           value = api.getValueOnRecord(target, value) || 0;
         } else {
-          value = checkForReplacements(value, {}, target);
+          value = checkForReplacements(value, {}, target, effect);
         }
       }
       if (
@@ -1959,6 +1966,8 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   const acModifiers = getEffectsAndModifiersForToken(token, [
     "armorClassBonus",
     "armorClassPenalty",
+    "allBonus",
+    "allPenalty",
   ]);
 
   let tokenData = token.data === undefined ? token.record.data : token.data;
@@ -6432,7 +6441,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   // Get other bonuses and penalties
   const otherBonusesAndPenalties = getEffectsAndModifiersForToken(
     record,
-    ["attackBonus", "attackPenalty"],
+    ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
     isMelee ? "melee" : "ranged",
     weapon._id,
     undefined,
