@@ -169,12 +169,18 @@ if (dc > 0) {
   }[/center]`;
 }
 
-const tags = [
-  {
-    name: rollName || "Attack",
-    tooltip: tooltip || "Attack Roll",
-  },
-];
+// Only add "Attack" tag if there is no "Attack" trait
+const hasAttackTrait = traits.some(
+  (trait) => trait.toLowerCase().trim() === "attack"
+);
+const tags = hasAttackTrait
+  ? []
+  : [
+      {
+        name: rollName || "Attack",
+        tooltip: tooltip || "Attack Roll",
+      },
+    ];
 
 traits.forEach((trait) => {
   // Ignore rarity traits
