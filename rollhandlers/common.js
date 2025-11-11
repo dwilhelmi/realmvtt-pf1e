@@ -90,10 +90,14 @@ function evaluateMath(stringValue) {
     // Replace floor() and ceil() with Math.floor() and Math.ceil()
     sanitizedString = sanitizedString.replace(/floor\(/g, "Math.floor(");
     sanitizedString = sanitizedString.replace(/ceil\(/g, "Math.ceil(");
+    // Replace min(), max(), and abs() with Math.min(), Math.max(), and Math.abs()
+    sanitizedString = sanitizedString.replace(/min\(/g, "Math.min(");
+    sanitizedString = sanitizedString.replace(/max\(/g, "Math.max(");
+    sanitizedString = sanitizedString.replace(/abs\(/g, "Math.abs(");
 
     // Validate string only contains valid math characters and functions
-    // Allow: digits, operators, parentheses, and Math.floor/Math.ceil
-    if (!/^[0-9+\-*/().Mathflorceui]+$/.test(sanitizedString)) {
+    // Allow: digits, operators, parentheses, and Math.floor/Math.ceil/Math.min/Math.max/Math.abs
+    if (!/^[0-9+\-*/().Mathflorceuimnxbs]+$/.test(sanitizedString)) {
       return 0;
     }
 
