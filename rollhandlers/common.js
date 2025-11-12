@@ -2447,35 +2447,54 @@ function promptForChoices(record, choicesToMake, index) {
     // Prepare values to set
     const valuesToSet = {};
 
-    // Add the selection to the choice object's data.choices array
+    // We'll need to update the feature with the choice selection
+    // Clone the feature and update its choice
+    const updatedFeature = { ...feature };
+    const choiceObjects = feature.data?.choices || [];
+    const choiceIndex = choiceObjects.findIndex((c) => c._id === choiceObj._id);
+
+    if (choiceIndex >= 0) {
+      // Create choice entry (just store the option ID and name)
+      const choiceEntry = JSON.stringify({
+        _id: selectedOption._id,
+        name: selectedOption.name,
+      });
+
+      // Clone the choices array and update the specific choice
+      const updatedChoices = [...choiceObjects];
+      updatedChoices[choiceIndex] = {
+        ...updatedChoices[choiceIndex],
+        data: {
+          ...updatedChoices[choiceIndex].data,
+          choices: [choiceEntry],
+        },
+      };
+
+      // Update the feature with the new choices
+      updatedFeature.data = {
+        ...updatedFeature.data,
+        choices: updatedChoices,
+      };
+    }
+
     const featureDataPath = group.dataPath;
     const featureIndex = group.features.findIndex((f) => f._id === feature._id);
-    if (featureIndex >= 0) {
-      // Find the choice object index within the feature's choices array
-      const choiceObjects = feature.data?.choices || [];
-      const choiceIndex = choiceObjects.findIndex(
-        (c) => c._id === choiceObj._id
-      );
 
-      if (choiceIndex >= 0) {
-        // Create choice entry (just store the option ID and name)
-        const choiceEntry = JSON.stringify({
-          _id: selectedOption._id,
-          name: selectedOption.name,
-        });
-        valuesToSet[
-          `${featureDataPath}.${featureIndex}.data.choices.${choiceIndex}.data.choices`
-        ] = [choiceEntry];
-      }
-    }
+    // Accumulate items by type to avoid path conflicts
+    const itemsByType = {
+      inventory: [],
+      bonusFeats: [],
+      actions: [],
+      classFeatures: [],
+      ancestryFeatures: [],
+    };
 
     // Process each item from the selected option's value array
     itemsToAdd.forEach((item) => {
       const recordType = item.recordType;
 
       if (recordType === "items") {
-        // Add to inventory
-        const currentInventory = record.data?.inventory || [];
+        // Prepare item for inventory
         const newItem = {
           ...item,
           _id: generateUuid(),
@@ -2486,44 +2505,117 @@ function promptForChoices(record, choicesToMake, index) {
           },
           fields: getItemFields(item), // Initialize item fields
         };
-
-        valuesToSet["data.inventory"] = [...currentInventory, newItem];
+        itemsByType.inventory.push(newItem);
       } else if (recordType === "feats") {
-        // Add to bonusFeats
-        const currentBonusFeats = record.data?.bonusFeats || [];
-        valuesToSet["data.bonusFeats"] = [...currentBonusFeats, item];
+        itemsByType.bonusFeats.push(item);
       } else if (recordType === "actions") {
-        // Add to actions
-        const currentActions = record.data?.actions || [];
-        valuesToSet["data.actions"] = [...currentActions, item];
+        itemsByType.actions.push(item);
       } else if (recordType === "features") {
         // Check feature type
         const featureType = (item.data?.type || "classfeature").toLowerCase();
         const isAncestryFeature = featureType === "ancestryfeature";
 
         if (isAncestryFeature) {
-          // Add to first ancestry's features
-          const ancestryList = record.data?.ancestries || [];
-          if (ancestryList.length > 0) {
-            const ancestryFeatures = ancestryList[0].data?.features || [];
-            valuesToSet["data.ancestries.0.data.features"] = [
-              ...ancestryFeatures,
-              item,
-            ];
-          }
+          itemsByType.ancestryFeatures.push(item);
         } else {
-          // Add to first class's features
-          const classList = record.data?.classes || [];
-          if (classList.length > 0) {
-            const classFeatures = classList[0].data?.features || [];
-            valuesToSet["data.classes.0.data.features"] = [
-              ...classFeatures,
-              item,
-            ];
-          }
+          itemsByType.classFeatures.push(item);
         }
       }
     });
+
+    // Now set each path once with all accumulated items
+    if (itemsByType.inventory.length > 0) {
+      const currentInventory = record.data?.inventory || [];
+      valuesToSet["data.inventory"] = [
+        ...currentInventory,
+        ...itemsByType.inventory,
+      ];
+    }
+
+    if (itemsByType.bonusFeats.length > 0) {
+      const currentBonusFeats = record.data?.bonusFeats || [];
+      valuesToSet["data.bonusFeats"] = [
+        ...currentBonusFeats,
+        ...itemsByType.bonusFeats,
+      ];
+    }
+
+    if (itemsByType.actions.length > 0) {
+      const currentActions = record.data?.actions || [];
+      valuesToSet["data.actions"] = [...currentActions, ...itemsByType.actions];
+    }
+
+    // Handle feature updates based on which group this choice belongs to
+    if (featureDataPath === "data.ancestries.0.data.features") {
+      const ancestryList = record.data?.ancestries || [];
+      if (ancestryList.length > 0) {
+        let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
+
+        // Replace the feature that had the choice with the updated version
+        if (featureIndex >= 0) {
+          ancestryFeatures[featureIndex] = updatedFeature;
+        }
+
+        // Add any new features from the choice
+        if (itemsByType.ancestryFeatures.length > 0) {
+          ancestryFeatures = [...ancestryFeatures, ...itemsByType.ancestryFeatures];
+        }
+
+        valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
+      }
+    } else if (featureDataPath === "data.heritages.0.data.features") {
+      const heritageList = record.data?.heritages || [];
+      if (heritageList.length > 0) {
+        let heritageFeatures = [...(heritageList[0].data?.features || [])];
+
+        // Replace the feature that had the choice with the updated version
+        if (featureIndex >= 0) {
+          heritageFeatures[featureIndex] = updatedFeature;
+        }
+
+        valuesToSet["data.heritages.0.data.features"] = heritageFeatures;
+      }
+    } else if (featureDataPath === "data.classes.0.data.features") {
+      const classList = record.data?.classes || [];
+      if (classList.length > 0) {
+        let classFeatures = [...(classList[0].data?.features || [])];
+
+        // Replace the feature that had the choice with the updated version
+        if (featureIndex >= 0) {
+          classFeatures[featureIndex] = updatedFeature;
+        }
+
+        // Add any new features from the choice
+        if (itemsByType.classFeatures.length > 0) {
+          classFeatures = [...classFeatures, ...itemsByType.classFeatures];
+        }
+
+        valuesToSet["data.classes.0.data.features"] = classFeatures;
+      }
+    } else if (featureDataPath === "data.feats") {
+      let feats = [...(record.data?.feats || [])];
+
+      // Replace the feature that had the choice with the updated version
+      if (featureIndex >= 0) {
+        feats[featureIndex] = updatedFeature;
+      }
+
+      valuesToSet["data.feats"] = feats;
+    } else if (featureDataPath === "data.bonusFeats") {
+      let bonusFeats = [...(record.data?.bonusFeats || [])];
+
+      // Replace the feature that had the choice with the updated version
+      if (featureIndex >= 0) {
+        bonusFeats[featureIndex] = updatedFeature;
+      }
+
+      // Add any new feats from the choice
+      if (itemsByType.bonusFeats.length > 0) {
+        bonusFeats = [...bonusFeats, ...itemsByType.bonusFeats];
+      }
+
+      valuesToSet["data.bonusFeats"] = bonusFeats;
+    }
 
     // Apply all changes
     if (Object.keys(valuesToSet).length > 0) {
