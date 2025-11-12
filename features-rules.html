@@ -8,38 +8,18 @@
     textalign="right"
   ></checkbox>
 
-  <div style="display: flex; flex-direction: row; gap: 4px; margin-top: 4px">
-    <div style="display: flex; flex-direction: column; gap: 4px">
-      <label
-        label="Provides Attack"
-        size="sm"
-        textalign="left"
-        variant="bold"
-      ></label>
-      <label
-        label="Add an Item here if this Feature provides an attack."
-        size="sm"
-        textalign="left"
-        color="dimmed"
-        variant="standard"
-      ></label>
-    </div>
-    <list
-      field="providesAttacks"
-      variant="outline"
-      listtype="attached_item_list"
-    ></list>
-  </div>
-
   <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
-    <dropdown
-      width="100%"
-      field="providesActions"
-      label="Provides Actions"
-      placeholder="Select Actions..."
-      multiselect="10"
-      optionsquery='{"type": "actions", "query": {}}'
-    ></dropdown>
+    <label
+      label="Provides Items"
+      size="sm"
+      textalign="left"
+      variant="bold"
+    ></label>
+    <list
+      field="providesItems"
+      variant="outline-striped"
+      listtype="provides_item_list"
+    ></list>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">

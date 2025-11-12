@@ -139,14 +139,19 @@
   >
   </dropdown>
 
-  <dropdown
-    field="feats"
-    label="Provides Feats"
-    multiselect="10"
-    placeholder="Select Feats..."
-    optionsquery='{"type": "feats", "query": {}}'
-  >
-  </dropdown>
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
+    <label
+      label="Provides Items"
+      size="sm"
+      textalign="left"
+      variant="bold"
+    ></label>
+    <list
+      field="providesItems"
+      variant="outline-striped"
+      listtype="provides_item_list"
+    ></list>
+  </div>
 </div>
 
 <div style="margin-top: 8px; margin-bottom: 8px">

@@ -2299,26 +2299,6 @@ function processChoices(record) {
     },
   ];
 
-  // Make a map of all features / feats resulting from choices
-  const choicesToFeatures = {};
-
-  for (const group of groups) {
-    for (const feature of group.features) {
-      // On each feature we add, we will set the `choiceFromId` field to indicate
-      // it was from a choice on another feature containing a choice with that ID
-      if (feature.data?.choiceFromId !== undefined) {
-        choicesToFeatures[feature.data?.choiceFromId] = feature;
-      }
-    }
-  }
-
-  // Also check bonusFeats for choices (Feats go here when from a choice)
-  for (const feat of bonusFeats) {
-    if (feat.data?.choiceFromId !== undefined) {
-      choicesToFeatures[feat.data?.choiceFromId] = feat;
-    }
-  }
-
   // Now check for choices that are not yet provided
   const choicesToMake = [];
 
@@ -2327,12 +2307,16 @@ function processChoices(record) {
       // If this feature is for our level or lower, check for choices
       const featureLevel = feature.data?.level || 0;
       if (featureLevel <= characterLevel) {
-        const choices = feature.data?.choices || [];
-        for (const choice of choices) {
-          if (choicesToFeatures[choice._id] === undefined) {
-            // We need to make this choice
-            choicesToMake.push({ choice, feature, group });
-            choicesToFeatures[choice._id] = choice;
+        const choiceObjects = feature.data?.choices || [];
+
+        // Check each choice object to see if a selection has been made
+        for (const choiceObj of choiceObjects) {
+          const selectedChoices = choiceObj.data?.choices || [];
+          const options = choiceObj.data?.options || [];
+
+          // If there are options but no selection has been made yet, prompt for choice
+          if (options.length > 0 && selectedChoices.length === 0) {
+            choicesToMake.push({ feature, group, choiceObj });
           }
         }
       }
@@ -2415,158 +2399,150 @@ function promptForChoices(record, choicesToMake, index) {
     return;
   }
 
-  const choice = choicesToMake[index];
-  const choiceObj = choice.choice;
-  const feature = choice.feature;
-  const group = choice.group;
+  const choiceData = choicesToMake[index];
+  const feature = choiceData.feature;
+  const group = choiceData.group;
+  const choiceObj = choiceData.choiceObj;
+
+  // Get choice options from the choice object
+  const options = choiceObj.data?.options || [];
+  const promptName =
+    choiceObj.data?.description || choiceObj.name || "Make a choice";
+  const promptDescription = "";
+
+  // Build prompt options from the options array
+  const promptOptions = options.map((option) => ({
+    label: option.name || "Option",
+    value: option._id,
+  }));
+
+  if (promptOptions.length === 0) {
+    // No options, skip to next choice
+    promptForChoices(record, choicesToMake, index + 1);
+    return;
+  }
 
   // Prompt the user for the choice
-  const promptName = choiceObj.name;
-  const promptDescription = choiceObj?.data?.description;
-  const itemType = choiceObj?.data?.itemType || "feature";
-  const filters = choiceObj?.data?.filter || [];
-  const promptOptions = choiceObj?.data?.choices || [];
+  const callback = (selectedOptions) => {
+    const selectedOptionId =
+      selectedOptions && selectedOptions.length > 0 ? selectedOptions[0] : null;
 
-  // Prompt the user for the choice
-  const callback = (choices) => {
-    const choice = choices && choices.length > 0 ? choices[0] : null;
-    if (choice) {
-      if (itemType === "feat") {
-        // For feats, add to the character's bonus feats
-        const currentFeats = record.data?.bonusFeats || [];
-        const newFeat = {
-          ...choice,
-          data: {
-            ...(choice?.data || {}),
-            choiceFromId: choiceObj._id,
-          },
-        };
-        const updatedFeats = [...currentFeats, newFeat];
-        api.setValues({ "data.bonusFeats": updatedFeats }, () => {
-          promptForChoices(record, choicesToMake, index + 1);
-        });
-      } else {
-        // For features, add to the group's features
-        const dataPath = group.dataPath;
-        api.getRecord("features", choice, (featureRecord) => {
-          api.addValue(
-            dataPath,
-            {
-              ...featureRecord,
-              data: {
-                ...(featureRecord?.data || {}),
-                // Mark the id of the choice that provided this feature
-                level: featureRecord?.data?.level || feature?.data?.level || 1,
-                choiceFromId: choiceObj._id,
-              },
-            },
-            () => {
-              promptForChoices(record, choicesToMake, index + 1);
-            }
-          );
-        });
-      }
-    } else {
+    if (!selectedOptionId) {
       // No choice made, continue to next
       promptForChoices(record, choicesToMake, index + 1);
+      return;
     }
-  };
 
-  // Build options based on item type
-  let options = null;
-  let optionsQuery = null;
+    // Find the selected option
+    const selectedOption = options.find((opt) => opt._id === selectedOptionId);
+    if (!selectedOption) {
+      // Option not found, continue to next
+      promptForChoices(record, choicesToMake, index + 1);
+      return;
+    }
 
-  if (itemType === "feat" && filters.length > 0) {
-    // For feats, build query based on filters
-    const query = {};
+    // Get items from the selected option's data.value array
+    const itemsToAdd = selectedOption.data?.value || [];
 
-    filters.forEach((filter) => {
-      const [category, field, value] = filter.split(":");
+    // Prepare values to set
+    const valuesToSet = {};
 
-      if (category === "item" && field === "category") {
-        // Handle category filters - use data.type for feat types
-        if (value === "general") {
-          query["data.type"] = { $in: ["general", "skill"] };
+    // Add the selection to the choice object's data.choices array
+    const featureDataPath = group.dataPath;
+    const featureIndex = group.features.findIndex((f) => f._id === feature._id);
+    if (featureIndex >= 0) {
+      // Find the choice object index within the feature's choices array
+      const choiceObjects = feature.data?.choices || [];
+      const choiceIndex = choiceObjects.findIndex(
+        (c) => c._id === choiceObj._id
+      );
+
+      if (choiceIndex >= 0) {
+        // Create choice entry (just store the option ID and name)
+        const choiceEntry = JSON.stringify({
+          _id: selectedOption._id,
+          name: selectedOption.name,
+        });
+        valuesToSet[
+          `${featureDataPath}.${featureIndex}.data.choices.${choiceIndex}.data.choices`
+        ] = [choiceEntry];
+      }
+    }
+
+    // Process each item from the selected option's value array
+    itemsToAdd.forEach((item) => {
+      const recordType = item.recordType;
+
+      if (recordType === "items") {
+        // Add to inventory
+        const currentInventory = record.data?.inventory || [];
+        const newItem = {
+          ...item,
+          _id: generateUuid(),
+          data: {
+            ...item.data,
+            carried: item.data?.type === "weapon" ? "equipped" : "carried",
+            count: 1, // Set count to 1
+          },
+          fields: getItemFields(item), // Initialize item fields
+        };
+
+        valuesToSet["data.inventory"] = [...currentInventory, newItem];
+      } else if (recordType === "feats") {
+        // Add to bonusFeats
+        const currentBonusFeats = record.data?.bonusFeats || [];
+        valuesToSet["data.bonusFeats"] = [...currentBonusFeats, item];
+      } else if (recordType === "actions") {
+        // Add to actions
+        const currentActions = record.data?.actions || [];
+        valuesToSet["data.actions"] = [...currentActions, item];
+      } else if (recordType === "features") {
+        // Check feature type
+        const featureType = (item.data?.type || "classfeature").toLowerCase();
+        const isAncestryFeature = featureType === "ancestryfeature";
+
+        if (isAncestryFeature) {
+          // Add to first ancestry's features
+          const ancestryList = record.data?.ancestries || [];
+          if (ancestryList.length > 0) {
+            const ancestryFeatures = ancestryList[0].data?.features || [];
+            valuesToSet["data.ancestries.0.data.features"] = [
+              ...ancestryFeatures,
+              item,
+            ];
+          }
         } else {
-          query["data.type"] = value;
-        }
-      } else if (category === "item" && field === "trait") {
-        // Handle trait filters - search for feats with this trait
-        if (!query["data.traits"]) {
-          query["data.traits"] = [];
-        }
-        if (value === "actor") {
-          // Add all the characters and class traits to the query
-          const actorTraits = record.data?.traits || [];
-          const classTraits = record.data?.classes?.[0]?.data?.traits || [];
-          const className = record.data?.classes?.[0]?.name || "";
-          if (className) {
-            query["data.traits"].push(className);
+          // Add to first class's features
+          const classList = record.data?.classes || [];
+          if (classList.length > 0) {
+            const classFeatures = classList[0].data?.features || [];
+            valuesToSet["data.classes.0.data.features"] = [
+              ...classFeatures,
+              item,
+            ];
           }
-          for (const trait of actorTraits) {
-            query["data.traits"].push(trait);
-          }
-          for (const trait of classTraits) {
-            query["data.traits"].push(trait);
-          }
-        } else {
-          query["data.traits"].push(value);
         }
-      } else if (category === "item" && field === "level") {
-        // Handle level filters
-        const level = parseInt(value, 10);
-        if (!query["data.level"]) {
-          query["data.level"] = {};
-        }
-        query["data.level"].$lte = level;
       }
     });
 
-    // Convert trait array to $elemMatch if multiple traits
-    if (query["data.traits"] && query["data.traits"].length > 0) {
-      if (query["data.traits"].length === 1) {
-        query["data.traits"] = query["data.traits"][0];
-      } else {
-        // Use $in for multiple trait values
-        query["data.traits"] = { $in: query["data.traits"] };
-      }
+    // Apply all changes
+    if (Object.keys(valuesToSet).length > 0) {
+      api.setValues(valuesToSet, () => {
+        promptForChoices(record, choicesToMake, index + 1);
+      });
+    } else {
+      promptForChoices(record, choicesToMake, index + 1);
     }
-
-    optionsQuery = {
-      type: "feats",
-      query: query,
-    };
-  } else {
-    // For features, parse the provided choices
-    options = promptOptions
-      .map((option) => {
-        try {
-          const choiceOpt = JSON.parse(option);
-          return {
-            label: choiceOpt.name,
-            value: choiceOpt._id,
-          };
-        } catch (e) {
-          return null;
-        }
-      })
-      .filter((option) => option !== null);
-  }
-
-  if ((!options || options.length === 0) && !optionsQuery) {
-    // No options and no query, so we can just go to the next choice
-    callback(null);
-    return;
-  }
+  };
 
   // Prompt the user for the choice
   api.showPrompt(
     promptName,
     promptDescription,
     "Select Option...",
-    options, // Use options for features, empty for feats
-    optionsQuery, // Use query for feats, null for features
-    callback, // Callback when chosen
+    promptOptions,
+    null, // No query
+    callback,
     "OK",
     "Cancel",
     1 // Limit 1 choice
@@ -3493,11 +3469,13 @@ function calculateAbilityBoosts(record) {
   return boostResults;
 }
 
-// This function collects all `providesAttacks` from feats and features and adds them to the character
-function setProvidedAttacks(record, callback = undefined) {
+// This function collects all `providesItems` from feats, features, actions, and backgrounds
+// and adds them to the appropriate location based on their type
+function setProvidedItems(record, callback = undefined) {
   const feats = record.data?.feats || [];
   const bonusFeats = record.data?.bonusFeats || [];
   const features = record.data?.features || [];
+  const actions = record.data?.actions || [];
   const ancestries = record.data?.ancestries || [];
   const ancestryFeatures = ancestries
     .map((ancestry) => ancestry.data?.features || [])
@@ -3510,132 +3488,215 @@ function setProvidedAttacks(record, callback = undefined) {
   const classFeatures = classes
     .map((classObj) => classObj.data?.features || [])
     .flat();
+  const backgrounds = record.data?.backgrounds || [];
 
-  const attacksProvided = [];
-  const seenAttackIds = new Set();
+  // Get character level (default to 1 if not set)
+  const characterLevel = parseInt(record.data?.level || "1", 10);
 
-  for (const feature of [
+  // Collect all sources that might have providesItems
+  const allSources = [
     ...feats,
     ...bonusFeats,
+    ...features,
+    ...actions,
     ...ancestryFeatures,
     ...heritageFeatures,
     ...classFeatures,
-    ...features,
-  ]) {
-    if (
-      feature.data?.providesAttacks &&
-      feature.data?.providesAttacks.length > 0
-    ) {
-      for (const attack of feature.data?.providesAttacks) {
-        // Only add if we haven't seen this attack ID before
-        if (!seenAttackIds.has(attack._id)) {
-          seenAttackIds.add(attack._id);
-          attacksProvided.push(attack);
+    ...backgrounds,
+  ];
+
+  // Filter sources by level requirement
+  const validSources = allSources.filter((source) => {
+    const sourceLevel = parseInt(source.data?.level || "1", 10);
+    return sourceLevel <= characterLevel;
+  });
+
+  // Collect all provided items from valid sources
+  const providedItems = [];
+  for (const source of validSources) {
+    if (source.data?.providesItems && source.data.providesItems.length > 0) {
+      providedItems.push(...source.data.providesItems);
+    }
+  }
+
+  if (providedItems.length === 0) {
+    if (callback) {
+      callback(record);
+    }
+    return;
+  }
+
+  // Get existing items to check for duplicates
+  const existingInventory = record.data?.inventory || [];
+  const existingBonusFeats = record.data?.bonusFeats || [];
+  const existingActions = record.data?.actions || [];
+
+  // Prepare items to add
+  const itemsToAdd = {
+    inventory: [],
+    bonusFeats: [],
+    actions: [],
+    classFeatures: [], // Will be added to first class
+    ancestryFeatures: [], // Will be added to first ancestry
+  };
+
+  for (const item of providedItems) {
+    const itemId = item._id;
+    const recordType = item.recordType;
+
+    if (!itemId || !recordType) {
+      console.error("Invalid provided item - missing _id or recordType:", item);
+      continue;
+    }
+
+    // Determine where to add based on record type
+    if (recordType === "items") {
+      // Add to inventory if not already present
+      const alreadyExists = existingInventory.some(
+        (i) => i.data?.fromId === itemId
+      );
+      if (!alreadyExists) {
+        itemsToAdd.inventory.push({
+          ...item,
+          _id: generateUuid(), // Generate new ID for inventory item
+          data: {
+            ...item.data,
+            count: 1, // Always set count to 1
+            carried: item.data?.type === "weapon" ? "equipped" : "carried", // Mark as equipped if weapon
+            fromId: itemId, // Track source
+          },
+          fields: getItemFields(item),
+        });
+      }
+    } else if (recordType === "feats") {
+      // Add to bonusFeats if not already present
+      const alreadyExists = existingBonusFeats.some(
+        (f) => f.data?.fromId === itemId
+      );
+      if (!alreadyExists) {
+        itemsToAdd.bonusFeats.push({
+          ...item,
+          data: {
+            ...item.data,
+            fromId: itemId, // Track source
+          },
+        });
+      }
+    } else if (recordType === "actions") {
+      // Add to actions if not already present
+      const alreadyExists = existingActions.some(
+        (a) => a.data?.fromId === itemId
+      );
+      if (!alreadyExists) {
+        itemsToAdd.actions.push({
+          ...item,
+          data: {
+            ...item.data,
+            fromId: itemId, // Track source
+          },
+        });
+      }
+    } else if (recordType === "features") {
+      // Check feature type to determine if it's a class or ancestry feature
+      const featureType = (item.data?.type || "classfeature").toLowerCase();
+      const isAncestryFeature = featureType === "ancestryfeature";
+
+      if (isAncestryFeature) {
+        // Add to first ancestry's features
+        const ancestryList = record.data?.ancestries || [];
+        if (ancestryList.length > 0) {
+          const ancestryFeaturesList = ancestryList[0].data?.features || [];
+          const alreadyExists = ancestryFeaturesList.some(
+            (f) => f.data?.fromId === itemId || f._id === itemId
+          );
+
+          if (!alreadyExists) {
+            itemsToAdd.ancestryFeatures.push({
+              ...item,
+              data: {
+                ...item.data,
+                fromId: itemId,
+              },
+            });
+          }
+        }
+      } else {
+        // It's a class feature (or assumed to be)
+        // Add to first class's features
+        const classList = record.data?.classes || [];
+        if (classList.length > 0) {
+          const classFeaturesList = classList[0].data?.features || [];
+          const alreadyExists = classFeaturesList.some(
+            (f) => f.data?.fromId === itemId || f._id === itemId
+          );
+
+          if (!alreadyExists) {
+            itemsToAdd.classFeatures.push({
+              ...item,
+              data: {
+                ...item.data,
+                fromId: itemId,
+              },
+            });
+          }
         }
       }
     }
   }
 
-  const inventoryItems = record.data?.inventory || [];
-  const inventoryItemsToAdd = [];
-  for (const attack of attacksProvided) {
-    if (!inventoryItems.find((i) => i.data?.fromId === attack._id)) {
-      inventoryItemsToAdd.push({
-        ...attack,
-        _id: generateUuid(),
-        data: {
-          ...attack.data,
-          carried: "equipped",
-          fromId: attack._id,
-        },
-      });
+  // Now add all items using api.setValuesOnRecord
+  const valuesToSet = {};
+  let hasChanges = false;
+
+  if (itemsToAdd.inventory.length > 0) {
+    valuesToSet["data.inventory"] = [
+      ...existingInventory,
+      ...itemsToAdd.inventory,
+    ];
+    hasChanges = true;
+  }
+
+  if (itemsToAdd.bonusFeats.length > 0) {
+    valuesToSet["data.bonusFeats"] = [
+      ...existingBonusFeats,
+      ...itemsToAdd.bonusFeats,
+    ];
+    hasChanges = true;
+  }
+
+  if (itemsToAdd.actions.length > 0) {
+    valuesToSet["data.actions"] = [...existingActions, ...itemsToAdd.actions];
+    hasChanges = true;
+  }
+
+  // Add class features
+  if (itemsToAdd.classFeatures.length > 0) {
+    const classList = record.data?.classes || [];
+    if (classList.length > 0) {
+      const existingFeatures = classList[0].data?.features || [];
+      valuesToSet["data.classes.0.data.features"] = [
+        ...existingFeatures,
+        ...itemsToAdd.classFeatures,
+      ];
+      hasChanges = true;
     }
   }
 
-  if (inventoryItemsToAdd.length > 0) {
-    api.addValues("data.inventory", inventoryItemsToAdd, callback);
-  } else {
-    if (callback) {
-      callback(record);
-    }
-  }
-}
-
-// Sequentially query for and add actions
-function queryAndAddActions(actions, index, callback) {
-  // If we're done, call the callback
-  if (index >= actions.length) {
-    if (callback) {
-      callback();
-    }
-    return;
-  }
-
-  // Else, query for the action and add it to the character
-  const action = actions[index];
-  api.getRecord("actions", action, (actionObj) => {
-    api.addValue(
-      "data.actions",
-      {
-        ...actionObj,
-        data: { ...actionObj.data, fromId: action },
-      },
-      queryAndAddActions(actions, index + 1, callback)
-    );
-  });
-}
-
-// This function collects all `providesActions` from feats and features and adds them to the character
-function setProvidedActions(record, callback = undefined) {
-  const feats = record.data?.feats || [];
-  const bonusFeats = record.data?.bonusFeats || [];
-  const features = record.data?.features || [];
-  const ancestries = record.data?.ancestries || [];
-  const ancestryFeatures = ancestries
-    .map((ancestry) => ancestry.data?.features || [])
-    .flat();
-  const heritages = record.data?.heritages || [];
-  const heritageFeatures = heritages
-    .map((heritage) => heritage.data?.features || [])
-    .flat();
-  const classes = record.data?.classes || [];
-  const classFeatures = classes
-    .map((classObj) => classObj.data?.features || [])
-    .flat();
-  const actionsProvided = [];
-  for (const feature of [
-    ...feats,
-    ...bonusFeats,
-    ...ancestryFeatures,
-    ...heritageFeatures,
-    ...classFeatures,
-    ...features,
-  ]) {
-    if (
-      feature.data?.providesActions &&
-      feature.data?.providesActions.length > 0
-    ) {
-      actionsProvided.push(...feature.data?.providesActions);
+  // Add ancestry features
+  if (itemsToAdd.ancestryFeatures.length > 0) {
+    const ancestryList = record.data?.ancestries || [];
+    if (ancestryList.length > 0) {
+      const existingFeatures = ancestryList[0].data?.features || [];
+      valuesToSet["data.ancestries.0.data.features"] = [
+        ...existingFeatures,
+        ...itemsToAdd.ancestryFeatures,
+      ];
+      hasChanges = true;
     }
   }
 
-  const actions = record.data?.actions || [];
-  const actionsToAdd = [];
-  for (const action of actionsProvided) {
-    // Parse the JSON from the dropdown value and get the ID of the action
-    try {
-      const actionData = JSON.parse(action);
-      const actionId = actionData._id;
-      if (!actions.find((a) => a.data?.fromId === actionId)) {
-        actionsToAdd.push(actionId);
-      }
-    } catch (error) {
-      console.error("Error parsing action JSON:", action, error);
-    }
-  }
-
-  if (actionsToAdd.length > 0) {
-    queryAndAddActions(actionsToAdd, 0, callback);
+  if (hasChanges) {
+    api.setValuesOnRecord(record, valuesToSet, callback);
   } else {
     if (callback) {
       callback(record);
@@ -3821,19 +3882,17 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Check all spellcasting entries and update DC and Mod
   updateSpellcastingEntries(record, valuesToSet);
 
-  // We'll set actions and then provided attacks
-  const setActionsCallback = () => {
-    setProvidedActions(record, () => {
-      setProvidedAttacks(record, callback);
-    });
+  // Set provided items (feats, actions, items, features) from providesItems
+  const setItemsCallback = () => {
+    setProvidedItems(record, callback);
   };
 
   if (Object.keys(valuesToSet).length > 0) {
     api.setValuesOnRecord(record, valuesToSet, (recordUpdated) => {
-      updateAllAttributes(recordUpdated, setActionsCallback);
+      updateAllAttributes(recordUpdated, setItemsCallback);
     });
   } else {
-    updateAllAttributes(record, setActionsCallback);
+    updateAllAttributes(record, setItemsCallback);
   }
 
   // Check for choices that the character needs to make and

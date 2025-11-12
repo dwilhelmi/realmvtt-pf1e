@@ -242,8 +242,6 @@
         self.findIndex((t) => t.name === trait.name) === index
     );
 
-    const providesFeats = backgroundObj.data?.feats || [];
-
     api.setValues(
       {
         "data.backgrounds": [backgroundObj],
@@ -253,13 +251,9 @@
       },
       (updatedRecord) => {
         // Recalculate ability scores for bonuses and such
-        // Add the feats to the character
-        addFeatsToCharacter(updatedRecord, providesFeats, () => {
-          // Then recalculate features
-          onAddEditFeature(updatedRecord, () => {
-            api.setHidden("backgrounds", false, () => {
-              api.setHidden("backgroundDetailsLabel", true);
-            });
+        onAddEditFeature(updatedRecord, () => {
+          api.setHidden("backgrounds", false, () => {
+            api.setHidden("backgroundDetailsLabel", true);
           });
         });
       }
