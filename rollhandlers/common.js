@@ -895,6 +895,11 @@ function getEffectsAndModifiersForToken(
       if (field && field.startsWith("data.")) {
         field = String(api.getValueOnRecord(target, field) || "").toLowerCase();
       }
+      if (field && field.startsWith("@record")) {
+        field = String(
+          api.getValueOnRecord(target, field.replace("@record.", "")) || ""
+        ).toLowerCase();
+      }
 
       // Check for predicates in rule.data
       if (rule.data && typeof rule.data === "object") {
