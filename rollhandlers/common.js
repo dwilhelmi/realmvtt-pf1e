@@ -7077,6 +7077,14 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         targetIsOffGuard
       );
 
+      // Build list of precision modifier indices for damage handler
+      const precisionModifierIndices = [];
+      finalDamageModifiers.forEach((mod, index) => {
+        if (mod.precisionDamage === true) {
+          precisionModifierIndices.push(index);
+        }
+      });
+
       let targetAc = getArmorClassForToken(
         target?.token,
         targetIsOffGuardDueToFlanking
@@ -7122,6 +7130,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         deadlyDie: deadlyDie,
         fatalDie: fatalDie,
         animation,
+        precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
       };
 
       if (targetIsOffGuardDueToFlanking) {
@@ -7143,6 +7152,14 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       weapon,
       false
     );
+
+    // Build list of precision modifier indices for damage handler
+    const precisionModifierIndices = [];
+    filteredDamageModifiers.forEach((mod, index) => {
+      if (mod.precisionDamage === true) {
+        precisionModifierIndices.push(index);
+      }
+    });
 
     const metadata = {
       attack: `${weapon.name}`,
@@ -7172,6 +7189,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       deadlyDie: deadlyDie,
       fatalDie: fatalDie,
       animation,
+      precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
     };
 
     api.promptRoll(
@@ -7600,6 +7618,14 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     targetIsOffGuard
   );
 
+  // Build list of precision modifier indices for damage handler
+  const precisionModifierIndices = [];
+  finalDamageModifiers.forEach((mod, index) => {
+    if (mod.precisionDamage === true) {
+      precisionModifierIndices.push(index);
+    }
+  });
+
   const metadata = {
     attack: `${weapon.name}`,
     traits: traits,
@@ -7622,6 +7648,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     isSpell: isSpell,
     hasDeathTrait: hasDeathTrait,
     criticalOnlyDice: criticalOnlyDice,
+    precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
   };
 
   api.promptRoll(
@@ -8183,6 +8210,12 @@ function applyDamage(
       const precisionIndices = [];
       let totalPrecisionDamage = 0;
 
+      // Get precision modifier indices from metadata
+      // These tell us which modifiers in the original prompt were precision damage
+      // We need to map these to roll.types indices (accounting for base damage at index 0)
+      const precisionModifierIndices =
+        roll.metadata?.precisionModifierIndices || [];
+
       // First, calculate damage with PF2e critical rules
       // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
       // If target is immune to critical hits, treat as a normal hit
@@ -8210,8 +8243,20 @@ function applyDamage(
           let damageType = type.type || "untyped";
           let damageValue = type.value;
 
-          // Check if this is precision damage and convert to base damage type
-          if (damageType.toLowerCase() === "precision") {
+          // Check if this is precision damage
+          // Method 1: Damage type is explicitly "precision"
+          let isPrecision = damageType.toLowerCase() === "precision";
+
+          // Method 2: This roll.types index corresponds to a precision modifier
+          // roll.types[0] = base damage, roll.types[1] = modifiers[0], etc.
+          // So if index > 0, check if (index - 1) is in precisionModifierIndices
+          if (!isPrecision && index > 0) {
+            const modifierIndex = index - 1;
+            isPrecision = precisionModifierIndices.includes(modifierIndex);
+          }
+
+          // If this is precision damage, track it and convert type to base damage type
+          if (isPrecision) {
             precisionIndices.push(index);
             totalPrecisionDamage += damageValue;
             damageType = baseDamageType; // Convert precision to base damage type

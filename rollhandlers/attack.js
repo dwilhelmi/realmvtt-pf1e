@@ -361,6 +361,14 @@ if (isCritical && fatalDie) {
   });
 }
 
+// Build list of precision modifier indices for damage handler
+const precisionModifierIndices = [];
+damageModifiers.forEach((mod, index) => {
+  if (mod.precisionDamage === true) {
+    precisionModifierIndices.push(index);
+  }
+});
+
 const damageMetadata = {
   // This is so that our damage handler script can tell if it was from a critical hit
   critical: isCritical && !isSpell,
@@ -377,6 +385,7 @@ const damageMetadata = {
   persistentDamage: persistentDamage,
   hasDeathTrait: hasDeathTrait,
   criticalOnlyDice: criticalOnlyDice,
+  precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
   isVitalityDual: isVitalityDual,
   damageType: damageType,
 };
