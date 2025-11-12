@@ -1188,7 +1188,8 @@ function getEffectsAndModifiersForToken(
 
   if (field && field !== "") {
     results = results.filter(
-      (r) => r.field === field || r.field === "all" || !r.field
+      (r) =>
+        r.field === field || r.field === "all" || r.field === itemId || !r.field
     );
   }
 
