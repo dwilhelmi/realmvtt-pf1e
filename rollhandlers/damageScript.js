@@ -13,7 +13,7 @@ if (damage > 0) {
     valuesToSet["data.tempHp"] = newTempHp;
   }
 
-  let curhp = parseInt(record.data?.curhp, "0", 10);
+  let curhp = parseInt(record?.data?.curhp || "0", 10);
   if (curhp === undefined || isNaN(curhp)) {
     curhp = 0;
   }
@@ -39,17 +39,17 @@ if (damage > 0) {
   valuesToSet["data.curhp"] = curhp;
 
   api.setValuesOnRecord(record, valuesToSet);
-}
 
-// If damage > 0, float text
-const token = api.getToken();
-if (value > 0 && token) {
-  if (curhp <= 0) {
-    if (token.recordType === "npcs") {
-      api.addEffect("Dead", token);
-    } else {
-      api.addEffects(["Unconscious", "Prone"], token);
+  // If damage > 0, float text
+  const token = api.getToken();
+  if (value > 0 && token) {
+    if (curhp <= 0) {
+      if (token.recordType === "npcs") {
+        api.addEffect("Dead", token);
+      } else {
+        api.addEffects(["Unconscious", "Prone"], token);
+      }
     }
+    api.floatText(token, `-${value}`, "#FF0000");
   }
-  api.floatText(token, `-${value}`, "#FF0000");
 }
