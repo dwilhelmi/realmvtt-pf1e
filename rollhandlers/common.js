@@ -1211,7 +1211,29 @@ function getEffectsAndModifiersForToken(
       return;
     }
 
-    const isPenalty = result.modifierType.toLowerCase().includes("penalty");
+    // Check if this is a negative bonus and convert it to a penalty
+    let isPenalty = result.modifierType.toLowerCase().includes("penalty");
+    const isBonus = result.modifierType.toLowerCase().includes("bonus");
+
+    // Parse the value to check if it's negative
+    let numericValue = 0;
+    if (typeof result.value === "number") {
+      numericValue = result.value;
+    } else if (typeof result.value === "string") {
+      // Try to extract numeric value from string (e.g., "-2" or "1d4")
+      const match = String(result.value).match(/^-?\d+/);
+      if (match) {
+        numericValue = parseInt(match[0], 10);
+      }
+    }
+
+    // If this is a bonus but has a negative value, convert to penalty
+    if (isBonus && !isPenalty && numericValue < 0) {
+      result.modifierType = result.modifierType.replace(/bonus/gi, "penalty");
+      result.isPenalty = true;
+      isPenalty = true;
+    }
+
     const groups = isPenalty ? penaltyGroups : bonusGroups;
 
     if (groups[result.type]) {
