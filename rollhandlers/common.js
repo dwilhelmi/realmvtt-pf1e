@@ -1192,9 +1192,9 @@ function getEffectsAndModifiersForToken(
     );
   }
 
-  // Filter by itemId if provided
+  // Filter by itemId if provided, some effects only apply to the itemId, or if the field is set to the itemId
   results = results.filter(
-    (r) => r.itemId === itemId || r.itemId === undefined
+    (r) => r.itemId === itemId || r.field === itemId || r.itemId === undefined
   );
 
   // For the roll, we need only count 1 status / item / circumstance bonus or penalty,
@@ -2580,7 +2580,10 @@ function promptForChoices(record, choicesToMake, index) {
 
         // Add any new features from the choice
         if (itemsByType.ancestryFeatures.length > 0) {
-          ancestryFeatures = [...ancestryFeatures, ...itemsByType.ancestryFeatures];
+          ancestryFeatures = [
+            ...ancestryFeatures,
+            ...itemsByType.ancestryFeatures,
+          ];
         }
 
         valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
