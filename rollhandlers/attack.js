@@ -241,32 +241,46 @@ const fatalDie = data?.roll?.metadata?.fatalDie;
 // - Major Striking (3): 3 deadly dice
 let criticalOnlyDice = [];
 
+// Track splash damage so it doesn't get doubled on critical hits
+// Splash damage is now formatted as "1d4 fire + 1d6 acid" with types included
 if (
   splashDamage &&
   splashDamage !== "" &&
   splashDamage !== 0 &&
   splashDamage !== "0"
 ) {
-  // Parse the splash damage to determine die type
-  let splashDieType = 0;
-  let splashFlatDamage = 0;
-  if (typeof splashDamage === "number") {
-    splashFlatDamage = splashDamage;
-  } else {
-    // It's a dice formula like "1d4", "2d6", or "d6" (shorthand for 1d6)
-    const diceMatch = String(splashDamage).match(/\d*d(\d+)/);
-    if (diceMatch) {
-      splashDieType = parseInt(diceMatch[1], 10);
-    } else {
-      // Fallback: try to parse as number
-      splashFlatDamage = parseInt(splashDamage, 10) || 0;
-    }
-  }
+  // Split by " + " to get individual splash components
+  const splashComponents = String(splashDamage).split(/\s*\+\s*/);
 
-  criticalOnlyDice.push({
-    dieType: splashDieType,
-    damageType: splashDamageType.toLowerCase(),
-    flatDamage: splashFlatDamage,
+  splashComponents.forEach((component) => {
+    component = component.trim();
+    // Parse each component like "1d4 fire" or "3 bludgeoning"
+    // Pattern: "(dice or number) (damage type)"
+    const componentMatch = component.match(
+      /^([0-9]*d[0-9]+|[0-9]+)\s+([a-z]+)$/i
+    );
+
+    if (componentMatch) {
+      const formula = componentMatch[1];
+      const type = componentMatch[2].toLowerCase();
+
+      let splashDieType = 0;
+      let splashFlatDamage = 0;
+
+      // Check if it's a dice formula or flat number
+      const diceMatch = formula.match(/\d*d(\d+)/);
+      if (diceMatch) {
+        splashDieType = parseInt(diceMatch[1], 10);
+      } else {
+        splashFlatDamage = parseInt(formula, 10) || 0;
+      }
+
+      criticalOnlyDice.push({
+        dieType: splashDieType,
+        damageType: type,
+        flatDamage: splashFlatDamage,
+      });
+    }
   });
 }
 
@@ -377,9 +391,8 @@ if (isVitalityDual) {
   dmgRollName = "Roll_Damage_or_Healing";
 }
 
-const damageRollString = splashDamage
-  ? `${damage} + ${splashDamage} ${splashDamageType}`
-  : damage;
+// Note: splashDamage now includes the type(s) in the string, e.g., "1d4 fire + 1d6 acid"
+const damageRollString = splashDamage ? `${damage} + ${splashDamage}` : damage;
 const damageButton =
   damage && damage !== ""
     ? `\`\`\`${dmgRollName}

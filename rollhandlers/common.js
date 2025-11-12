@@ -853,6 +853,81 @@ function evaluateEffectPredicate(predicate, traits) {
   return false;
 }
 
+/**
+ * Processes damage modifiers to extract special category damage (persistent, splash, precision)
+ * and returns both the filtered modifiers and extracted special damage.
+ *
+ * @param {Array} damageModifiers - Array of damage modifier objects
+ * @param {string} existingPersistent - Existing persistent damage string to append to
+ * @param {string|number} existingSplash - Existing splash damage to append to
+ * @param {string} existingSplashType - Existing splash damage type
+ * @returns {Object} - { modifiers, persistentDamage, splashDamage, splashDamageType, precisionCategories }
+ */
+function processDamageModifierCategories(
+  damageModifiers,
+  existingPersistent = "",
+  existingSplash = 0,
+  existingSplashType = ""
+) {
+  const filteredModifiers = [];
+  const persistentDamageParts = existingPersistent ? [existingPersistent] : [];
+  const splashDamageParts = [];
+  const precisionCategories = new Set();
+
+  // If there's existing splash damage, add it to the parts array with its type
+  if (existingSplash && existingSplash !== 0 && existingSplash !== "0") {
+    // Format as "formula type"
+    splashDamageParts.push(`${existingSplash} ${existingSplashType}`);
+  }
+
+  damageModifiers.forEach((mod) => {
+    const value = mod.value?.toString() || "";
+
+    // Check if this modifier has dice and a damage type with a category suffix
+    // Pattern: "{dice} {damageType}-{category}" e.g., "1d6 poison-persistent"
+    const match = value.match(
+      /^([0-9]+d[0-9]+(?:\s*[+\-]\s*[0-9]+)?)\s+([a-z]+)-(persistent|splash|precision)$/i
+    );
+
+    if (match) {
+      const diceFormula = match[1].trim();
+      const damageType = match[2].toLowerCase();
+      const category = match[3].toLowerCase();
+
+      if (category === "persistent") {
+        // Add to persistent damage with its type, don't include in modifiers
+        persistentDamageParts.push(`${diceFormula} ${damageType}`);
+      } else if (category === "splash") {
+        // Add to splash damage with its type, don't include in modifiers
+        splashDamageParts.push(`${diceFormula} ${damageType}`);
+      } else if (category === "precision") {
+        // Keep in modifiers but strip the "-precision" suffix and track category
+        filteredModifiers.push({
+          ...mod,
+          value: `${diceFormula} ${damageType}`,
+          precisionDamage: true,
+        });
+        precisionCategories.add("precision");
+      }
+    } else {
+      // No category suffix, keep as-is
+      filteredModifiers.push(mod);
+    }
+  });
+
+  // Combine splash parts into a single string like "1d4 fire + 1d6 acid"
+  const combinedSplash =
+    splashDamageParts.length > 0 ? splashDamageParts.join(" + ") : "";
+
+  return {
+    modifiers: filteredModifiers,
+    persistentDamage: persistentDamageParts.join(", "),
+    splashDamage: combinedSplash,
+    splashDamageType: "", // Not needed anymore since type is in the combined string
+    precisionCategories: Array.from(precisionCategories),
+  };
+}
+
 // Get all effects and modifiers for a speicifc token that match the given types, field, itemId, and appliedById
 function getEffectsAndModifiersForToken(
   target,
@@ -6487,8 +6562,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
   const damage = weaponDamageInfo.damageString;
-  const splashDamage = weaponDamageInfo.splashDamage;
-  const splashDamageType = weaponDamageInfo.splashDamageType || damageType;
+  let splashDamage = weaponDamageInfo.splashDamage;
+  let splashDamageType = weaponDamageInfo.splashDamageType || damageType;
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
   const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
@@ -6827,6 +6902,24 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     return true;
   });
 
+  // Process damage modifiers to extract category-specific damage (persistent, splash, precision)
+  const processedDamage = processDamageModifierCategories(
+    damageModifiers,
+    persistentDamage,
+    splashDamage,
+    splashDamageType
+  );
+  damageModifiers = processedDamage.modifiers;
+  persistentDamage = processedDamage.persistentDamage;
+  splashDamage = processedDamage.splashDamage;
+  splashDamageType = processedDamage.splashDamageType;
+  // Add precision categories to damageCategories if any were found
+  processedDamage.precisionCategories.forEach((cat) => {
+    if (!damageCategories.includes(cat)) {
+      damageCategories.push(cat);
+    }
+  });
+
   // Determine if we are making a damage roll that ignores resistances / immunities
   const damageIgnoresResistances = damageModifiers
     .filter(
@@ -7124,13 +7217,12 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageKind = weaponDamageInfo.damageKind;
   const damageType = weaponDamageInfo.damageType;
-  const splashDamage = weaponDamageInfo.splashDamage;
-  const splashDamageType = weaponDamageInfo.splashDamageType || damageType;
+  let splashDamage = weaponDamageInfo.splashDamage;
+  let splashDamageType = weaponDamageInfo.splashDamageType || damageType;
   let damage = weaponDamageInfo.damageString;
 
-  if (splashDamage && splashDamage !== 0 && splashDamage !== "0") {
-    damage = `${damage} + ${splashDamage} ${splashDamageType}`;
-  }
+  // Don't add splash to damage yet - will do after processing modifiers
+  // so we can include modifier splash damage too
 
   const fatalDamageString = weaponDamageInfo.fatalDamageString;
   const damageMod = weaponDamageInfo.damageMod;
@@ -7291,32 +7383,69 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     });
   }
 
+  // Process damage modifiers to extract category-specific damage (persistent, splash, precision)
+  const processedDamage = processDamageModifierCategories(
+    damageModifiers,
+    persistentDamage,
+    splashDamage,
+    splashDamageType
+  );
+  damageModifiers = processedDamage.modifiers;
+  persistentDamage = processedDamage.persistentDamage;
+  splashDamage = processedDamage.splashDamage;
+  splashDamageType = processedDamage.splashDamageType;
+  // Add precision categories to damageCategories if any were found
+  processedDamage.precisionCategories.forEach((cat) => {
+    if (!damageCategories.includes(cat)) {
+      damageCategories.push(cat);
+    }
+  });
+
+  // Now add the combined splash damage (weapon + modifiers) to the damage string
+  // Note: splashDamage now includes the type(s) in the string, e.g., "1d4 fire + 1d6 acid"
+  if (splashDamage && splashDamage !== 0 && splashDamage !== "0") {
+    damage = `${damage} + ${splashDamage}`;
+  }
+
   // On critical hits, add deadly dice to damage modifiers
   // The number of deadly dice depends on striking runes
   let criticalOnlyDice = [];
 
   // Track splash damage so it doesn't get doubled on critical hits
+  // Splash damage is now formatted as "1d4 fire + 1d6 acid" with types included
   if (splashDamage && splashDamage !== 0 && splashDamage !== "0") {
-    // Parse the splash damage to determine die type
-    let splashDieType = 0;
-    let splashFlatDamage = 0;
-    if (typeof splashDamage === "number") {
-      splashFlatDamage = splashDamage;
-    } else {
-      // It's a dice formula like "1d4", "2d6", or "d6" (shorthand for 1d6)
-      const diceMatch = String(splashDamage).match(/\d*d(\d+)/);
-      if (diceMatch) {
-        splashDieType = parseInt(diceMatch[1], 10);
-      } else {
-        // Fallback: try to parse as number
-        splashFlatDamage = parseInt(splashDamage, 10) || 0;
-      }
-    }
+    // Split by " + " to get individual splash components
+    const splashComponents = String(splashDamage).split(/\s*\+\s*/);
 
-    criticalOnlyDice.push({
-      dieType: splashDieType,
-      damageType: splashDamageType.toLowerCase(),
-      flatDamage: splashFlatDamage,
+    splashComponents.forEach((component) => {
+      component = component.trim();
+      // Parse each component like "1d4 fire" or "3 bludgeoning"
+      // Pattern: "(dice or number) (damage type)"
+      const componentMatch = component.match(
+        /^([0-9]*d[0-9]+|[0-9]+)\s+([a-z]+)$/i
+      );
+
+      if (componentMatch) {
+        const formula = componentMatch[1];
+        const type = componentMatch[2].toLowerCase();
+
+        let splashDieType = 0;
+        let splashFlatDamage = 0;
+
+        // Check if it's a dice formula or flat number
+        const diceMatch = formula.match(/\d*d(\d+)/);
+        if (diceMatch) {
+          splashDieType = parseInt(diceMatch[1], 10);
+        } else {
+          splashFlatDamage = parseInt(formula, 10) || 0;
+        }
+
+        criticalOnlyDice.push({
+          dieType: splashDieType,
+          damageType: type,
+          flatDamage: splashFlatDamage,
+        });
+      }
     });
   }
 
