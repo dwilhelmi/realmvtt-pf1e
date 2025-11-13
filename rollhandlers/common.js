@@ -302,12 +302,42 @@ function getDamageType(rollString) {
   return match && match[1] ? match[1] : "untyped";
 }
 
+/**
+ * Extracts the die size from a spell's main damage formula
+ * For example, "2d6 fire" returns "6", "1d8+2 cold" returns "8"
+ * @param {Object} spell - The spell object with data.damage array
+ * @returns {string} - The die size (e.g., "6", "8", "10") or empty string if none found
+ */
+function getSpellDieSize(spell) {
+  if (!spell || !spell.data || !spell.data.damage) {
+    return "";
+  }
+
+  const damageArray = spell.data.damage;
+  if (!Array.isArray(damageArray) || damageArray.length === 0) {
+    return "";
+  }
+
+  // Get the first damage entry's formula
+  const firstDamage = damageArray[0];
+  const formula = firstDamage?.data?.formula || "";
+
+  // Extract die size from formula like "2d6", "1d8+2", "d10", etc.
+  const dieMatch = formula.match(/\dd(\d+)/);
+  if (dieMatch && dieMatch[1]) {
+    return dieMatch[1];
+  }
+
+  return "";
+}
+
 // Checks for replacements in a string modifier
 function checkForReplacements(
   value,
   replacements = {},
   recordOverride = null,
-  effectContext = null
+  effectContext = null,
+  context = {}
 ) {
   let thisRecord = recordOverride || record;
 
@@ -333,6 +363,14 @@ function checkForReplacements(
     const fullPath = `data.${field}`;
     return api.getValueOnRecord(thisRecord, fullPath) || "";
   });
+
+  // Replace @dieSize with the spell's main damage die size
+  if (value.includes("@dieSize") && context?.spell) {
+    const dieSize = getSpellDieSize(context.spell);
+    if (dieSize) {
+      value = value.replaceAll("@dieSize", dieSize);
+    }
+  }
 
   // Case for 'Half Level' or 'Half Character Level'
   const matchHalfLevel =
@@ -995,7 +1033,7 @@ function getEffectsAndModifiersForToken(
       const ruleType = rule?.type || "";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = rule.value || "";
-      let bonusPenaltyType = "none";
+      let bonusPenaltyType = "";
 
       // For effects, we get the modifierType from the suffix, if it ends with -circumstance, -item, or -status
       if (ruleType.endsWith("-circumstance")) {
@@ -1028,7 +1066,7 @@ function getEffectsAndModifiersForToken(
         if (typeof value === "string" && value.startsWith("data.")) {
           value = api.getValueOnRecord(target, value) || 0;
         } else {
-          value = checkForReplacements(value, {}, target, effect);
+          value = checkForReplacements(value, {}, target, effect, context);
         }
       }
       if (
@@ -1198,7 +1236,7 @@ function getEffectsAndModifiersForToken(
     const toggleable = feature.data?.toggleable || false;
     modifiers.forEach((modifier) => {
       const ruleType = modifier.data?.type || "";
-      const bonusPenaltyType = modifier.data?.modifierType || "none";
+      const bonusPenaltyType = modifier.data?.modifierType || "";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = modifier.data?.value || "";
       if (modifier.data?.valueType === "number") {
@@ -1228,7 +1266,7 @@ function getEffectsAndModifiersForToken(
         if (typeof value === "string" && value.startsWith("data.")) {
           value = api.getValueOnRecord(target, value) || 0;
         } else {
-          value = checkForReplacements(value, {}, target);
+          value = checkForReplacements(value, {}, target, null, context);
         }
       }
 
@@ -1288,7 +1326,7 @@ function getEffectsAndModifiersForToken(
 
   // Group results by type and bonus/penalty
   results.forEach((result) => {
-    if (result.type === "none") {
+    if (result.type === "") {
       // Keep non-typed modifiers as-is
       filteredResults.push(result);
       return;
@@ -6830,7 +6868,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     );
     // Create a Set from existing damage modifiers to avoid duplicates
     const seenDamageModifiers = new Set(
-      damageModifiers.map((mod) => JSON.stringify(mod))
+      damageModifiers.map((mod) => modToString(mod))
     );
     damageStatModifiers.forEach((mod) => {
       const modString = modToString(mod);
@@ -7342,7 +7380,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     );
     // Create a Set from existing damage modifiers to avoid duplicates
     const seenDamageModifiers = new Set(
-      damageModifiers.map((mod) => JSON.stringify(mod))
+      damageModifiers.map((mod) => modToString(mod))
     );
     damageStatModifiers.forEach((mod) => {
       const modString = modToString(mod);
