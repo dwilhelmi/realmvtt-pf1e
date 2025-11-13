@@ -977,6 +977,7 @@ function getEffectsAndModifiersForToken(
       }
 
       // Check for predicates in rule.data
+      let active = true;
       if (rule.data && typeof rule.data === "object") {
         if (rule.data.predicate) {
           // Evaluate the predicate - if it fails, skip this rule
@@ -985,7 +986,8 @@ function getEffectsAndModifiersForToken(
             traitsSet
           );
           if (!predicatePassed) {
-            return; // Skip this rule
+            // Mark as inactive
+            active = false;
           }
         }
       }
@@ -1043,7 +1045,7 @@ function getEffectsAndModifiersForToken(
           results.push({
             name: i > 0 ? `${name} (x${i + 1})` : name,
             value: value,
-            active: true,
+            active: active,
             modifierType: ruleType,
             type: bonusPenaltyType,
             field: field,
@@ -1062,7 +1064,7 @@ function getEffectsAndModifiersForToken(
           results.push({
             name: effect.name || "Effect",
             value: value,
-            active: true,
+            active: active,
             modifierType: ruleType,
             type: bonusPenaltyType,
             field: rule?.field || "",
@@ -1096,7 +1098,7 @@ function getEffectsAndModifiersForToken(
           results.push({
             name: effect.name || "Effect",
             value: value,
-            active: true,
+            active: active,
             modifierType: ruleType,
             type: bonusPenaltyType,
             field: rule?.field || "",
@@ -4238,7 +4240,7 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
       "spell"
     );
     spellSaveMods.forEach((mod) => {
-      const modString = JSON.stringify(mod);
+      const modString = modToString(mod);
       if (!additionalModsSet.has(modString)) {
         additionalModsSet.add(modString);
         modifiers.push(mod);
@@ -4263,29 +4265,19 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
 
   // Add save-specific modifiers
   additionalMods.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!additionalModsSet.has(modString)) {
       additionalModsSet.add(modString);
-      modifiers.push({
-        name: mod.name || "Save Modifier",
-        type: mod.type || "",
-        value: mod.value,
-        active: true,
-      });
+      modifiers.push(mod);
     }
   });
 
   // Add attribute-based all bonuses/penalties unless already seen
   allEffectMods.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!additionalModsSet.has(modString)) {
       additionalModsSet.add(modString);
-      modifiers.push({
-        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
-        type: mod.type || "",
-        value: mod.value,
-        active: true,
-      });
+      modifiers.push(mod);
     }
   });
 
@@ -4319,6 +4311,15 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   } else {
     api.promptRoll(`${saveDisplay} Save`, "1d20", modifiers, metadata, "save");
   }
+}
+
+function modToString(mod) {
+  return JSON.stringify({
+    name: mod.name,
+    value: mod.value,
+    active: mod.active,
+    type: mod.type,
+  });
 }
 
 // Generate a clickable save macro for PF2e
@@ -4532,42 +4533,26 @@ function rollSkill(
 
   // Add skill-specific modifiers
   additionalMods.forEach((mod) => {
-    const modString = JSON.stringify(mod);
-    if (!additionalModsSet.has(modString)) {
-      additionalModsSet.add(modString);
-      modifiers.push({
-        name: mod.name || "Skill Modifier",
-        type: mod.type || "",
-        value: mod.value,
-        active: true,
-      });
+    if (!additionalModsSet.has(modToString(mod))) {
+      additionalModsSet.add(modToString(mod));
+      modifiers.push(mod);
     }
   });
 
   // Add attribute-based all bonuses/penalties
   allEffectMods.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!additionalModsSet.has(modString)) {
       additionalModsSet.add(modString);
-      modifiers.push({
-        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
-        type: mod.type || "",
-        value: mod.value,
-        active: true,
-      });
+      modifiers.push(mod);
     }
   });
 
   allEffectMods2.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!additionalModsSet.has(modString)) {
       additionalModsSet.add(modString);
-      modifiers.push({
-        name: `${mod.name || "All Modifier"} (${attribute.toUpperCase()})`,
-        type: mod.type || "",
-        value: mod.value,
-        active: true,
-      });
+      modifiers.push(mod);
     }
   });
 
@@ -6716,7 +6701,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     { weapon }
   );
   otherBonusesAndPenalties.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!seenAttackModifiers.has(modString)) {
       seenAttackModifiers.add(modString);
       modifiers.push(mod);
@@ -6733,7 +6718,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     { weapon }
   );
   statBonusesAndPenalties.forEach((mod) => {
-    const modString = JSON.stringify(mod);
+    const modString = modToString(mod);
     if (!seenAttackModifiers.has(modString)) {
       seenAttackModifiers.add(modString);
       modifiers.push(mod);
@@ -6848,7 +6833,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageModifiers.map((mod) => JSON.stringify(mod))
     );
     damageStatModifiers.forEach((mod) => {
-      const modString = JSON.stringify(mod);
+      const modString = modToString(mod);
       if (!seenDamageModifiers.has(modString)) {
         seenDamageModifiers.add(modString);
         damageModifiers.push(mod);
@@ -7360,7 +7345,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
       damageModifiers.map((mod) => JSON.stringify(mod))
     );
     damageStatModifiers.forEach((mod) => {
-      const modString = JSON.stringify(mod);
+      const modString = modToString(mod);
       if (!seenDamageModifiers.has(modString)) {
         seenDamageModifiers.add(modString);
         damageModifiers.push(mod);
