@@ -9200,9 +9200,21 @@ function executeDamageMacro(
       ? context.level
       : context?.item?.data?.level || 1;
 
+  // First replace @item.level/@item.rank with actual value
   processedFormula = processedFormula.replace(
-    /\(?@item\.(level|rank)\)?/gi,
+    /@item\.(level|rank)/gi,
     itemLevel
+  );
+
+  // Then evaluate any mathematical expressions like floor(2/2), (3), etc.
+  // This handles cases like: floor(@item.level/2) -> floor(2/2) -> 1
+  // or (@item.level) -> (2) -> 2
+  processedFormula = processedFormula.replace(
+    /\(([0-9+\-*/.]+)\)|floor\([^)]+\)|ceil\([^)]+\)|min\([^)]+\)|max\([^)]+\)|abs\([^)]+\)/gi,
+    (match) => {
+      const evaluated = evaluateMath(match);
+      return String(evaluated);
+    }
   );
 
   // Extract damage type from formula (last word should be the damage type)
