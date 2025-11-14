@@ -617,6 +617,9 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
 
   const baseDamage = spell?.data?.damage || [];
 
+  // Get the primary damage type from the first base damage entry to use as fallback for heightening
+  const primaryDamageType = baseDamage[0]?.data?.type || "untyped";
+
   let damageString = "";
   let healingString = "";
   let persistentDamage = "";
@@ -637,7 +640,7 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
   if (heighteningInfo.damage) {
     heighteningInfo.damage.forEach((dmgEntry) => {
       const formula = dmgEntry?.data?.formula || "";
-      const type = dmgEntry?.data?.type || "untyped";
+      const type = dmgEntry?.data?.type || primaryDamageType;
       const category = dmgEntry?.data?.category || "";
       const kinds = dmgEntry?.data?.kinds || [];
       const applyMod = dmgEntry?.data?.applyMod || false;
@@ -780,7 +783,9 @@ function calculateSpellDamage(record, spell, dataPathToSpell) {
       const { numIntervals, damage } = intervalInfo;
       damage.forEach((heightenDmg, index) => {
         const heightenFormula = heightenDmg?.data?.formula || "";
-        const heightenType = heightenDmg?.data?.type || "untyped";
+        // Use the corresponding base damage type if available, otherwise use primary damage type
+        const baseDmgType = baseDamage[index]?.data?.type || primaryDamageType;
+        const heightenType = heightenDmg?.data?.type || baseDmgType;
 
         // Get the corresponding base damage entry to check its kinds
         const baseDmgEntry = baseDamage[index];
@@ -1486,8 +1491,9 @@ function castSpell(record, spell, dataPathToSpell, isOverlay = false) {
     valuesToSet[`${dataPathToSpell}.data.uses`] = newSpellUses;
   }
 
-  const spellDescription = api.richTextToMarkdown(
-    spell?.data?.description || ""
+  const spellDescription = updateDamageMacros(
+    api.richTextToMarkdown(spell?.data?.description || ""),
+    { item: spell, level: castingRank }
   );
 
   let portrait = spell?.portrait

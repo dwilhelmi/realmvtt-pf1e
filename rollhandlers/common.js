@@ -1569,7 +1569,10 @@ function useItem() {
     ? `![${itemName}](${assetUrl}${portrait}?width=40&height=40) `
     : "";
 
-  const itemDescription = api.richTextToMarkdown(description || "");
+  const itemDescription = updateDamageMacros(
+    api.richTextToMarkdown(description || ""),
+    { item }
+  );
   let markdownDescription = `
 #### ${itemIcon}${itemName}
 
@@ -5493,8 +5496,9 @@ function useAction(action) {
     });
   });
 
-  const actionDescription = api.richTextToMarkdown(
-    action?.data?.description || ""
+  const actionDescription = updateDamageMacros(
+    api.richTextToMarkdown(action?.data?.description || ""),
+    { item: action }
   );
 
   let portrait = action?.portrait
@@ -9156,4 +9160,186 @@ function performInitiativeRoll(record) {
       initiativeSkill: initiativeSkill,
     }
   );
+}
+
+function replaceWithDamageMacro() {
+  api.showNotification(
+    "This macro must be used from the the Chat after using this ability.",
+    "red",
+    "Requires Use"
+  );
+}
+
+/**
+ * Creates a damage macro for a given formula and category
+ * @param {string} formula - Damage formula like "1d6 fire" or "2d4 + 3 bludgeoning"
+ * @param {string} category - Damage category: "persistent", "splash", "precision", "standard", or undefined
+ * @param {string} name - Optional name for the macro (defaults to formula)
+ * @param {Object} context - Context object that may contain item data
+ * @returns {string} - Macro string that can be executed
+ */
+function executeDamageMacro(
+  formula,
+  category = "standard",
+  name = null,
+  context = {}
+) {
+  if (!formula || formula.trim() === "") {
+    return "";
+  }
+
+  // Replace @item.level or @item.rank with actual item level from context
+  // Context can have:
+  //   - context.level (for heightened spells or explicit level override)
+  //   - context.item.data.level (for full item objects)
+  //   - Default to 1 if neither is available
+  let processedFormula = formula.trim();
+
+  const itemLevel =
+    context.level !== undefined
+      ? context.level
+      : context?.item?.data?.level || 1;
+
+  processedFormula = processedFormula.replace(
+    /\(?@item\.(level|rank)\)?/gi,
+    itemLevel
+  );
+
+  // Extract damage type from formula (last word should be the damage type)
+  const parts = processedFormula.split(/\s+/);
+  const damageType = parts[parts.length - 1] || "untyped";
+
+  // Clean formula and damage type
+  const cleanFormula = processedFormula;
+  const macroName = name || cleanFormula.replace(/\s+/g, "_");
+
+  let metadata = {
+    rollName: `${macroName} Damage`,
+    damageType: damageType,
+  };
+
+  let mainDamage = cleanFormula;
+  let modifiers = [];
+
+  // Handle different categories
+  if (category === "persistent") {
+    // For persistent damage, directly apply the persistent damage effect
+    applyPersistentDamage(
+      cleanFormula,
+      context.originTokenId,
+      context.originTokenName
+    );
+    return;
+  } else if (category === "splash") {
+    // Splash damage goes in metadata and criticalOnlyDice so it doesn't double on crits
+    metadata.splashDamage = cleanFormula;
+
+    // Parse splash damage to add to criticalOnlyDice
+    const splashMatch = cleanFormula.match(
+      /^([0-9]*d[0-9]+|[0-9]+)\s+([a-z]+)$/i
+    );
+    if (splashMatch) {
+      const splashFormula = splashMatch[1];
+      const splashType = splashMatch[2].toLowerCase();
+
+      let splashDieType = 0;
+      let splashFlatDamage = 0;
+
+      const diceMatch = splashFormula.match(/\d*d(\d+)/);
+      if (diceMatch) {
+        splashDieType = parseInt(diceMatch[1], 10);
+      } else {
+        splashFlatDamage = parseInt(splashFormula, 10) || 0;
+      }
+
+      metadata.criticalOnlyDice = [
+        {
+          dieType: splashDieType,
+          damageType: splashType,
+          flatDamage: splashFlatDamage,
+        },
+      ];
+    }
+
+    // Splash is also added to main damage
+    mainDamage = cleanFormula;
+  } else if (category === "precision") {
+    // Precision damage is added as a modifier with precisionDamage flag
+    modifiers.push({
+      name: "Precision Damage",
+      value: cleanFormula,
+      active: true,
+      type: damageType,
+      valueType: "string",
+      precisionDamage: true,
+    });
+
+    metadata.precisionModifierIndices = [0]; // First modifier is precision
+    mainDamage = "0"; // No base damage, only precision modifier
+  } else {
+    // Standard damage - just roll normally
+    mainDamage = cleanFormula;
+  }
+
+  api.promptRoll(
+    macroName,
+    mainDamage,
+    modifiers,
+    metadata,
+    category === "healing" ? "healing" : "damage"
+  );
+}
+
+/**
+ * Updates a description by replacing replaceWithDamageMacro(...) calls with executeDamageMacro(...) calls
+ * @param {string} description - The markdown description text
+ * @param {Object} context - Context object containing:
+ *   - item: the item/spell/action object with _id and recordType
+ *   - level: optional override level (e.g., casting rank for heightened spells)
+ * @returns {string} - Updated description with function calls replaced
+ */
+function updateDamageMacros(description, context = {}) {
+  if (!description || typeof description !== "string") {
+    return description;
+  }
+
+  const token = api.getToken();
+  const tokenId = token?._id;
+  const tokenName =
+    token?.identified === false
+      ? token?.record?.unidentifiedName
+      : token?.record?.name;
+
+  // Build minimal context with _id, recordType, and level
+  const item = context.item;
+  if (!item || !item._id || !item.recordType) {
+    return description;
+  }
+
+  // Use provided level (e.g., casting rank) or fall back to item's level
+  const level =
+    context.level !== undefined ? context.level : item.data?.level || 1;
+
+  const minimalContext = JSON.stringify({
+    _id: item._id,
+    recordType: item.recordType,
+    level: level,
+    originTokenId: tokenId,
+    originTokenName: tokenName,
+  });
+
+  // Find all instances of replaceWithDamageMacro(...) and replace them
+  // Pattern: replaceWithDamageMacro('formula', 'category', 'name') or replaceWithDamageMacro("formula", "category", "name")
+  // Supports both single and double quotes
+  const result = description.replace(
+    /replaceWithDamageMacro\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*['"]([^'"]*)['"])?(?:,\s*['"]([^'"]*)['"]\s*)?\)/g,
+    (match, formula, category, name) => {
+      // Build the executeDamageMacro function call string
+      const categoryParam = category ? `"${category}"` : '"standard"';
+      const nameParam = name ? `"${name}"` : "null";
+
+      return `executeDamageMacro("${formula}", ${categoryParam}, ${nameParam}, ${minimalContext})`;
+    }
+  );
+  return result;
 }
