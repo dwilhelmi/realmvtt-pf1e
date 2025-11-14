@@ -1277,6 +1277,23 @@ function getEffectsAndModifiersForToken(
       const bonusPenaltyType = modifier.data?.modifierType || "";
       const isPenalty = ruleType.toLowerCase().includes("penalty");
       let value = modifier.data?.value || "";
+
+      let active = toggleable ? false : modifier.data?.active === true;
+
+      // Check for predicate value in modifier data
+      const predicate = modifier.data?.predicate || "";
+      if (predicate) {
+        const predicateArray = predicate.split(",");
+        const predicatePassed = evaluateEffectPredicate(
+          predicateArray,
+          traitsSet,
+          target
+        );
+        if (!predicatePassed) {
+          active = false;
+        }
+      }
+
       if (modifier.data?.valueType === "number") {
         value = parseInt(modifier.data?.value, 10);
         if (isNaN(value)) {
@@ -1316,7 +1333,7 @@ function getEffectsAndModifiersForToken(
           name: feature?.name || "Feature",
           value: value,
           // If toggleable is true, make all modifiers inactive by default
-          active: toggleable ? false : modifier.data?.active === true,
+          active: active,
           type: bonusPenaltyType,
           modifierType: ruleType,
           field: modifier.data?.field || "",
@@ -9225,6 +9242,22 @@ function executeDamageMacro(
     }
   );
 
+  // Check for formulas with both standard and persistent damage
+  // Example: "5d6 bludgeoning and 2d8 persistent electricity damage"
+  let persistentDamage = null;
+  const persistentMatch = processedFormula.match(
+    /\s+and\s+([0-9d+\-*/.() ]+)\s+persistent\s+([a-z]+)(\s+damage)?/i
+  );
+  if (persistentMatch) {
+    // Extract persistent damage formula and type
+    const persistentFormula = persistentMatch[1].trim();
+    const persistentType = persistentMatch[2].trim();
+    persistentDamage = `${persistentFormula} ${persistentType}`;
+
+    // Remove the persistent damage portion from the main formula
+    processedFormula = processedFormula.replace(persistentMatch[0], "").trim();
+  }
+
   // Extract damage type from formula (last word should be the damage type)
   const parts = processedFormula.split(/\s+/);
   const damageType = parts[parts.length - 1] || "untyped";
@@ -9233,10 +9266,25 @@ function executeDamageMacro(
   const cleanFormula = processedFormula;
   const macroName = name || cleanFormula.replace(/\s+/g, "_");
 
+  const traits = context.traits || [];
+  // Add vitality/void to traits if they are in the formula
+  if (processedFormula.includes("vitality")) {
+    traits.push("vitality");
+  }
+  if (processedFormula.includes("void")) {
+    traits.push("void");
+  }
+
   let metadata = {
     rollName: `${macroName} Damage`,
     damageType: damageType,
+    traits,
   };
+
+  // Add persistent damage to metadata if it exists
+  if (persistentDamage) {
+    metadata.persistentDamage = persistentDamage;
+  }
 
   let mainDamage = cleanFormula;
   let modifiers = [];
