@@ -55,6 +55,11 @@
         spell.data?.actions !== "oneToThreeActions"
       ) {
         valuesToSet[`${dataPrefix}.actions`] = "oneToThreeActions";
+      } else if (
+        time === "2 to 3" &&
+        spell.data?.actions !== "twoToThreeActions"
+      ) {
+        valuesToSet[`${dataPrefix}.actions`] = "oneToThreeActions";
       } else if (time === "reaction" && spell.data?.actions !== "reaction") {
         valuesToSet[`${dataPrefix}.actions`] = "reaction";
       }
@@ -78,9 +83,16 @@
     // Make sure time is set to a valid value if we're not a ritual
     if (
       !showRitualBox &&
-      !["reaction", "free", "1", "2", "3", "1 to 2", "1 to 3"].includes(
-        spell.data?.time
-      )
+      ![
+        "reaction",
+        "free",
+        "1",
+        "2",
+        "3",
+        "1 to 2",
+        "1 to 3",
+        "2 to 3",
+      ].includes(spell.data?.time)
     ) {
       valuesToSet[`${dataPrefix}.time`] = "1";
       valuesToSet[`${dataPrefix}.actions`] = "oneAction";
@@ -140,6 +152,8 @@
       valuesToSet[`${dataPrefix}.time`] = "1 to 2";
     } else if (actions === "oneToThreeActions") {
       valuesToSet[`${dataPrefix}.time`] = "1 to 3";
+    } else if (actions === "twoToThreeActions") {
+      valuesToSet[`${dataPrefix}.time`] = "2 to 3";
     } else if (actions === "reaction") {
       valuesToSet[`${dataPrefix}.time`] = "reaction";
     }
@@ -185,6 +199,7 @@
     {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
     {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
     {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
+    {"label": "2 to 3 Actions", "value": "twoToThreeActions", "icon": "2-to-3"},
     {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
   ></iconbutton>
   <div style="margin-left: auto">
@@ -305,6 +320,7 @@
       {"label": "Three Actions", "value": "3"},
       {"label": "1 to 2 Actions", "value": "1 to 2"},
       {"label": "1 to 3 Actions", "value": "1 to 3"},
+      {"label": "2 to 3 Actions", "value": "2 to 3"},
       {"label": "Reaction", "value": "reaction"}]'
     ></dropdown>
     <stringfield

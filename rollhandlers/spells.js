@@ -1325,6 +1325,8 @@ function castSpell(record, spell, dataPathToSpell, isOverlay = false) {
     actionIcon = ":1-to-2:";
   } else if (actions === "1 to 3") {
     actionIcon = ":1-to-3:";
+  } else if (actions === "2 to 3") {
+    actionIcon = ":2-to-3:";
   } else if (actions === "reaction") {
     actionIcon = ":reaction:";
   }
@@ -1608,6 +1610,8 @@ function castSpell(record, spell, dataPathToSpell, isOverlay = false) {
           overlayActionIcon = ":1-to-2:";
         } else if (overlayActions === "1 to 3") {
           overlayActionIcon = ":1-to-3:";
+        } else if (overlayActions === "2 to 3") {
+          overlayActionIcon = ":2-to-3:";
         } else if (overlayActions === "reaction") {
           overlayActionIcon = ":reaction:";
         }
