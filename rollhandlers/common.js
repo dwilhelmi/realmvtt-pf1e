@@ -6345,22 +6345,25 @@ function hasCriticalSpecializationEffect(
     const modifiers = feature.data?.modifiers || [];
     for (const modifier of modifiers) {
       const modifierType = modifier.data?.type || "";
-      const predicate = modifier.data?.field || "";
+      const predicateField = modifier.data?.field || "";
+      const predicate = modifier.data?.predicate || "";
 
       // Check if this is a criticalSpecialization modifier
       if (modifierType.toLowerCase() === "criticalspecialization") {
         // Evaluate the predicate
         // If the predicate is just a category or group that matches the item, return true
         if (
-          predicate &&
-          (predicate.toLowerCase() === item.data?.group?.toLowerCase() ||
-            predicate.toLowerCase() === item.data?.itemCategory?.toLowerCase())
+          predicateField &&
+          (predicateField.toLowerCase() === item.data?.group?.toLowerCase() ||
+            predicateField.toLowerCase() ===
+              item.data?.itemCategory?.toLowerCase())
         ) {
           return true;
         } else if (
-          predicate &&
           // Otherwise evaluate the predicate
-          evaluatePredicate(predicate, record, item, targetIsOffGuard)
+          ((predicate || predicateField) &&
+            evaluatePredicate(predicate, record, item, targetIsOffGuard)) ||
+          evaluatePredicate(predicateField, record, item, targetIsOffGuard)
         ) {
           return true;
         } else if (!predicate) {
@@ -6401,21 +6404,24 @@ function hasArmorSpecializationEffect(record, item) {
     for (const modifier of modifiers) {
       const modifierType = modifier.data?.type || "";
       const predicate = modifier.data?.field || "";
+      const predicateField = modifier.data?.field || "";
 
       // Check if this is a criticalSpecialization modifier
       if (modifierType.toLowerCase() === "armorspecialization") {
         // Evaluate the predicate
         // If the predicate is just a category or group that matches the item, return true
         if (
-          predicate &&
-          (predicate.toLowerCase() === item.data?.group?.toLowerCase() ||
-            predicate.toLowerCase() === item.data?.itemCategory?.toLowerCase())
+          predicateField &&
+          (predicateField.toLowerCase() === item.data?.group?.toLowerCase() ||
+            predicateField.toLowerCase() ===
+              item.data?.itemCategory?.toLowerCase())
         ) {
           return true;
         } else if (
-          predicate &&
           // Otherwise evaluate the predicate
-          evaluatePredicate(predicate, record, item)
+          ((predicate || predicateField) &&
+            evaluatePredicate(predicate, record, item)) ||
+          evaluatePredicate(predicateField, record, item)
         ) {
           return true;
         } else if (!predicate) {
@@ -6439,21 +6445,31 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   function getRangeFromTraits(traits) {
     if (!traits || !Array.isArray(traits)) return 0;
 
+    let thrownRange = 0;
+
     for (const trait of traits) {
       const traitLower = trait.toLowerCase();
-      // Match "range-increment-60", "range increment 60", or "range 60"
-      // First try to match with "increment" keyword
+      // Priority 1: Match "range-increment-60" or "range increment 60"
       let match = traitLower.match(/range[-\s]increment[-\s](\d+)/);
       if (match) {
         return parseInt(match[1], 10);
       }
-      // Then try just "range" followed by a number
+
+      // Priority 2: Check for "thrown-10" or "thrown 10" (save for later if no range-increment)
+      match = traitLower.match(/\bthrown[-\s](\d+)\b/);
+      if (match && !thrownRange) {
+        thrownRange = parseInt(match[1], 10);
+      }
+
+      // Priority 3: Match just "range-60" or "range 60"
       match = traitLower.match(/\brange[-\s](\d+)\b/);
       if (match) {
         return parseInt(match[1], 10);
       }
     }
-    return 0;
+
+    // Return thrown range if found, otherwise 0
+    return thrownRange;
   }
 
   const isMelee = isNPCAttack
@@ -6469,9 +6485,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const hasAgileTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("agile")
   );
-  const range = isNPCAttack
-    ? getRangeFromTraits(weapon.data?.traits)
-    : weapon.data?.range || 0;
+  const range = weapon.data?.range || getRangeFromTraits(weapon.data?.traits);
   const hasReachTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("reach")
   );
