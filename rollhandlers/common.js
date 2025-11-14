@@ -1220,6 +1220,14 @@ function getEffectsAndModifiersForToken(
       }
     });
   }
+  const actions = target?.data?.actions || [];
+  actions.forEach((action) => {
+    const level = target?.data?.level || 0;
+    const actionLevel = action.data?.level || 0;
+    if (actionLevel <= level) {
+      features.push(action);
+    }
+  });
 
   // Filter items that are not equipped or that require investment and not invested
   // Helper function to check if an item requires investment
