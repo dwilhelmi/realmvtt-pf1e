@@ -898,6 +898,28 @@ function getSpellDamageMacro(record, spell, dataPathToSpell) {
     return null; // No damage to roll
   }
 
+  // Special case: if there's no main damage but there is persistent damage,
+  // just return a macro that applies the persistent damage directly
+  if (
+    (!spellDamage.damageString || spellDamage.damageString.trim() === "") &&
+    spellDamage.persistentDamage &&
+    spellDamage.persistentDamage.trim() !== ""
+  ) {
+    const persistentMacroName = spellDamage.persistentDamage
+      .split(" ")
+      .map((word) => capitalize(word))
+      .join("_");
+    const token = api.getToken();
+    const tokenId = token?._id;
+    const tokenName =
+      token?.identified === false
+        ? token?.record?.unidentifiedName
+        : token?.record?.name;
+    return `\`\`\`${persistentMacroName}_Persistent_Damage
+applyPersistentDamage("${spellDamage.persistentDamage}", "${tokenId}", "${tokenName}");
+\`\`\``;
+  }
+
   const isCantrip = (spell?.data?.traits || []).some(
     (trait) => trait?.toLowerCase() === "cantrip"
   );
@@ -1130,6 +1152,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
 
   const targets = api.getTargets();
   const ourToken = api.getToken();
+  const tokenName = ourToken?.identified === false ? ourToken?.record?.unidentifiedName : ourToken?.record?.name;
   const recordId = record._id;
   const recordType = record.type;
 
@@ -1217,6 +1240,8 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
       persistentDamage: "${spellDamage.persistentDamage}",
       splashDamage: splashDamageValue,
       splashDamageType: splashDamageType,
+      tokenId: ourToken?._id,
+      tokenName: tokenName,
       damageModifiers: damageModifiers,
       traits: ${JSON.stringify(traits)},
       animation: ${JSON.stringify(animation)},
@@ -1284,6 +1309,7 @@ api.getRecord('${record.recordType}', '${record._id}', (record) => {
         targetName: targetName,
         isOffGuard: targetIsOffGuard,
         tokenId: ourToken?._id,
+        tokenName: tokenName,
         targetId: targetToken?._id,
         damage: "${spellDamage.damageString}",
         damageType: "${primaryDamageType}",

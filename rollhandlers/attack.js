@@ -46,6 +46,7 @@ let fatalDamageString = data?.roll?.metadata?.fatalDamageString;
 let autoCritical = data?.roll?.metadata?.autoCritical;
 
 const animation = data?.roll?.metadata?.animation;
+const tokenName = data?.roll?.metadata?.tokenName;
 const tokenId = data?.roll?.metadata?.tokenId;
 const targetId = data?.roll?.metadata?.targetId;
 const isRanged = data?.roll?.metadata?.isRanged;
@@ -411,6 +412,23 @@ const damageButton =
   \`\`\``
     : "";
 
+// If not damage but there is persistent damage, show a macro that applies the persistent damage directly
+const persistentDamageMacroName = persistentDamage
+  ? persistentDamage
+      .split(" ")
+      .map((word) => capitalize(word))
+      .join("_")
+  : "Persistent_Damage";
+const precisionDamageMacro =
+  !damage ||
+  (damage.trim() === "" && persistentDamage && persistentDamage.trim() !== "")
+    ? `
+\`\`\`${persistentDamageMacroName}_Persistent_Damage
+applyPersistentDamage("${persistentDamage}", "${tokenId}", "${tokenName}");
+\`\`\`
+`
+    : "";
+
 // Get tags and macros, and effect macros for runes
 const effects = [];
 const allMacros = [];
@@ -446,6 +464,7 @@ message = `
   ${critSpecMessage}
 
   ${damageButton}
+  ${precisionDamageMacro}
   ${macros}
   ${effectMacros}
   `;

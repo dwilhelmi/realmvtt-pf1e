@@ -7208,6 +7208,10 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
         tokenId: ourToken?._id,
+        tokenName:
+          ourToken?.identified === false
+            ? ourToken?.record?.unidentifiedName
+            : ourToken?.record?.name,
         targetId: target?.token?._id,
         autoCritical: autoCritical,
         dc: targetAc,
@@ -7270,6 +7274,10 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       hasCriticalSpecialization: hasCriticalSpecialization,
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
+      tokenName:
+        ourToken?.identified === false
+          ? ourToken?.record?.unidentifiedName
+          : ourToken?.record?.name,
       damage: damage,
       persistentDamage: persistentDamage,
       damageType: damageType,
