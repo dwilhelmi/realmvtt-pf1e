@@ -1406,7 +1406,17 @@ function castSpell(record, spell, dataPathToSpell, isOverlay = false) {
   });
 
   // We'll need to mark the spell as cast unless it was a catrip / focus / innate / or spontaneus spell
-  const dataPathToSpellCastingEntry = getNearestParentDataPath(dataPathToSpell);
+  let dataPathToSpellCastingEntry = getNearestParentDataPath(dataPathToSpell);
+
+  // For overlay spells, we need to navigate up one more level to reach the spellcasting entry
+  // Overlay path: data.spells.0.data.spells1.0.data.overlays.3 -> data.spells.0.data.spells1.0 -> data.spells.0
+  // Regular spell path: data.spells.0.data.spells1.0 -> data.spells.0
+  if (isOverlay) {
+    dataPathToSpellCastingEntry = getNearestParentDataPath(
+      dataPathToSpellCastingEntry
+    );
+  }
+
   const spellCastingEntry = api.getValueOnRecord(
     record,
     dataPathToSpellCastingEntry

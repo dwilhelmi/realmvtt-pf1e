@@ -814,6 +814,13 @@ function collectTraitsAndProperties(token, context = {}) {
     }
   });
 
+  // Add "id:${item._id}" to the traits for each item in the context
+  Object.values(context).forEach((obj) => {
+    if (typeof obj === "object" && obj !== null && obj._id) {
+      traits.add(`id:${obj._id}`);
+    }
+  });
+
   return traits;
 }
 
@@ -825,22 +832,44 @@ function collectTraitsAndProperties(token, context = {}) {
  * @param {Set} traits - Set of trait strings to check against
  * @returns {boolean} Whether the predicate is satisfied
  */
-function evaluateEffectPredicate(predicate, traits) {
+function evaluateEffectPredicate(predicate, traits, target) {
   // Base case: string predicate - check if trait exists
   if (typeof predicate === "string") {
+    // If the predicate contains @record.data., replace with actual values
+    // Example: "id:@record.data.effects.handOfTheApprentice" becomes "id:abc123"
+    if (predicate.includes("@record.data.")) {
+      let resolvedPredicate = predicate;
+      // Find all @record.data.{path} patterns in the predicate
+      const matches = predicate.match(/@record\.data\.([\w.]+)/g);
+      if (matches) {
+        matches.forEach((match) => {
+          // Extract the field path (e.g., "effects.handOfTheApprentice")
+          const field = match.replace("@record.data.", "");
+          // Get the value at data.{field} on the target record
+          const value = api.getValueOnRecord(target, `data.${field}`);
+          if (value) {
+            // Replace the @record.data.{path} with the actual value
+            resolvedPredicate = resolvedPredicate.replace(match, value);
+          }
+        });
+      }
+      return traits.has(resolvedPredicate);
+    }
     return traits.has(predicate);
   }
 
   // Array: treat as implicit AND - all items must be true
   if (Array.isArray(predicate)) {
-    return predicate.every((item) => evaluateEffectPredicate(item, traits));
+    return predicate.every((item) =>
+      evaluateEffectPredicate(item, traits, target)
+    );
   }
 
   // Object: handle logical operators
   if (typeof predicate === "object" && predicate !== null) {
     // NOT operator
     if ("not" in predicate) {
-      return !evaluateEffectPredicate(predicate.not, traits);
+      return !evaluateEffectPredicate(predicate.not, traits, target);
     }
 
     // OR operator
@@ -848,7 +877,9 @@ function evaluateEffectPredicate(predicate, traits) {
       const orArray = Array.isArray(predicate.or)
         ? predicate.or
         : [predicate.or];
-      return orArray.some((item) => evaluateEffectPredicate(item, traits));
+      return orArray.some((item) =>
+        evaluateEffectPredicate(item, traits, target)
+      );
     }
 
     // AND operator (explicit)
@@ -856,7 +887,9 @@ function evaluateEffectPredicate(predicate, traits) {
       const andArray = Array.isArray(predicate.and)
         ? predicate.and
         : [predicate.and];
-      return andArray.every((item) => evaluateEffectPredicate(item, traits));
+      return andArray.every((item) =>
+        evaluateEffectPredicate(item, traits, target)
+      );
     }
 
     // NAND operator (not and)
@@ -864,7 +897,9 @@ function evaluateEffectPredicate(predicate, traits) {
       const nandArray = Array.isArray(predicate.nand)
         ? predicate.nand
         : [predicate.nand];
-      return !nandArray.every((item) => evaluateEffectPredicate(item, traits));
+      return !nandArray.every((item) =>
+        evaluateEffectPredicate(item, traits, target)
+      );
     }
 
     // NOR operator (not or)
@@ -872,7 +907,9 @@ function evaluateEffectPredicate(predicate, traits) {
       const norArray = Array.isArray(predicate.nor)
         ? predicate.nor
         : [predicate.nor];
-      return !norArray.some((item) => evaluateEffectPredicate(item, traits));
+      return !norArray.some((item) =>
+        evaluateEffectPredicate(item, traits, target)
+      );
     }
 
     // XOR operator (exclusive or)
@@ -881,7 +918,7 @@ function evaluateEffectPredicate(predicate, traits) {
         ? predicate.xor
         : [predicate.xor];
       const trueCount = xorArray.filter((item) =>
-        evaluateEffectPredicate(item, traits)
+        evaluateEffectPredicate(item, traits, target)
       ).length;
       return trueCount === 1;
     }
@@ -1021,7 +1058,8 @@ function getEffectsAndModifiersForToken(
           // Evaluate the predicate - if it fails, skip this rule
           const predicatePassed = evaluateEffectPredicate(
             rule.data.predicate,
-            traitsSet
+            traitsSet,
+            target
           );
           if (!predicatePassed) {
             // Mark as inactive
@@ -3562,22 +3600,34 @@ function updateProficiencies(record, valuesToSet) {
     valuesToSet["data.defenses.heavy"] = proficiencies.heavy;
   }
 
-  const currentUnarmed = parseInt(record.data?.attacks?.unarmed || "0", 10);
+  const currentUnarmed = parseInt(
+    record.data?.attackProficiencies?.unarmed || "0",
+    10
+  );
   if (currentUnarmed < proficiencies.unarmed || proficiencies.unarmed === 0) {
     valuesToSet["data.attackProficiencies.unarmed"] = proficiencies.unarmed;
   }
 
-  const currentSimple = parseInt(record.data?.attacks?.simple || "0", 10);
+  const currentSimple = parseInt(
+    record.data?.attackProficiencies?.simple || "0",
+    10
+  );
   if (currentSimple < proficiencies.simple || proficiencies.simple === 0) {
     valuesToSet["data.attackProficiencies.simple"] = proficiencies.simple;
   }
 
-  const currentMartial = parseInt(record.data?.attacks?.martial || "0", 10);
+  const currentMartial = parseInt(
+    record.data?.attackProficiencies?.martial || "0",
+    10
+  );
   if (currentMartial < proficiencies.martial || proficiencies.martial === 0) {
     valuesToSet["data.attackProficiencies.martial"] = proficiencies.martial;
   }
 
-  const currentAdvanced = parseInt(record.data?.attacks?.advanced || "0", 10);
+  const currentAdvanced = parseInt(
+    record.data?.attackProficiencies?.advanced || "0",
+    10
+  );
   if (
     currentAdvanced < proficiencies.advanced ||
     proficiencies.advanced === 0
@@ -6035,7 +6085,7 @@ function getProfiencyForArmor(record, armorCategory, armorGroup) {
 function getProfiencyForWeapon(record, weaponCategory, weaponGroup) {
   // First check proficiency for the weapon category
   let weaponProficiency = parseInt(
-    record.data?.attacks?.[weaponCategory] || "0",
+    record.data?.attackProficiencies?.[weaponCategory] || "0",
     10
   );
 
@@ -6639,6 +6689,26 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   } else {
     damageMod.value = 0; // Don't add damage if conditions not met
+  }
+
+  // Check for damageCalculation modifier
+  const damageCalculationMod = getEffectsAndModifiersForToken(
+    record,
+    ["damageCalculation"],
+    undefined,
+    weapon._id,
+    undefined,
+    { weapon }
+  );
+
+  if (damageCalculationMod.length) {
+    damageCalculationMod.forEach((mod) => {
+      if (mod.active) {
+        damageScore = mod.field;
+        damageMod.value = record.data?.[`${damageScore}`] || 0;
+        damageMod.name = mod.name;
+      }
+    });
   }
 
   const animation = weapon?.data?.animation?.animationName
@@ -7333,6 +7403,26 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
 
   if (isMelee || addStrengthToDamage || isPropulsive) {
     damageScore = "str";
+  }
+
+  // Check for damageCalculation modifier
+  const damageCalculationMod = getEffectsAndModifiersForToken(
+    record,
+    ["damageCalculation"],
+    undefined,
+    weapon._id,
+    undefined,
+    { weapon }
+  );
+
+  if (damageCalculationMod.length) {
+    damageCalculationMod.forEach((mod) => {
+      if (mod.active) {
+        damageScore = mod.field;
+        damageMod.value = record.data?.[`${damageScore}`] || 0;
+        damageMod.name = mod.name;
+      }
+    });
   }
 
   // Get damage modifiers
