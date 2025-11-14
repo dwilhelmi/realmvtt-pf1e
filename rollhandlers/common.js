@@ -6478,6 +6478,22 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     return thrownRange;
   }
 
+  // Helper function to get volley range from traits
+  // Volley weapons take a -2 penalty when attacking targets within the specified range
+  function getVolleyRangeFromTraits(traits) {
+    if (!traits || !Array.isArray(traits)) return 0;
+
+    for (const trait of traits) {
+      const traitLower = trait.toLowerCase();
+      // Match "volley-30" or "volley 30"
+      const match = traitLower.match(/\bvolley[-\s](\d+)\b/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+    return 0;
+  }
+
   const isMelee = isNPCAttack
     ? (weapon.data?.weaponType || "melee").toLowerCase() === "melee" ||
       (weapon.data?.weaponType || "melee").toLowerCase() === "unarmed"
@@ -6492,6 +6508,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     trait.toLowerCase().includes("agile")
   );
   const range = weapon.data?.range || getRangeFromTraits(weapon.data?.traits);
+  const volleyRange = getVolleyRangeFromTraits(weapon.data?.traits);
   const hasReachTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("reach")
   );
@@ -7163,6 +7180,21 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           modifiers.push({
             name: `Range Increment (${increment})`,
             value: rangePenalty,
+            valueType: "number",
+            isPenalty: true,
+            active: true,
+          });
+        }
+
+        // Check for volley penalty (attacks within volley range take -2 penalty)
+        if (
+          volleyRange > 0 &&
+          targetDistance > 0 &&
+          targetDistance <= volleyRange
+        ) {
+          modifiers.push({
+            name: `Volley (within ${volleyRange} ft)`,
+            value: -2,
             valueType: "number",
             isPenalty: true,
             active: true,
