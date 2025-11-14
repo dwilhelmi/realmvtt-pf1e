@@ -1744,15 +1744,18 @@ function getItemFields(item) {
     .includes("thrown"); // Only thrown weapons can be toggled melee/range
   const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
-  const hasVersatilePiercingProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile p");
-  const hasVersatileBludgeoningProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile b");
-  const hasVersatileSlashingProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile s");
+  const hasVersatilePiercingProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile p" || lower === "versatile-p";
+  });
+  const hasVersatileBludgeoningProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile b" || lower === "versatile-b";
+  });
+  const hasVersatileSlashingProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile s" || lower === "versatile-s";
+  });
 
   // If we have any of the versatile properties, we need to show the toggle for the
   // primary damage type
@@ -1825,15 +1828,18 @@ function setItemFields(item, itemDataPath, valuesToSet) {
     .includes("thrown"); // Only thrown weapons can be toggled melee/range
   const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
-  const hasVersatilePiercingProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile p");
-  const hasVersatileBludgeoningProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile b");
-  const hasVersatileSlashingProperty = traits
-    .map((trait) => trait.toLowerCase())
-    .includes("versatile s");
+  const hasVersatilePiercingProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile p" || lower === "versatile-p";
+  });
+  const hasVersatileBludgeoningProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile b" || lower === "versatile-b";
+  });
+  const hasVersatileSlashingProperty = traits.some((trait) => {
+    const lower = trait.toLowerCase();
+    return lower === "versatile s" || lower === "versatile-s";
+  });
 
   const requiresReload = (item.data?.reload || 0) > 0;
 
