@@ -311,6 +311,30 @@
       label="Ritual Time"
     ></stringfield>
   </div>
+  <stringfield
+    field="ritual.primary.check"
+    placeholder="N/A"
+    width="100%"
+    label="Primary Check"
+    multiline="true"
+  ></stringfield>
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <stringfield
+      field="ritual.secondary.check"
+      placeholder="N/A"
+      width="100%"
+      label="Secondary Check"
+      multiline="true"
+    ></stringfield>
+    <numberfield
+      field="ritual.secondary.casters"
+      placeholder="N/A"
+      width="100%"
+      label="Secondary Casters"
+      minvalue="0"
+      placeholder="0"
+    ></numberfield>
+  </div>
 </box>
 
 <box field="spellBox">
