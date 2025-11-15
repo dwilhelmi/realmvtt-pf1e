@@ -1277,6 +1277,19 @@ function getEffectsAndModifiersForToken(
     }
   }
 
+  // Add traits to the traitsSet for each feature's name in kebab-case
+  [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
+    const name = (feature?.name || "")
+      .replace(/'/g, "") // Remove apostrophes (Mage's -> Mages)
+      .toLowerCase() // Convert to lowercase
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphen
+      .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+    if (name) {
+      traitsSet.add(name);
+    }
+  });
+
   [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
     const toggleable = feature.data?.toggleable || false;
