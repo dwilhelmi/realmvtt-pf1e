@@ -5501,6 +5501,12 @@ function getAnimationFor({
   return animation;
 }
 
+function useFeat() {
+  const featDataPath = getNearestParentDataPath(dataPath);
+  const feat = api.getValue(featDataPath);
+  useAction(feat);
+}
+
 function useAction(action) {
   const actionName = action?.name || "Unknown Action";
   const actions = action?.data?.actions || "";
