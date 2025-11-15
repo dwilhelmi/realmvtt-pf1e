@@ -209,12 +209,14 @@
 
     // Show/hide scroll properties when category is "scroll"
     if (
-      item.data?.itemCategory === "Scroll" &&
+      (item.data?.itemCategory === "Scroll" ||
+        item.data?.itemCategory === "Wand") &&
       item.fields?.scrollProperties?.hidden !== false
     ) {
       valuesToSet[`${fieldsPath}.scrollProperties.hidden`] = false;
     } else if (
       item.data?.itemCategory !== "Scroll" &&
+      item.data?.itemCategory !== "Wand" &&
       item.fields?.scrollProperties?.hidden !== true
     ) {
       valuesToSet[`${fieldsPath}.scrollProperties.hidden`] = true;
@@ -952,7 +954,7 @@
     </div>
   </box>
 
-  <!-- Magic Item (Scroll) Properties -->
+  <!-- Magic Item (Scroll/Wand) Properties -->
   <box field="scrollProperties" hidden="true" hidewhenidentified="false">
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <dropdown
