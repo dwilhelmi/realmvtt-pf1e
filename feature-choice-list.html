@@ -2,18 +2,27 @@
 <div style="display: flex; flex-direction: column; width: 100%">
   <namefield
     field="name"
-    label="Choice Name"
+    label="Prompt Name"
     size="xs"
     placeholder="Enter Prompt Name..."
     width="100%"
   ></namefield>
   <stringfield
     field="description"
-    label="Choice Description"
+    label="Prompt Description"
     size="xs"
     placeholder="Enter Prompt Description..."
     width="100%"
   ></stringfield>
+  <stringfield
+    field="query"
+    label="Choice Query"
+    size="xs"
+    multiline="true"
+    placeholder='{"type": "feats", "query": {}}'
+    width="100%"
+  ></stringfield>
+  <divider label="or"></divider>
   <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
     <label label="Options" size="xs" textalign="left" variant="bold"></label>
     <list

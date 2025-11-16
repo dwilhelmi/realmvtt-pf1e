@@ -2541,9 +2541,14 @@ function processChoices(record) {
         for (const choiceObj of choiceObjects) {
           const selectedChoices = choiceObj.data?.choices || [];
           const options = choiceObj.data?.options || [];
+          const hasQuery =
+            choiceObj.data?.query && choiceObj.data.query.trim() !== "";
 
-          // If there are options but no selection has been made yet, prompt for choice
-          if (options.length > 0 && selectedChoices.length === 0) {
+          // If there are options or a query, and no selection has been made yet, prompt for choice
+          if (
+            (options.length > 0 || hasQuery) &&
+            selectedChoices.length === 0
+          ) {
             choicesToMake.push({ feature, group, choiceObj });
           }
         }
@@ -2632,45 +2637,82 @@ function promptForChoices(record, choicesToMake, index) {
   const group = choiceData.group;
   const choiceObj = choiceData.choiceObj;
 
-  // Get choice options from the choice object
-  const options = choiceObj.data?.options || [];
   const promptName =
     choiceObj.data?.description || choiceObj.name || "Make a choice";
   const promptDescription = "";
 
-  // Build prompt options from the options array
-  const promptOptions = options.map((option) => ({
-    label: option.name || "Option",
-    value: option._id,
-  }));
+  // Check if there's a query parameter first
+  const queryString = choiceObj.data?.query;
+  let optionsQuery = null;
+  let useQuery = false;
 
-  if (promptOptions.length === 0) {
-    // No options, skip to next choice
-    promptForChoices(record, choicesToMake, index + 1);
-    return;
+  if (queryString && queryString.trim() !== "") {
+    try {
+      optionsQuery = JSON.parse(queryString);
+      useQuery = true;
+    } catch (e) {
+      console.error("Failed to parse choice query:", e);
+      // Fall back to options list
+      useQuery = false;
+    }
   }
 
   // Prompt the user for the choice
   const callback = (selectedOptions) => {
-    const selectedOptionId =
-      selectedOptions && selectedOptions.length > 0 ? selectedOptions[0] : null;
-
-    if (!selectedOptionId) {
+    if (!selectedOptions || selectedOptions.length === 0) {
       // No choice made, continue to next
       promptForChoices(record, choicesToMake, index + 1);
       return;
     }
 
-    // Find the selected option
-    const selectedOption = options.find((opt) => opt._id === selectedOptionId);
-    if (!selectedOption) {
-      // Option not found, continue to next
-      promptForChoices(record, choicesToMake, index + 1);
-      return;
-    }
+    let itemsToAdd = [];
+    let selectedChoiceData = {};
 
-    // Get items from the selected option's data.value array
-    const itemsToAdd = selectedOption.data?.value || [];
+    if (useQuery) {
+      // When using query, the selected item is the full record
+      const selectedRecord = selectedOptions[0];
+      if (!selectedRecord) {
+        promptForChoices(record, choicesToMake, index + 1);
+        return;
+      }
+
+      // Store the selected record as the choice
+      selectedChoiceData = {
+        _id: selectedRecord._id,
+        name: selectedRecord.name,
+      };
+
+      // Add the selected record to items
+      itemsToAdd = [selectedRecord];
+    } else {
+      // Using options list - get the option ID from the selection
+      const selectedOptionId = selectedOptions[0];
+      if (!selectedOptionId) {
+        promptForChoices(record, choicesToMake, index + 1);
+        return;
+      }
+
+      // Get choice options from the choice object
+      const options = choiceObj.data?.options || [];
+
+      // Find the selected option
+      const selectedOption = options.find(
+        (opt) => opt._id === selectedOptionId
+      );
+      if (!selectedOption) {
+        // Option not found, continue to next
+        promptForChoices(record, choicesToMake, index + 1);
+        return;
+      }
+
+      selectedChoiceData = {
+        _id: selectedOption._id,
+        name: selectedOption.name,
+      };
+
+      // Get items from the selected option's data.value array
+      itemsToAdd = selectedOption.data?.value || [];
+    }
 
     // Prepare values to set
     const valuesToSet = {};
@@ -2683,10 +2725,7 @@ function promptForChoices(record, choicesToMake, index) {
 
     if (choiceIndex >= 0) {
       // Create choice entry (just store the option ID and name)
-      const choiceEntry = JSON.stringify({
-        _id: selectedOption._id,
-        name: selectedOption.name,
-      });
+      const choiceEntry = JSON.stringify(selectedChoiceData);
 
       // Clone the choices array and update the specific choice
       const updatedChoices = [...choiceObjects];
@@ -2859,17 +2898,45 @@ function promptForChoices(record, choicesToMake, index) {
   };
 
   // Prompt the user for the choice
-  api.showPrompt(
-    promptName,
-    promptDescription,
-    "Select Option...",
-    promptOptions,
-    null, // No query
-    callback,
-    "OK",
-    "Cancel",
-    1 // Limit 1 choice
-  );
+  if (useQuery) {
+    // Use query to populate options
+    api.showPrompt(
+      promptName,
+      promptDescription,
+      "Select Option...",
+      null, // No static options
+      optionsQuery,
+      callback,
+      "OK",
+      "Cancel",
+      1 // Limit 1 choice
+    );
+  } else {
+    // Use options list
+    const options = choiceObj.data?.options || [];
+    const promptOptions = options.map((option) => ({
+      label: option.name || "Option",
+      value: option._id,
+    }));
+
+    if (promptOptions.length === 0) {
+      // No options, skip to next choice
+      promptForChoices(record, choicesToMake, index + 1);
+      return;
+    }
+
+    api.showPrompt(
+      promptName,
+      promptDescription,
+      "Select Option...",
+      promptOptions,
+      null, // No query
+      callback,
+      "OK",
+      "Cancel",
+      1 // Limit 1 choice
+    );
+  }
 }
 
 // Helper function to calculate proficiency bonus
