@@ -2473,7 +2473,7 @@ function updateAttribute({
 // then checks for features that were provided by the choices. If we have
 // any choices that are not yet provided, we prompt the user to make a choice
 // and then add the feature to the record.
-function processChoices(record) {
+function processChoices(record, depth = 0) {
   const characterLevel = record.data?.level || 1;
   const ancestryFeatures = [];
   const heritageFeatures = [];
@@ -2556,7 +2556,7 @@ function processChoices(record) {
     }
   }
 
-  promptForChoices(record, choicesToMake, 0);
+  promptForChoices(record, choicesToMake, 0, depth);
 }
 
 function addFeatsToCharacter(record, feats, callback = undefined) {
@@ -2619,14 +2619,22 @@ function addFeatsToCharacter(record, feats, callback = undefined) {
   collectFeats(feats);
 }
 
-function promptForChoices(record, choicesToMake, index) {
+function promptForChoices(record, choicesToMake, index, depth = 0) {
+  const MAX_CHOICE_DEPTH = 3;
+
   if (index >= choicesToMake.length) {
     // Only call onAddEditFeature if we actually processed choices
     if (choicesToMake.length > 0) {
       // Re-query the record to get the latest values
       api.getRecord("characters", record._id, (updatedRecord) => {
-        // Update all attributes after processing choices, but skip choice processing to prevent infinite loops
-        onAddEditFeature(updatedRecord, undefined, true);
+        // Check if we can go deeper into nested choices
+        if (depth < MAX_CHOICE_DEPTH - 1) {
+          // Allow processing new choices that might have appeared from added features
+          onAddEditFeature(updatedRecord, undefined, false, depth + 1);
+        } else {
+          // At max depth - just update calculations, no more choice prompts
+          onAddEditFeature(updatedRecord, undefined, true, depth);
+        }
       });
     }
     return;
@@ -2781,11 +2789,21 @@ function promptForChoices(record, choicesToMake, index) {
         // Check feature type
         const featureType = (item.data?.type || "classfeature").toLowerCase();
         const isAncestryFeature = featureType === "ancestryfeature";
+        const newItem = {
+          ...item,
+          portrait:
+            item.portrait ||
+            "/icons/fantasy/sundries/books/book-red-square.webp",
+          data: {
+            ...item.data,
+            level: item.data?.level || 1,
+          },
+        };
 
         if (isAncestryFeature) {
-          itemsByType.ancestryFeatures.push(item);
+          itemsByType.ancestryFeatures.push(newItem);
         } else {
-          itemsByType.classFeatures.push(item);
+          itemsByType.classFeatures.push(newItem);
         }
       }
     });
@@ -4107,7 +4125,12 @@ function setProvidedItems(record, callback = undefined) {
 }
 
 // This function is called after adding/editing a talent/feature or equipping an item
-function onAddEditFeature(record, callback = undefined, skipChoices = false) {
+function onAddEditFeature(
+  record,
+  callback = undefined,
+  skipChoices = false,
+  depth = 0
+) {
   // Calculate Pathfinder 2e ability boosts first
   const boostResults = calculateAbilityBoosts(record);
 
@@ -4300,7 +4323,7 @@ function onAddEditFeature(record, callback = undefined, skipChoices = false) {
   // Check for choices that the character needs to make and
   // process each one sequentially (unless explicitly skipped to prevent infinite loops)
   if (!skipChoices) {
-    processChoices(record);
+    processChoices(record, depth);
   }
 }
 

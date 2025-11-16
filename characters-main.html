@@ -1140,7 +1140,12 @@
       ];
     }
 
-    return results;
+    // Filter duplicates
+    const filteredResults = results.filter((result, index, self) =>
+      index === self.findIndex((t) => t.value === result.value)
+    );
+
+    return filteredResults;
   }
 
   function getBackgroundBoostOptions(field) {
@@ -1175,6 +1180,11 @@
         }));
       }
     }
+
+    // Filter duplicates
+    boosts = boosts.filter((boost, index, self) =>
+      index === self.findIndex((t) => t.value === boost.value)
+    );
 
     return boosts;
   }
