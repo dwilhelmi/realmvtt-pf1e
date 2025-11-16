@@ -825,6 +825,92 @@ function collectTraitsAndProperties(token, context = {}) {
 }
 
 /**
+ * Parses a modifier predicate string into the format used by evaluateEffectPredicate.
+ * Handles formats like:
+ * - Simple comma-separated: "inflicts:paralyzed,sleep"
+ * - OR operator: "or([\"inflicts:paralyzed\",\"sleep\"])"
+ * - AND operator: "and([\"inflicts:paralyzed\",\"sleep\"])"
+ * - NOT operator: "not(\"inflicts:paralyzed\")"
+ * - Nested operators: "or([and([\"a\",\"b\"]), \"c\"])"
+ * - etc.
+ *
+ * @param {string|Array|Object} predicateInput - The predicate from modifier data
+ * @returns {Array|Object|String} Parsed predicate in effect format
+ */
+function parseModifierPredicate(predicateInput) {
+  // If already an object or array (already parsed), return as-is
+  if (typeof predicateInput === "object") {
+    return predicateInput;
+  }
+
+  if (!predicateInput || typeof predicateInput !== "string") {
+    return [];
+  }
+
+  const predicateString = predicateInput.trim();
+
+  // Check for logical operators: or(...), and(...), not(...), nor(...), nand(...), xor(...)
+  const operatorMatch = predicateString.match(
+    /^(or|and|not|nor|nand|xor)\((.*)\)$/s
+  );
+
+  if (operatorMatch) {
+    const operator = operatorMatch[1];
+    const content = operatorMatch[2].trim();
+
+    try {
+      // Try to parse the content as JSON
+      let parsed;
+      if (content.startsWith("[") && content.endsWith("]")) {
+        // It's an array: or(["a","b"]) or or([and(["a","b"]), "c"])
+        parsed = JSON.parse(content);
+
+        // Recursively parse any nested operator strings in the array
+        if (Array.isArray(parsed)) {
+          parsed = parsed.map((item) => {
+            if (
+              typeof item === "string" &&
+              /^(or|and|not|nor|nand|xor)\(/.test(item)
+            ) {
+              return parseModifierPredicate(item);
+            }
+            return item;
+          });
+        }
+      } else if (content.startsWith('"') || content.startsWith("'")) {
+        // It's a single quoted value: not("a")
+        parsed = JSON.parse(content);
+      } else if (/^(or|and|not|nor|nand|xor)\(/.test(content)) {
+        // It's a nested operator without quotes: not(or(["a","b"]))
+        parsed = parseModifierPredicate(content);
+      } else {
+        // Try to parse as-is
+        parsed = JSON.parse(content);
+      }
+
+      // Return in the format expected by evaluateEffectPredicate
+      return { [operator]: parsed };
+    } catch (e) {
+      console.warn(
+        `Failed to parse modifier predicate operator content: ${content}`,
+        e
+      );
+      // Fall back to simple split
+      return predicateString
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s);
+    }
+  }
+
+  // No operator found - treat as simple comma-separated list (implicit AND)
+  return predicateString
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s);
+}
+
+/**
  * Evaluates an effect predicate condition (JSON format) against a set of traits.
  * This is different from the existing evaluatePredicate which handles string-based predicates.
  *
@@ -1304,9 +1390,10 @@ function getEffectsAndModifiersForToken(
       // Check for predicate value in modifier data
       const predicate = modifier.data?.predicate || "";
       if (predicate) {
-        const predicateArray = predicate.split(",");
+        // Parse the modifier predicate string into the format expected by evaluateEffectPredicate
+        const parsedPredicate = parseModifierPredicate(predicate);
         const predicatePassed = evaluateEffectPredicate(
-          predicateArray,
+          parsedPredicate,
           traitsSet,
           target
         );
