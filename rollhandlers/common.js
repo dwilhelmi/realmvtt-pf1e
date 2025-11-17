@@ -821,6 +821,41 @@ function collectTraitsAndProperties(token, context = {}) {
     }
   });
 
+  // Add item:proficiency:rank:{value} for items in context
+  const item = context.item || context.weapon || context.spell;
+  if (item && token) {
+    // Determine the item category (weapon or armor)
+    const itemType = (item.data?.type || "").toLowerCase();
+    const itemCategory = (item.data?.itemCategory || "").toLowerCase();
+    const itemGroup = (item.data?.group || "").toLowerCase();
+
+    // For weapons, check attack proficiencies
+    const isWeapon =
+      itemType === "weapon" ||
+      ["simple", "martial", "advanced", "unarmed"].includes(itemCategory);
+
+    if (item.recordType === "items" && isWeapon && itemCategory) {
+      // Use getProfiencyForWeapon helper which handles group-specific proficiencies
+      const rank = getProfiencyForWeapon(token, itemCategory, itemGroup);
+      if (rank !== undefined && rank !== null) {
+        traits.add(`item:proficiency:rank:${rank}`);
+      }
+    }
+
+    // For armor, check defense proficiencies
+    const isArmor =
+      itemType === "armor" ||
+      ["unarmored", "light", "medium", "heavy"].includes(itemCategory);
+
+    if (item.recordType === "items" && isArmor && itemCategory) {
+      // Use getProfiencyForArmor helper which handles group-specific proficiencies
+      const rank = getProfiencyForArmor(token, itemCategory, itemGroup);
+      if (rank !== undefined && rank !== null) {
+        traits.add(`item:proficiency:rank:${rank}`);
+      }
+    }
+  }
+
   return traits;
 }
 
