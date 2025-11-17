@@ -1727,7 +1727,7 @@ function getEffectsAndModifiersForToken(
 
   // Group results by type and bonus/penalty
   results.forEach((result) => {
-    if (result.type === "") {
+    if (result.type === "" || result.type === "none") {
       // Keep non-typed modifiers as-is
       filteredResults.push(result);
       return;
@@ -7433,39 +7433,61 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   // Check for damageCalculation modifier
-  // First try with field filtering (new pattern: field="melee" or "ranged")
+  // Don't filter by field - collect all and filter manually
+  const attackType = isMelee && !isThrown ? "melee" : "ranged";
+  // Get all damageCalculation modifiers without field filtering
   let damageCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["damageCalculation"],
-    isMelee && !isThrown ? "melee" : "ranged",
+    undefined, // Don't filter by field here
     weapon._id,
     undefined,
     { weapon }
   );
 
-  // If no results, try without field filtering (old pattern: field contains ability)
-  if (damageCalculationMod.length === 0) {
-    damageCalculationMod = getEffectsAndModifiersForToken(
-      record,
-      ["damageCalculation"],
-      undefined,
-      weapon._id,
-      undefined,
-      { weapon }
-    );
-  }
-
   if (damageCalculationMod.length) {
     damageCalculationMod.forEach((mod) => {
       if (mod.active) {
         // Support both old and new patterns:
-        // - Old: field contains the ability (e.g., field: "dex")
-        // - New: value contains the ability (e.g., value: "dex", field: "melee")
-        let alternativeAbility = mod.value ? mod.value.toString() : mod.field;
+        // - Old: field contains the ability (e.g., field: "dex"), no field restriction
+        // - New: value contains the ability (e.g., value: "dex"), field contains attack type (e.g., "melee")
+        // Check if this modifier applies to this attack type
+        const modField = (mod.field || "").toLowerCase();
+        const isAbilityScore = [
+          "str",
+          "dex",
+          "con",
+          "int",
+          "wis",
+          "cha",
+        ].includes(modField);
+        const matchesAttackType = modField === attackType || modField === "";
 
-        if (alternativeAbility) {
+        // For new pattern: field must match attack type (or be empty)
+        // For old pattern: field is an ability score (always applies)
+        if (!isAbilityScore && !matchesAttackType) {
+          return; // Skip this modifier
+        }
+
+        // Determine which ability to use
+        let alternativeAbility;
+        if (isAbilityScore) {
+          // Old pattern: field contains the ability
+          alternativeAbility = modField;
+        } else {
+          // New pattern: value contains the ability
+          alternativeAbility = mod.value
+            ? mod.value.toString().toLowerCase()
+            : "";
+        }
+
+        if (
+          alternativeAbility &&
+          ["str", "dex", "con", "int", "wis", "cha"].includes(
+            alternativeAbility
+          )
+        ) {
           const alternativeScore = record.data?.[alternativeAbility] || 0;
-
           // Only use the alternative if it's higher than the current damage score
           if (alternativeScore > damageMod.value) {
             damageScore = alternativeAbility;
@@ -8217,37 +8239,62 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   }
 
   // Check for damageCalculation modifier
-  // First try with field filtering (new pattern: field="melee" or "ranged")
+  // Don't filter by field - collect all and filter manually
+  const attackType = isMelee && !isThrown ? "melee" : "ranged";
+
+  // Get all damageCalculation modifiers without field filtering
   let damageCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["damageCalculation"],
-    isMelee && !isThrown ? "melee" : "ranged",
+    undefined, // Don't filter by field here
     weapon._id,
     undefined,
     { weapon }
   );
 
-  // If no results, try without field filtering (old pattern: field contains ability)
-  if (damageCalculationMod.length === 0) {
-    damageCalculationMod = getEffectsAndModifiersForToken(
-      record,
-      ["damageCalculation"],
-      undefined,
-      weapon._id,
-      undefined,
-      { weapon }
-    );
-  }
-
   if (damageCalculationMod.length) {
     damageCalculationMod.forEach((mod) => {
       if (mod.active) {
         // Support both old and new patterns:
-        // - Old: field contains the ability (e.g., field: "dex")
-        // - New: value contains the ability (e.g., value: "dex", field: "melee")
-        let alternativeAbility = mod.value ? mod.value.toString() : mod.field;
+        // - Old: field contains the ability (e.g., field: "dex"), no field restriction
+        // - New: value contains the ability (e.g., value: "dex"), field contains attack type (e.g., "melee")
 
-        if (alternativeAbility) {
+        // Check if this modifier applies to this attack type
+        const modField = (mod.field || "").toLowerCase();
+        const isAbilityScore = [
+          "str",
+          "dex",
+          "con",
+          "int",
+          "wis",
+          "cha",
+        ].includes(modField);
+        const matchesAttackType = modField === attackType || modField === "";
+
+        // For new pattern: field must match attack type (or be empty)
+        // For old pattern: field is an ability score (always applies)
+        if (!isAbilityScore && !matchesAttackType) {
+          return; // Skip this modifier
+        }
+
+        // Determine which ability to use
+        let alternativeAbility;
+        if (isAbilityScore) {
+          // Old pattern: field contains the ability
+          alternativeAbility = modField;
+        } else {
+          // New pattern: value contains the ability
+          alternativeAbility = mod.value
+            ? mod.value.toString().toLowerCase()
+            : "";
+        }
+
+        if (
+          alternativeAbility &&
+          ["str", "dex", "con", "int", "wis", "cha"].includes(
+            alternativeAbility
+          )
+        ) {
           const alternativeScore = record.data?.[alternativeAbility] || 0;
           const currentScore = damageMod.value || 0;
 
