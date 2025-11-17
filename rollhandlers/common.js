@@ -1657,6 +1657,19 @@ function getEffectsAndModifiersForToken(
           if (newVal > currentVal) {
             result.value = newVal;
           }
+        } else if (adjustMode === "downgrade") {
+          // Use the lower value
+          const currentVal =
+            typeof result.value === "number"
+              ? result.value
+              : parseInt(result.value, 10) || 0;
+          const newVal =
+            typeof adjustValue === "number"
+              ? adjustValue
+              : parseInt(adjustValue, 10) || 0;
+          if (newVal < currentVal) {
+            result.value = newVal;
+          }
         } else if (adjustMode === "add") {
           // Add the values
           const currentVal =
@@ -1668,6 +1681,17 @@ function getEffectsAndModifiersForToken(
               ? adjustValue
               : parseInt(adjustValue, 10) || 0;
           result.value = currentVal + addVal;
+        } else if (adjustMode === "multiply") {
+          // Multiply the values
+          const currentVal =
+            typeof result.value === "number"
+              ? result.value
+              : parseInt(result.value, 10) || 0;
+          const multVal =
+            typeof adjustValue === "number"
+              ? adjustValue
+              : parseInt(adjustValue, 10) || 0;
+          result.value = currentVal * multVal;
         } else if (adjustMode === "override") {
           // Replace the value
           result.value = adjustValue;
