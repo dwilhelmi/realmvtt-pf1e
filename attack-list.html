@@ -97,7 +97,7 @@
     // Bombs and thrown weapons don't use ammo select
     const isBomb = weapon?.data?.group?.toLowerCase() === "bomb";
     const isThrown = weapon?.data?.traits?.some((trait) =>
-      trait.toLowerCase().includes("thrown")
+      trait.toLowerCase().startsWith("thrown")
     );
 
     // If we need ammo select, and we don't have it, return

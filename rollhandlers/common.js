@@ -2144,7 +2144,7 @@ performDamageRollForSpellOrItem("${record._id}","${record.recordType}", "${itemD
     let autoDestroy = item.data?.uses?.autoDestroy || false;
     const isAmmo = item?.data?.itemCategory?.toLowerCase() === "ammo";
     const isThrown = item?.data?.traits?.some((trait) =>
-      trait.toLowerCase().includes("thrown")
+      trait.toLowerCase().startsWith("thrown")
     );
     const isBomb = item?.data?.group?.toLowerCase() === "bomb";
 
@@ -2239,7 +2239,7 @@ function getItemFields(item) {
   const isTwoHanded = item.data?.usage === "held-in-two-hands";
   const isThrown = traits
     .map((trait) => trait.toLowerCase())
-    .includes("thrown"); // Only thrown weapons can be toggled melee/range
+    .some((trait) => trait.startsWith("thrown"));
   const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
   const hasVersatilePiercingProperty = traits.some((trait) => {
@@ -2323,7 +2323,7 @@ function setItemFields(item, itemDataPath, valuesToSet) {
   const isTwoHanded = item.data?.usage === "held-in-two-hands";
   const isThrown = traits
     .map((trait) => trait.toLowerCase())
-    .includes("thrown"); // Only thrown weapons can be toggled melee/range
+    .some((trait) => trait.startsWith("thrown"));
   const isBomb = item.data?.group?.toLowerCase() === "bomb";
   const isMelee = (item.data?.range || 0) === 0; // Melee shown only melee icon
   const hasVersatilePiercingProperty = traits.some((trait) => {
@@ -6377,7 +6377,7 @@ function getWeaponDamageInfo(record, weapon) {
       (weapon.data?.weaponType || "melee").toLowerCase() === "unarmed"
     : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
-    trait.toLowerCase().includes("thrown")
+    trait.toLowerCase().startsWith("thrown")
   );
   const hasDeathTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("death")
@@ -7230,7 +7230,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       (weapon.data?.weaponType || "melee").toLowerCase() === "unarmed"
     : (weapon.data?.range || 0) === 0;
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
-    trait.toLowerCase().includes("thrown")
+    trait.toLowerCase().startsWith("thrown")
   );
   const hasFinesseTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().includes("finesse")

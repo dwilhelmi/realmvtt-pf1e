@@ -4,7 +4,7 @@
     const item = api.getValue(itemDataPath);
     const isAmmo = item?.data?.itemCategory?.toLowerCase() === "ammo";
     const isThrown = item?.data?.traits?.some((trait) =>
-      trait.toLowerCase().includes("thrown")
+      trait.toLowerCase().startsWith("thrown")
     );
     const isBomb = item?.data?.group?.toLowerCase() === "bomb";
 
