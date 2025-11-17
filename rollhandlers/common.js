@@ -7433,21 +7433,46 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   }
 
   // Check for damageCalculation modifier
-  const damageCalculationMod = getEffectsAndModifiersForToken(
+  // First try with field filtering (new pattern: field="melee" or "ranged")
+  let damageCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["damageCalculation"],
-    undefined,
+    isMelee && !isThrown ? "melee" : "ranged",
     weapon._id,
     undefined,
     { weapon }
   );
 
+  // If no results, try without field filtering (old pattern: field contains ability)
+  if (damageCalculationMod.length === 0) {
+    damageCalculationMod = getEffectsAndModifiersForToken(
+      record,
+      ["damageCalculation"],
+      undefined,
+      weapon._id,
+      undefined,
+      { weapon }
+    );
+  }
+
   if (damageCalculationMod.length) {
     damageCalculationMod.forEach((mod) => {
       if (mod.active) {
-        damageScore = mod.field;
-        damageMod.value = record.data?.[`${damageScore}`] || 0;
-        damageMod.name = mod.name;
+        // Support both old and new patterns:
+        // - Old: field contains the ability (e.g., field: "dex")
+        // - New: value contains the ability (e.g., value: "dex", field: "melee")
+        let alternativeAbility = mod.value ? mod.value.toString() : mod.field;
+
+        if (alternativeAbility) {
+          const alternativeScore = record.data?.[alternativeAbility] || 0;
+
+          // Only use the alternative if it's higher than the current damage score
+          if (alternativeScore > damageMod.value) {
+            damageScore = alternativeAbility;
+            damageMod.value = alternativeScore;
+            damageMod.name = mod.name;
+          }
+        }
       }
     });
   }
@@ -8192,21 +8217,47 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   }
 
   // Check for damageCalculation modifier
-  const damageCalculationMod = getEffectsAndModifiersForToken(
+  // First try with field filtering (new pattern: field="melee" or "ranged")
+  let damageCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["damageCalculation"],
-    undefined,
+    isMelee && !isThrown ? "melee" : "ranged",
     weapon._id,
     undefined,
     { weapon }
   );
 
+  // If no results, try without field filtering (old pattern: field contains ability)
+  if (damageCalculationMod.length === 0) {
+    damageCalculationMod = getEffectsAndModifiersForToken(
+      record,
+      ["damageCalculation"],
+      undefined,
+      weapon._id,
+      undefined,
+      { weapon }
+    );
+  }
+
   if (damageCalculationMod.length) {
     damageCalculationMod.forEach((mod) => {
       if (mod.active) {
-        damageScore = mod.field;
-        damageMod.value = record.data?.[`${damageScore}`] || 0;
-        damageMod.name = mod.name;
+        // Support both old and new patterns:
+        // - Old: field contains the ability (e.g., field: "dex")
+        // - New: value contains the ability (e.g., value: "dex", field: "melee")
+        let alternativeAbility = mod.value ? mod.value.toString() : mod.field;
+
+        if (alternativeAbility) {
+          const alternativeScore = record.data?.[alternativeAbility] || 0;
+          const currentScore = damageMod.value || 0;
+
+          // Only use the alternative if it's higher than the current damage score
+          if (alternativeScore > currentScore) {
+            damageScore = alternativeAbility;
+            damageMod.value = alternativeScore;
+            damageMod.name = mod.name;
+          }
+        }
       }
     });
   }
