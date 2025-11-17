@@ -856,6 +856,24 @@ function collectTraitsAndProperties(token, context = {}) {
     }
   }
 
+  // Collect target conditions from context (e.g., target:condition:off-guard)
+  // Target info can be passed in context.target
+  if (context.target) {
+    const target = context.target;
+
+    // Collect conditions from target's effects
+    if (target.effects) {
+      const effects = Array.isArray(target.effects) ? target.effects : [];
+      effects.forEach((effect) => {
+        const effectName = effect?.name || "";
+        if (effectName) {
+          const conditionName = effectName.toLowerCase().replace(/\s+/g, "-");
+          traits.add(`target:condition:${conditionName}`);
+        }
+      });
+    }
+  }
+
   return traits;
 }
 
@@ -7040,14 +7058,52 @@ function hasCriticalSpecializationEffect(
               item.data?.itemCategory?.toLowerCase())
         ) {
           return true;
-        } else if (
-          // Otherwise evaluate the predicate
-          ((predicate || predicateField) &&
-            evaluatePredicate(predicate, record, item, targetIsOffGuard)) ||
-          evaluatePredicate(predicateField, record, item, targetIsOffGuard)
-        ) {
-          return true;
-        } else if (!predicate) {
+        }
+
+        // Check if we have a predicate to evaluate
+        if (predicate) {
+          // Try to parse as JSON predicate (new format)
+          const parsedPredicate = parseModifierPredicate(predicate);
+          if (parsedPredicate && parsedPredicate.length > 0) {
+            // Build context for predicate evaluation
+            const context = { weapon: item, item: item };
+
+            // Add target conditions if target is off-guard
+            if (targetIsOffGuard) {
+              // Create a mock target with off-guard effect for trait collection
+              context.target = {
+                effects: [{ name: "Off-Guard" }],
+              };
+            }
+
+            // Collect traits for evaluation
+            const traits = collectTraitsAndProperties(record, context);
+
+            // Evaluate using the new JSON predicate system
+            const predicateResult = evaluateEffectPredicate(
+              parsedPredicate,
+              traits,
+              record,
+              context
+            );
+
+            if (predicateResult) {
+              return true;
+            }
+          } else {
+            // Fall back to old string-based evaluation
+            if (evaluatePredicate(predicate, record, item, targetIsOffGuard)) {
+              return true;
+            }
+          }
+        } else if (predicateField) {
+          // Try old predicate field evaluation
+          if (
+            evaluatePredicate(predicateField, record, item, targetIsOffGuard)
+          ) {
+            return true;
+          }
+        } else {
           // If we don't have a predicate just assume it's for all weapons
           return true;
         }
