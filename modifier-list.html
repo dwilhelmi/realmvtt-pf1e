@@ -27,6 +27,7 @@
     let showAllChecksField = false;
     let showValueField = true;
     let showAdjustDegreeOfSuccessField = false;
+    let showAdjustModifierField = false;
 
     if (typeValue === "attributeBonus") {
       showAttributeField = true;
@@ -68,6 +69,10 @@
       showFieldField = false;
       showAdjustDegreeOfSuccessField = true;
       showValueField = false;
+    } else if (typeValue === "adjustModifier") {
+      showFieldField = false;
+      showAdjustModifierField = true;
+      showValueField = true;
     }
 
     if (modifier.fields?.value?.hidden !== !showValueField) {
@@ -103,6 +108,12 @@
     ) {
       valuesToSet[`${modPath}.fields.adjustDegreeOfSuccessBox.hidden`] =
         !showAdjustDegreeOfSuccessField;
+    }
+    if (
+      modifier.fields?.adjustModifierBox?.hidden !== !showAdjustModifierField
+    ) {
+      valuesToSet[`${modPath}.fields.adjustModifierBox.hidden`] =
+        !showAdjustModifierField;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -172,6 +183,7 @@
       {"label": "Perception Bonus", "value": "perceptionBonus"},
       {"label": "Perception Penalty", "value": "perceptionPenalty"},
       {"label": "Adjust Degree of Success", "value": "adjustDegreeOfSuccess"},
+      {"label": "Adjust Modifier", "value": "adjustModifier"},
       {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
       {"label": "Armor Specialization Effect", "value": "armorSpecialization"}
       ]'
@@ -411,6 +423,36 @@
     ></dropdown>
   </div>
 </box>
+
+<box field="adjustModifierBox" hidden="true">
+  <stringfield
+    width="100%"
+    size="xs"
+    field="targetSlug"
+    label="Target Modifier Slug"
+    placeholder="Enter slug of modifier to adjust (e.g., weapon-specialization)"
+  ></stringfield>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="adjustMode"
+    label="Adjust Mode"
+    placeholder="Select Mode"
+    defaultvalue="upgrade"
+    options='[{"label": "Upgrade (use higher value)", "value": "upgrade"},
+      {"label": "Add (sum values)", "value": "add"},
+      {"label": "Override (replace value)", "value": "override"}]'
+  ></dropdown>
+</box>
+
+<stringfield
+  width="100%"
+  size="xs"
+  field="slug"
+  label="Slug (optional identifier)"
+  placeholder="Enter unique slug for this modifier (e.g., weapon-specialization)"
+></stringfield>
 
 <stringfield
   width="100%"

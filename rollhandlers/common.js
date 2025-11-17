@@ -1311,6 +1311,9 @@ function getEffectsAndModifiersForToken(
             isPenalty: isPenalty,
             isEffect: true,
             appliedBy: getEffectAppliedBy(target, effect),
+            slug: rule.slug || "",
+            targetSlug: rule.targetSlug || "",
+            adjustMode: rule.adjustMode || "",
           });
         }
       } else if (rule.valueType === "api") {
@@ -1330,6 +1333,9 @@ function getEffectsAndModifiersForToken(
             isPenalty: isPenalty,
             isEffect: true,
             appliedBy: null,
+            slug: rule.slug || "",
+            targetSlug: rule.targetSlug || "",
+            adjustMode: rule.adjustMode || "",
           });
         }
       } else if (
@@ -1364,6 +1370,9 @@ function getEffectsAndModifiersForToken(
             isPenalty: isPenalty,
             isEffect: true,
             appliedBy: getEffectAppliedBy(target, effect),
+            slug: rule.slug || "",
+            targetSlug: rule.targetSlug || "",
+            adjustMode: rule.adjustMode || "",
           });
         }
       }
@@ -1561,6 +1570,9 @@ function getEffectsAndModifiersForToken(
           itemId: itemOnly ? feature?._id : undefined,
           isPenalty: isPenalty,
           isEffect: false,
+          slug: modifier.data?.slug || "",
+          targetSlug: modifier.data?.targetSlug || "",
+          adjustMode: modifier.data?.adjustMode || "",
         });
       }
     });
@@ -1576,6 +1588,61 @@ function getEffectsAndModifiersForToken(
   if (resilientBonus) {
     results.push(...resilientBonus);
   }
+
+  // Process AdjustModifier rules - these modify existing modifiers by slug
+  const adjustModifiers = results.filter(
+    (r) => r.modifierType === "adjustModifier" && r.active
+  );
+  adjustModifiers.forEach((adjMod) => {
+    const targetSlug = adjMod.targetSlug || "";
+    const adjustMode = adjMod.adjustMode || "upgrade";
+    const adjustValue = adjMod.value;
+
+    if (!targetSlug) return;
+
+    // Find all modifiers with matching slug and apply adjustment
+    results.forEach((result) => {
+      if (
+        result.slug === targetSlug &&
+        result !== adjMod &&
+        result.modifierType !== "adjustModifier" &&
+        result.active
+      ) {
+        // Apply adjustment based on mode
+        if (adjustMode === "upgrade") {
+          // Use the higher value
+          const currentVal =
+            typeof result.value === "number"
+              ? result.value
+              : parseInt(result.value, 10) || 0;
+          const newVal =
+            typeof adjustValue === "number"
+              ? adjustValue
+              : parseInt(adjustValue, 10) || 0;
+          if (newVal > currentVal) {
+            result.value = newVal;
+          }
+        } else if (adjustMode === "add") {
+          // Add the values
+          const currentVal =
+            typeof result.value === "number"
+              ? result.value
+              : parseInt(result.value, 10) || 0;
+          const addVal =
+            typeof adjustValue === "number"
+              ? adjustValue
+              : parseInt(adjustValue, 10) || 0;
+          result.value = currentVal + addVal;
+        } else if (adjustMode === "override") {
+          // Replace the value
+          result.value = adjustValue;
+        }
+      }
+    });
+  });
+
+  // Remove adjustModifier entries from results as they've done their job
+  results = results.filter((r) => r.modifierType !== "adjustModifier");
 
   if (allTypes && allTypes.length > 0) {
     results = results.filter((r) => allTypes.includes(r.modifierType));
