@@ -848,7 +848,10 @@ function parseModifierPredicate(predicateInput) {
     return JSON.parse(predicateString);
   } catch (e) {
     // If JSON parse fails, return empty array
-    console.warn(`Failed to parse modifier predicate as JSON: ${predicateString}`, e);
+    console.warn(
+      `Failed to parse modifier predicate as JSON: ${predicateString}`,
+      e
+    );
     return [];
   }
 }
@@ -879,29 +882,50 @@ function resolvePredicateValue(value, target, context, traits) {
   // item:level - get level from the item in context
   if (value === "item:level") {
     // Check all possible item sources in context
-    const item = context.item || context.weapon || context.spell || context.feature;
+    const item =
+      context.item || context.weapon || context.spell || context.feature;
     return item?.data?.level || item?.level || 0;
   }
 
   // item:proficiency:rank - get proficiency rank for the item
   if (value === "item:proficiency:rank") {
     const item = context.item || context.weapon || context.spell;
+
     if (!item || !target) {
       return 0;
     }
 
+    // Determine the item category (weapon or armor)
+    const itemType = (item.data?.type || "").toLowerCase();
+    const itemCategory = (item.data?.itemCategory || "").toLowerCase();
+    const itemGroup = (item.data?.group || "").toLowerCase();
+
     // For weapons, check attack proficiencies
-    if (item.recordType === "items" && item.data?.weaponCategory) {
-      const weaponCategory = item.data.weaponCategory.toLowerCase();
+    // Check item.data.type === "weapon" OR if itemCategory is a weapon category
+    const isWeapon =
+      itemType === "weapon" ||
+      ["simple", "martial", "advanced", "unarmed"].includes(itemCategory);
+
+    if (item.recordType === "items" && isWeapon && itemCategory) {
       const proficiencies = target.data?.attackProficiencies || {};
-      return proficiencies[weaponCategory] || 0;
+
+      // Use getProfiencyForWeapon helper which handles group-specific proficiencies
+      const rank = getProfiencyForWeapon(target, itemCategory, itemGroup);
+      return rank;
     }
 
     // For armor, check defense proficiencies
-    if (item.recordType === "items" && item.data?.armorCategory) {
-      const armorCategory = item.data.armorCategory.toLowerCase();
+    // Check item.data.type === "armor" OR if itemCategory is an armor category
+    const isArmor =
+      itemType === "armor" ||
+      ["unarmored", "light", "medium", "heavy"].includes(itemCategory);
+
+    if (item.recordType === "items" && isArmor && itemCategory) {
       const defenses = target.data?.defenses || {};
-      return defenses[armorCategory] || 0;
+
+      // Use getProfiencyForArmor helper which handles group-specific proficiencies
+      const rank = getProfiencyForArmor(target, itemCategory, itemGroup);
+      return rank;
     }
 
     return 0;
@@ -1028,31 +1052,55 @@ function evaluateEffectPredicate(predicate, traits, target, context = {}) {
     const comparisonOps = ["gte", "gt", "lte", "lt", "eq", "ne"];
     for (const op of comparisonOps) {
       if (op in predicate) {
-        const operands = Array.isArray(predicate[op]) ? predicate[op] : [predicate[op]];
+        const operands = Array.isArray(predicate[op])
+          ? predicate[op]
+          : [predicate[op]];
+
         if (operands.length !== 2) {
-          console.warn(`Comparison operator ${op} requires exactly 2 operands, got ${operands.length}`);
+          console.warn(
+            `Comparison operator ${op} requires exactly 2 operands, got ${operands.length}`
+          );
           return false;
         }
 
         // Resolve both operands using the helper function
-        const leftValue = resolvePredicateValue(operands[0], target, context, traits);
-        const rightValue = resolvePredicateValue(operands[1], target, context, traits);
+        const leftValue = resolvePredicateValue(
+          operands[0],
+          target,
+          context,
+          traits
+        );
+        const rightValue = resolvePredicateValue(
+          operands[1],
+          target,
+          context,
+          traits
+        );
 
         // Perform comparison
+        let result;
         switch (op) {
           case "gte":
-            return leftValue >= rightValue;
+            result = leftValue >= rightValue;
+            break;
           case "gt":
-            return leftValue > rightValue;
+            result = leftValue > rightValue;
+            break;
           case "lte":
-            return leftValue <= rightValue;
+            result = leftValue <= rightValue;
+            break;
           case "lt":
-            return leftValue < rightValue;
+            result = leftValue < rightValue;
+            break;
           case "eq":
-            return leftValue === rightValue;
+            result = leftValue === rightValue;
+            break;
           case "ne":
-            return leftValue !== rightValue;
+            result = leftValue !== rightValue;
+            break;
         }
+
+        return result;
       }
     }
   }
@@ -2493,12 +2541,23 @@ function getSaveDCForToken(token, saveType) {
 }
 
 function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
-  const acModifiers = getEffectsAndModifiersForToken(token, [
-    "armorClassBonus",
-    "armorClassPenalty",
-    "allBonus",
-    "allPenalty",
-  ]);
+  // Get best equipped armor to pass as context for predicate evaluation
+  const bestArmor = getBestEquippedArmor(token);
+  let armorItem = null;
+  if (bestArmor?.armor?.armorId) {
+    const inventory =
+      token?.data?.inventory || token?.record?.data?.inventory || [];
+    armorItem = inventory.find((item) => item._id === bestArmor.armor.armorId);
+  }
+
+  const acModifiers = getEffectsAndModifiersForToken(
+    token,
+    ["armorClassBonus", "armorClassPenalty", "allBonus", "allPenalty"],
+    undefined,
+    undefined,
+    undefined,
+    armorItem ? { item: armorItem } : {}
+  );
 
   let tokenData = token.data === undefined ? token.record.data : token.data;
 
@@ -2513,8 +2572,11 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   // Apply all modifiers from getEffectsAndModifiersForToken
   // (already returns highest of each type)
   acModifiers.forEach((mod) => {
-    const value = parseInt(mod.value || 0, 10);
-    ac += value;
+    // Only if it's from an effect, because features/feats adjust it directly if it's a character
+    if (mod.isEffect || token.recordType !== "characters") {
+      const value = parseInt(mod.value || 0, 10);
+      ac += value;
+    }
   });
 
   // Handle flanking: -2 circumstance penalty
@@ -2592,12 +2654,25 @@ function updateAttribute({
     dexValue = value;
   }
   const bestArmor = getBestEquippedArmor(record);
+
+  // Get the armor item to pass as context for predicate evaluation
+  let armorItem = null;
+  if (bestArmor?.armor?.armorId) {
+    const inventory = record.data?.inventory || [];
+    armorItem = inventory.find((item) => item._id === bestArmor.armor.armorId);
+  }
+
   let ac = 10 + Math.max(0, bestArmor.armor.acBonus);
   let additionalAcAttribute = "dex";
   // Check for armorClassCalculation mods
-  const acCalculationMods = getEffectsAndModifiersForToken(record, [
-    "armorClassCalculation",
-  ]);
+  const acCalculationMods = getEffectsAndModifiersForToken(
+    record,
+    ["armorClassCalculation"],
+    undefined,
+    undefined,
+    undefined,
+    armorItem ? { item: armorItem } : {}
+  );
   acCalculationMods.forEach((mod) => {
     if (mod.field !== undefined && mod.field !== "dex") {
       additionalAcAttribute = mod.field;
@@ -2642,7 +2717,10 @@ function updateAttribute({
   const acBonus = getEffectsAndModifiersForToken(
     record,
     ["armorClassBonus", "armorClassPenalty"],
-    "all"
+    "all",
+    undefined,
+    undefined,
+    armorItem ? { item: armorItem } : {}
   );
   const armorModsSet = new Set();
   acBonus.forEach((modifier) => {
@@ -2657,7 +2735,10 @@ function updateAttribute({
     const armorTypeBonus = getEffectsAndModifiersForToken(
       record,
       ["armorClassBonus", "armorClassPenalty"],
-      bestArmor.armorType
+      bestArmor.armorType,
+      undefined,
+      undefined,
+      armorItem ? { item: armorItem } : {}
     );
     armorTypeBonus.forEach((modifier) => {
       // Only if it was from a feature or item, not effect
@@ -2672,7 +2753,10 @@ function updateAttribute({
     const shieldBonus = getEffectsAndModifiersForToken(
       record,
       ["armorClassBonus", "armorClassPenalty"],
-      "Shield"
+      "Shield",
+      undefined,
+      undefined,
+      armorItem ? { item: armorItem } : {}
     );
     shieldBonus.forEach((modifier) => {
       // Only if it was from a feature or item, not effect
