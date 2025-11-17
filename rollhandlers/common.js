@@ -5625,7 +5625,49 @@ function isOffGuard(token) {
 }
 
 function getOffGuardTooltip() {
-  return "You're distracted or otherwise unable to focus your full attention on defense. You take a –2 circumstance penalty to AC. Some effects give you the off-guard condition only to certain creatures or against certain attacks. Others—especially conditions—can make you off-guard against everything. If a rule doesn't specify that the condition applies only to certain circumstances, it applies to all of them, such as “The target is off-guard.”";
+  return "You're distracted or otherwise unable to focus your full attention on defense. You take a –2 circumstance penalty to AC. Some effects give you the off-guard condition only to certain creatures or against certain attacks. Others—especially conditions—can make you off-guard against everything. If a rule doesn't specify that the condition applies only to certain circumstances, it applies to all of them, such as \"The target is off-guard.\"";
+}
+
+// Checks if a token can be made off-guard by an attacker based on off-guard prevention modifiers
+// Returns true if the token CAN be made off-guard, false if prevented
+function canBeOffGuard(targetToken, attackerToken, source = "flanking") {
+  if (!targetToken) return true;
+
+  // Get off-guard prevention modifiers
+  const preventionModifiers = getEffectsAndModifiersForToken(
+    targetToken,
+    ["offGuardPrevention"],
+    source
+  );
+
+  if (preventionModifiers.length === 0) {
+    return true; // No prevention, can be off-guard
+  }
+
+  // Check each prevention modifier
+  for (const mod of preventionModifiers) {
+    if (!mod.active) continue;
+
+    // Get the level threshold from the modifier value
+    let levelThreshold = 0;
+    if (typeof mod.value === "number") {
+      levelThreshold = mod.value;
+    } else if (typeof mod.value === "string") {
+      // Parse the value (could be "Character Level" replacement or a number)
+      const parsedValue = parseInt(mod.value, 10);
+      if (!isNaN(parsedValue)) {
+        levelThreshold = parsedValue;
+      }
+    }
+
+    // If attacker's level is <= threshold, prevent off-guard
+    const attackerLevel = attackerToken?.data?.level || 0;
+    if (attackerLevel <= levelThreshold) {
+      return false; // Prevented from being off-guard
+    }
+  }
+
+  return true; // Can be off-guard
 }
 
 // Determines if an enemy is Off-Guard due to Flanking
@@ -5894,6 +5936,10 @@ function isOffGuardDueToFlanking({
 
     // Check if the line between source and ally passes through opposite sides
     if (doesLineCrossOppositeSides(sourcePos, allyPos)) {
+      // Check if target can be made off-guard (considering prevention modifiers)
+      if (!canBeOffGuard(targetToken, sourceToken, "flanking")) {
+        continue; // Target is immune to off-guard from this attacker's level
+      }
       return true;
     }
   }
