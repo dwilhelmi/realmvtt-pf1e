@@ -122,13 +122,16 @@
         >
         </dropdown>
       </div>
-      <stringfield
-        width="100%"
-        field="speed"
-        label="Speed"
-        placeholder="Enter Speed..."
-      >
-      </stringfield>
+      <div style="width: 100%; display: flex; gap: 4px">
+        <stringfield
+          width="100%"
+          field="speed"
+          label="Speed"
+          placeholder="Enter Speed..."
+        >
+        </stringfield>
+        <numberfield field="reach" label="Reach" placeholder="5"> </numberfield>
+      </div>
     </div>
   </div>
 
@@ -175,10 +178,34 @@
     placeholder="Enter Vision..."
   >
   </stringfield>
-</div>
 
-<div style="margin-top: 8px; margin-bottom: 8px">
-  <divider label="Description"></divider>
+  <dropdown
+    field="langauges"
+    label="Languages"
+    placeholder="Select Languages..."
+    multiselect="50"
+    combo="true"
+    optionsfunction="return getLanguageOptions();"
+  >
+  </dropdown>
+
+  <dropdown
+    field="additionalLanguages.value"
+    label="Additional Language Options"
+    placeholder="Select Additional Languages..."
+    multiselect="50"
+    combo="true"
+    optionsfunction="return getLanguageOptions();"
+  >
+  </dropdown>
+
+  <numberfield
+    field="additionalLanguages.count"
+    hidden="true"
+    label="Additional Language Count"
+    placeholder="0"
+  >
+  </numberfield>
 </div>
 
 <richtextfield

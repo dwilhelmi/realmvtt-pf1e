@@ -53,6 +53,7 @@
         "data.speed": ancestryObj.data?.speed,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
+        "data.reach": ancestryObj.data?.reach,
         // Default to false on add of ancestry
         "data.alternateAncestryBoosts": false,
       },
@@ -1141,8 +1142,9 @@
     }
 
     // Filter duplicates
-    const filteredResults = results.filter((result, index, self) =>
-      index === self.findIndex((t) => t.value === result.value)
+    const filteredResults = results.filter(
+      (result, index, self) =>
+        index === self.findIndex((t) => t.value === result.value)
     );
 
     return filteredResults;
@@ -1182,8 +1184,9 @@
     }
 
     // Filter duplicates
-    boosts = boosts.filter((boost, index, self) =>
-      index === self.findIndex((t) => t.value === boost.value)
+    boosts = boosts.filter(
+      (boost, index, self) =>
+        index === self.findIndex((t) => t.value === boost.value)
     );
 
     return boosts;
