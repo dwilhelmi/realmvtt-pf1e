@@ -826,15 +826,9 @@ function collectTraitsAndProperties(token, context = {}) {
 
 /**
  * Parses a modifier predicate string into the format used by evaluateEffectPredicate.
- * Handles formats like:
- * - Simple comma-separated: "inflicts:paralyzed,sleep"
- * - OR operator: "or([\"inflicts:paralyzed\",\"sleep\"])"
- * - AND operator: "and([\"inflicts:paralyzed\",\"sleep\"])"
- * - NOT operator: "not(\"inflicts:paralyzed\")"
- * - Nested operators: "or([and([\"a\",\"b\"]), \"c\"])"
- * - etc.
+ * Expects JSON string format from the converter.
  *
- * @param {string|Array|Object} predicateInput - The predicate from modifier data
+ * @param {string|Array|Object} predicateInput - The predicate from modifier data (JSON string or already parsed)
  * @returns {Array|Object|String} Parsed predicate in effect format
  */
 function parseModifierPredicate(predicateInput) {
@@ -849,65 +843,83 @@ function parseModifierPredicate(predicateInput) {
 
   const predicateString = predicateInput.trim();
 
-  // Check for logical operators: or(...), and(...), not(...), nor(...), nand(...), xor(...)
-  const operatorMatch = predicateString.match(
-    /^(or|and|not|nor|nand|xor)\((.*)\)$/s
-  );
+  // Try to parse as JSON
+  try {
+    return JSON.parse(predicateString);
+  } catch (e) {
+    // If JSON parse fails, return empty array
+    console.warn(`Failed to parse modifier predicate as JSON: ${predicateString}`, e);
+    return [];
+  }
+}
 
-  if (operatorMatch) {
-    const operator = operatorMatch[1];
-    const content = operatorMatch[2].trim();
+/**
+ * Resolves dynamic predicate values like "actor:level", "item:level", "item:proficiency:rank"
+ * @param {string} value - The value to resolve
+ * @param {Object} target - The target record (actor/token)
+ * @param {Object} context - Context object containing item, weapon, spell, etc.
+ * @param {Set} traits - Traits set for fallback lookup
+ * @returns {number} The resolved numeric value
+ */
+function resolvePredicateValue(value, target, context, traits) {
+  // Handle numeric values
+  if (typeof value === "number") {
+    return value;
+  }
 
-    try {
-      // Try to parse the content as JSON
-      let parsed;
-      if (content.startsWith("[") && content.endsWith("]")) {
-        // It's an array: or(["a","b"]) or or([and(["a","b"]), "c"])
-        parsed = JSON.parse(content);
+  if (typeof value !== "string") {
+    return 0;
+  }
 
-        // Recursively parse any nested operator strings in the array
-        if (Array.isArray(parsed)) {
-          parsed = parsed.map((item) => {
-            if (
-              typeof item === "string" &&
-              /^(or|and|not|nor|nand|xor)\(/.test(item)
-            ) {
-              return parseModifierPredicate(item);
-            }
-            return item;
-          });
-        }
-      } else if (content.startsWith('"') || content.startsWith("'")) {
-        // It's a single quoted value: not("a")
-        parsed = JSON.parse(content);
-      } else if (/^(or|and|not|nor|nand|xor)\(/.test(content)) {
-        // It's a nested operator without quotes: not(or(["a","b"]))
-        parsed = parseModifierPredicate(content);
-      } else {
-        // Try to parse as-is
-        parsed = JSON.parse(content);
-      }
+  // actor:level - get level from target record
+  if (value === "actor:level") {
+    return target?.data?.level || 0;
+  }
 
-      // Return in the format expected by evaluateEffectPredicate
-      return { [operator]: parsed };
-    } catch (e) {
-      console.warn(
-        `Failed to parse modifier predicate operator content: ${content}`,
-        e
-      );
-      // Fall back to simple split
-      return predicateString
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s);
+  // item:level - get level from the item in context
+  if (value === "item:level") {
+    // Check all possible item sources in context
+    const item = context.item || context.weapon || context.spell || context.feature;
+    return item?.data?.level || item?.level || 0;
+  }
+
+  // item:proficiency:rank - get proficiency rank for the item
+  if (value === "item:proficiency:rank") {
+    const item = context.item || context.weapon || context.spell;
+    if (!item || !target) {
+      return 0;
+    }
+
+    // For weapons, check attack proficiencies
+    if (item.recordType === "items" && item.data?.weaponCategory) {
+      const weaponCategory = item.data.weaponCategory.toLowerCase();
+      const proficiencies = target.data?.attackProficiencies || {};
+      return proficiencies[weaponCategory] || 0;
+    }
+
+    // For armor, check defense proficiencies
+    if (item.recordType === "items" && item.data?.armorCategory) {
+      const armorCategory = item.data.armorCategory.toLowerCase();
+      const defenses = target.data?.defenses || {};
+      return defenses[armorCategory] || 0;
+    }
+
+    return 0;
+  }
+
+  // Check if it's a trait key with a numeric value (e.g., "item:proficiency:rank:3")
+  for (const trait of traits) {
+    if (trait.startsWith(value + ":")) {
+      const numValue = trait.substring(value.length + 1);
+      return parseFloat(numValue) || 0;
+    } else if (trait === value) {
+      // If exact match exists, treat as 1 (present)
+      return 1;
     }
   }
 
-  // No operator found - treat as simple comma-separated list (implicit AND)
-  return predicateString
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s);
+  // Not found, treat as 0
+  return 0;
 }
 
 /**
@@ -916,9 +928,11 @@ function parseModifierPredicate(predicateInput) {
  *
  * @param {Array|Object|String} predicate - The predicate to evaluate (JSON format)
  * @param {Set} traits - Set of trait strings to check against
+ * @param {Object} target - The target record (actor/token)
+ * @param {Object} context - Context object containing item, weapon, spell, etc.
  * @returns {boolean} Whether the predicate is satisfied
  */
-function evaluateEffectPredicate(predicate, traits, target) {
+function evaluateEffectPredicate(predicate, traits, target, context = {}) {
   // Base case: string predicate - check if trait exists
   if (typeof predicate === "string") {
     // If the predicate contains @record.data., replace with actual values
@@ -947,7 +961,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
   // Array: treat as implicit AND - all items must be true
   if (Array.isArray(predicate)) {
     return predicate.every((item) =>
-      evaluateEffectPredicate(item, traits, target)
+      evaluateEffectPredicate(item, traits, target, context)
     );
   }
 
@@ -955,7 +969,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
   if (typeof predicate === "object" && predicate !== null) {
     // NOT operator
     if ("not" in predicate) {
-      return !evaluateEffectPredicate(predicate.not, traits, target);
+      return !evaluateEffectPredicate(predicate.not, traits, target, context);
     }
 
     // OR operator
@@ -964,7 +978,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
         ? predicate.or
         : [predicate.or];
       return orArray.some((item) =>
-        evaluateEffectPredicate(item, traits, target)
+        evaluateEffectPredicate(item, traits, target, context)
       );
     }
 
@@ -974,7 +988,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
         ? predicate.and
         : [predicate.and];
       return andArray.every((item) =>
-        evaluateEffectPredicate(item, traits, target)
+        evaluateEffectPredicate(item, traits, target, context)
       );
     }
 
@@ -984,7 +998,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
         ? predicate.nand
         : [predicate.nand];
       return !nandArray.every((item) =>
-        evaluateEffectPredicate(item, traits, target)
+        evaluateEffectPredicate(item, traits, target, context)
       );
     }
 
@@ -994,7 +1008,7 @@ function evaluateEffectPredicate(predicate, traits, target) {
         ? predicate.nor
         : [predicate.nor];
       return !norArray.some((item) =>
-        evaluateEffectPredicate(item, traits, target)
+        evaluateEffectPredicate(item, traits, target, context)
       );
     }
 
@@ -1004,9 +1018,42 @@ function evaluateEffectPredicate(predicate, traits, target) {
         ? predicate.xor
         : [predicate.xor];
       const trueCount = xorArray.filter((item) =>
-        evaluateEffectPredicate(item, traits, target)
+        evaluateEffectPredicate(item, traits, target, context)
       ).length;
       return trueCount === 1;
+    }
+
+    // Comparison operators: gte, gt, lte, lt, eq, ne
+    // Format: {"gte": ["item:proficiency:rank", 2]} or {"gte": ["actor:level", 5]}
+    const comparisonOps = ["gte", "gt", "lte", "lt", "eq", "ne"];
+    for (const op of comparisonOps) {
+      if (op in predicate) {
+        const operands = Array.isArray(predicate[op]) ? predicate[op] : [predicate[op]];
+        if (operands.length !== 2) {
+          console.warn(`Comparison operator ${op} requires exactly 2 operands, got ${operands.length}`);
+          return false;
+        }
+
+        // Resolve both operands using the helper function
+        const leftValue = resolvePredicateValue(operands[0], target, context, traits);
+        const rightValue = resolvePredicateValue(operands[1], target, context, traits);
+
+        // Perform comparison
+        switch (op) {
+          case "gte":
+            return leftValue >= rightValue;
+          case "gt":
+            return leftValue > rightValue;
+          case "lte":
+            return leftValue <= rightValue;
+          case "lt":
+            return leftValue < rightValue;
+          case "eq":
+            return leftValue === rightValue;
+          case "ne":
+            return leftValue !== rightValue;
+        }
+      }
     }
   }
 
@@ -1145,7 +1192,8 @@ function getEffectsAndModifiersForToken(
           const predicatePassed = evaluateEffectPredicate(
             rule.data.predicate,
             traitsSet,
-            target
+            target,
+            context
           );
           if (!predicatePassed) {
             // Mark as inactive
@@ -1400,7 +1448,8 @@ function getEffectsAndModifiersForToken(
         const predicatePassed = evaluateEffectPredicate(
           parsedPredicate,
           traitsSet,
-          target
+          target,
+          context
         );
         if (!predicatePassed) {
           active = false;
