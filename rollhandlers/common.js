@@ -1387,6 +1387,11 @@ function getEffectsAndModifiersForToken(
 
       let active = toggleable ? false : modifier.data?.active === true;
 
+      // Degree of success adjustments are always active by default unless predicate is false
+      if (ruleType === "adjustDegreeOfSuccess") {
+        active = true;
+      }
+
       // Check for predicate value in modifier data
       const predicate = modifier.data?.predicate || "";
       if (predicate) {
@@ -1431,6 +1436,16 @@ function getEffectsAndModifiersForToken(
         } else {
           value = checkForReplacements(value, {}, target, null, context);
         }
+      }
+
+      // If this is adjustDegreeOfSuccess, set value to the object
+      if (ruleType === "adjustDegreeOfSuccess") {
+        value = {
+          all: modifier.data?.adjustment?.all || "none",
+          success: modifier.data?.adjustment?.success || "none",
+          failure: modifier.data?.adjustment?.failure || "none",
+          criticalFailure: modifier.data?.adjustment?.criticalFailure || "none",
+        };
       }
 
       // Only relevant if it has a value
@@ -1551,6 +1566,148 @@ function getEffectsAndModifiersForToken(
   }
 
   return results;
+}
+
+/**
+ * Applies degree of success adjustments and returns the adjusted degree and modifier name.
+ * This function is used in roll handlers (attack.js, skill.js, save.js) to apply adjustments
+ * from effects and modifiers like Evasive Reflexes.
+ *
+ * @param {number} degreeOfSuccess - Original degree (-1=crit fail, 0=fail, 1=success, 2=crit success)
+ * @param {Object} adjustments - Adjustment object from metadata.degreeOfSuccessAdjustments
+ * @returns {Object} {degree: number, modifierName: string|null}
+ */
+function applyDegreeOfSuccessAdjustment(degreeOfSuccess, adjustments) {
+  if (!adjustments) return { degree: degreeOfSuccess, modifierName: null };
+
+  let appliedAdjustment = null;
+  let appliedModifierName = null;
+
+  // Map degree number to name: -1=criticalFailure, 0=failure, 1=success, 2=criticalSuccess
+  let currentDegreeName = "";
+  if (degreeOfSuccess === -1) currentDegreeName = "criticalFailure";
+  else if (degreeOfSuccess === 0) currentDegreeName = "failure";
+  else if (degreeOfSuccess === 1) currentDegreeName = "success";
+
+  // Check for specific degree adjustment first
+  if (currentDegreeName && adjustments[currentDegreeName]?.value !== "none") {
+    appliedAdjustment = adjustments[currentDegreeName].value;
+    appliedModifierName = adjustments[currentDegreeName].modifierName;
+  }
+  // Then check for "all" adjustment
+  else if (adjustments.all?.value !== "none") {
+    appliedAdjustment = adjustments.all.value;
+    appliedModifierName = adjustments.all.modifierName;
+  }
+
+  if (!appliedAdjustment || appliedAdjustment === "none") {
+    return { degree: degreeOfSuccess, modifierName: null };
+  }
+
+  // Apply the adjustment
+  let newDegree = degreeOfSuccess;
+  switch (appliedAdjustment) {
+    case "one-degree-better":
+      newDegree = Math.min(degreeOfSuccess + 1, 2);
+      break;
+    case "two-degrees-better":
+      newDegree = Math.min(degreeOfSuccess + 2, 2);
+      break;
+    case "one-degree-worse":
+      newDegree = Math.max(degreeOfSuccess - 1, -1);
+      break;
+    case "two-degrees-worse":
+      newDegree = Math.max(degreeOfSuccess - 2, -1);
+      break;
+    case "to-critical-success":
+      newDegree = 2;
+      break;
+    case "to-failure":
+      newDegree = 0;
+      break;
+  }
+
+  return { degree: newDegree, modifierName: appliedModifierName };
+}
+
+/**
+ * Collects degree of success adjustments for a given field(s) and returns the best adjustment
+ * for each degree (all, success, failure, criticalFailure).
+ *
+ * @param {Object} record - The character/token record
+ * @param {string|Array<string>} fields - Field name(s) to check (e.g., "reflex" or ["reflex", "dex"])
+ * @param {string} itemId - Optional item ID for item-specific adjustments
+ * @param {string} appliedById - Optional applied by ID for effect tracking
+ * @param {Object} context - Optional context for predicate evaluation
+ * @returns {Object} Object with adjustment values and modifier names for each degree
+ */
+function getDegreeOfSuccessAdjustments(
+  record,
+  fields,
+  itemId = undefined,
+  appliedById = undefined,
+  context = {}
+) {
+  // Normalize fields to array
+  const fieldsArray = Array.isArray(fields) ? fields : [fields];
+
+  const allAdjustments = [];
+
+  // Collect adjustments for each field
+  fieldsArray.forEach((field) => {
+    const adjustments = getEffectsAndModifiersForToken(
+      record,
+      ["adjustDegreeOfSuccess"],
+      field,
+      itemId,
+      appliedById,
+      context
+    );
+    allAdjustments.push(...adjustments);
+  });
+
+  // Define adjustment priority (higher is better)
+  const adjustmentPriority = {
+    none: 0,
+    "two-degrees-worse": -2,
+    "one-degree-worse": -1,
+    "one-degree-better": 1,
+    "two-degrees-better": 2,
+    "to-failure": -1, // Specific to critical failure
+    "to-critical-success": 2, // Specific to success
+  };
+
+  // Result object with best adjustment for each degree
+  const result = {
+    all: { value: "none", modifierName: null },
+    success: { value: "none", modifierName: null },
+    failure: { value: "none", modifierName: null },
+    criticalFailure: { value: "none", modifierName: null },
+  };
+
+  // Process each adjustment and keep the best one for each degree
+  allAdjustments.forEach((adj) => {
+    if (!adj.active || !adj.value) return;
+
+    const adjustmentValue = adj.value;
+    const modifierName = adj.name;
+
+    // Process each degree type
+    ["all", "success", "failure", "criticalFailure"].forEach((degreeType) => {
+      const newValue = adjustmentValue[degreeType];
+      if (!newValue || newValue === "none") return;
+
+      const currentPriority = adjustmentPriority[result[degreeType].value] || 0;
+      const newPriority = adjustmentPriority[newValue] || 0;
+
+      // Keep the better adjustment (higher priority for positive adjustments)
+      if (newPriority > currentPriority) {
+        result[degreeType] = { value: newValue, modifierName };
+      }
+    });
+  });
+
+  return result;
 }
 
 /**
@@ -4593,11 +4750,18 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
     }
   });
 
+  // Get degree of success adjustments for both the save type and its attribute
+  const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(record, [
+    saveType,
+    attribute,
+  ]);
+
   // Prepare metadata for the roll handler
   const metadata = {
     rollName: `${saveDisplay} Save`,
     tooltip: `${saveDisplay} Saving Throw`,
     saveType: saveType,
+    degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
   };
 
   // Add DC if provided
@@ -4868,12 +5032,22 @@ function rollSkill(
     }
   });
 
+  // Get degree of success adjustments for both the skill and its attribute
+  const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(
+    record,
+    [skill, attribute],
+    undefined,
+    undefined,
+    context
+  );
+
   // Prepare metadata for the roll handler
   const metadata = {
     rollName: `${capitalize(skillName)}`,
     tooltip: `${capitalize(skillName)} Skill Check`,
     skillName: skill,
     group: initiativeGroup,
+    degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
     ...additionalMetadata,
   };
 
@@ -7468,6 +7642,16 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       );
 
       const diceRoll = "1d20";
+      // Get degree of success adjustments for attack rolls (ability score and melee/ranged)
+      const attackField = isMelee ? "melee" : "ranged";
+      const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(
+        record,
+        [attackField, abilityScore],
+        weapon._id,
+        undefined,
+        { weapon }
+      );
+
       const metadata = {
         attack: `${weapon.name}`,
         rollName: "Attack",
@@ -7505,6 +7689,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         fatalDie: fatalDie,
         animation,
         precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
+        degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
       };
 
       if (targetIsOffGuardDueToFlanking) {
@@ -7534,6 +7719,16 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         precisionModifierIndices.push(index);
       }
     });
+
+    // Get degree of success adjustments for attack rolls (ability score and melee/ranged)
+    const attackField = isMelee ? "melee" : "ranged";
+    const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(
+      record,
+      [attackField, abilityScore],
+      weapon._id,
+      undefined,
+      { weapon }
+    );
 
     const metadata = {
       attack: `${weapon.name}`,
@@ -7568,6 +7763,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       fatalDie: fatalDie,
       animation,
       precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
+      degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
     };
 
     api.promptRoll(

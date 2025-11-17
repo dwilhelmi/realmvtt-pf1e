@@ -6,6 +6,8 @@ const successMessage = data?.roll?.metadata?.successMessage;
 const failureMessage = data?.roll?.metadata?.failureMessage;
 const criticalSuccessMessage = data?.roll?.metadata?.criticalSuccessMessage;
 const criticalFailureMessage = data?.roll?.metadata?.criticalFailureMessage;
+const degreeOfSuccessAdjustments =
+  data?.roll?.metadata?.degreeOfSuccessAdjustments;
 
 // Find the unddropped d20, and if minroll is set
 // alter the actual roll to be the minroll if it's lower
@@ -78,27 +80,54 @@ if (dc > 0) {
     degreeOfSuccess -= 1; // Natural 1 worsens degree by one step (min critical failure)
   }
 
+  // Apply degree of success adjustments from effects/modifiers
+  const adjustmentResult = applyDegreeOfSuccessAdjustment(
+    degreeOfSuccess,
+    degreeOfSuccessAdjustments
+  );
+  degreeOfSuccess = adjustmentResult.degree;
+  const adjustmentModifierName = adjustmentResult.modifierName;
+
   // Calculate margin of success/failure
   const margin = total - dc;
   const marginText = margin >= 0 ? `+${margin}` : `${margin}`;
 
   // Generate appropriate message based on final degree of success
   let outcomeMessage = "";
+  const degreeNames = {
+    2: "CRITICAL SUCCESS",
+    1: "SUCCESS",
+    0: "FAILURE",
+    "-1": "CRITICAL FAILURE",
+  };
+  const degreeColors = {
+    2: "green",
+    1: "lime",
+    0: "pink",
+    "-1": "red",
+  };
+
+  const degreeName = degreeNames[degreeOfSuccess];
+  const degreeColor = degreeColors[degreeOfSuccess];
+  const modifierText = adjustmentModifierName
+    ? ` [${adjustmentModifierName}]`
+    : "";
+
   switch (degreeOfSuccess) {
     case 2:
-      message = `**[center][color=green]CRITICAL SUCCESS[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
       outcomeMessage = criticalSuccessMessage || "";
       break;
     case 1:
-      message = `**[center][color=lime]SUCCESS[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
       outcomeMessage = successMessage || "";
       break;
     case 0:
-      message = `**[center][color=pink]FAILURE[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
       outcomeMessage = failureMessage || "";
       break;
     case -1:
-      message = `**[center][color=red]CRITICAL FAILURE[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
       outcomeMessage = criticalFailureMessage || "";
       break;
   }

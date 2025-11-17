@@ -59,6 +59,8 @@ const hasCriticalSpecialization =
 
 const showShieldDamage = data?.roll?.metadata?.showShieldDamage;
 const isVitalityDual = data?.roll?.metadata?.isVitalityDual;
+const degreeOfSuccessAdjustments =
+  data?.roll?.metadata?.degreeOfSuccessAdjustments;
 
 // If it was a spell attack, we need to pass this along in damage metadata
 const isSpell = data?.roll?.metadata?.isSpell === true;
@@ -137,31 +139,59 @@ if (dc > 0) {
     degreeOfSuccess -= 1; // Natural 1 worsens degree by one step (min critical failure)
   }
 
+  // Apply degree of success adjustments from effects/modifiers
+  const adjustmentResult = applyDegreeOfSuccessAdjustment(
+    degreeOfSuccess,
+    degreeOfSuccessAdjustments
+  );
+  degreeOfSuccess = adjustmentResult.degree;
+  const adjustmentModifierName = adjustmentResult.modifierName;
+
   // Calculate margin of success/failure
   const margin = total - dc;
   const marginText = margin >= 0 ? `+${margin}` : `${margin}`;
+
   // Generate appropriate message based on final degree of success
+  const degreeNames = {
+    2: "CRITICAL HIT",
+    1: "HIT",
+    0: "MISS",
+    "-1": "CRITICAL MISS",
+  };
+  const degreeColors = {
+    2: "green",
+    1: "lime",
+    0: "pink",
+    "-1": "red",
+  };
+
+  const degreeName = degreeNames[degreeOfSuccess];
+  const degreeColor = degreeColors[degreeOfSuccess];
+  const modifierText = adjustmentModifierName
+    ? ` [${adjustmentModifierName}]`
+    : "";
+
   switch (degreeOfSuccess) {
     case 2:
       isCritical = true;
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=green]CRITICAL HIT[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case 1:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=lime]HIT[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case 0:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=pink]MISS[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
     case -1:
       message = `[center]${icon ? `:${icon}:` : ""} ${attack} ${
         targetName ? ` :IconTargetArrow: ${targetName}` : ""
-      }[/center]\n\n**[center][color=red]CRITICAL MISS[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
+      }[/center]\n\n**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs ${dcName} ${dc} (${marginText})[/gm][/center]**`;
       break;
   }
 } else {

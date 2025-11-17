@@ -25,6 +25,8 @@
     let showAttackField = false;
     let showSaveField = false;
     let showAllChecksField = false;
+    let showValueField = true;
+    let showAdjustDegreeOfSuccessField = false;
 
     if (typeValue === "attributeBonus") {
       showAttributeField = true;
@@ -62,8 +64,16 @@
     } else if (typeValue === "allPenalty") {
       showAllChecksField = true;
       showFieldField = false;
+    } else if (typeValue === "adjustDegreeOfSuccess") {
+      showFieldField = false;
+      showAdjustDegreeOfSuccessField = true;
+      showValueField = false;
     }
 
+    if (modifier.fields?.value?.hidden !== !showValueField) {
+      valuesToSet[`${modPath}.fields.value.hidden`] = !showValueField;
+      valuesToSet[`${modPath}.fields.valueType.hidden`] = !showValueField;
+    }
     if (modifier.fields?.field?.hidden !== !showFieldField) {
       valuesToSet[`${modPath}.fields.field.hidden`] = !showFieldField;
     }
@@ -83,6 +93,16 @@
     if (modifier.fields?.fieldAllChecks?.hidden !== !showAllChecksField) {
       valuesToSet[`${modPath}.fields.fieldAllChecks.hidden`] =
         !showAllChecksField;
+    }
+    if (modifier.fields?.value?.hidden !== !showValueField) {
+      valuesToSet[`${modPath}.fields.value.hidden`] = !showValueField;
+    }
+    if (
+      modifier.fields?.adjustDegreeOfSuccessBox?.hidden !==
+      !showAdjustDegreeOfSuccessField
+    ) {
+      valuesToSet[`${modPath}.fields.adjustDegreeOfSuccessBox.hidden`] =
+        !showAdjustDegreeOfSuccessField;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -151,6 +171,7 @@
       {"label": "Initiative Penalty", "value": "initiativePenalty"},
       {"label": "Perception Bonus", "value": "perceptionBonus"},
       {"label": "Perception Penalty", "value": "perceptionPenalty"},
+      {"label": "Adjust Degree of Success", "value": "adjustDegreeOfSuccess"},
       {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
       {"label": "Armor Specialization Effect", "value": "armorSpecialization"}
       ]'
@@ -299,11 +320,103 @@
   </div>
 </div>
 
+<box field="adjustDegreeOfSuccessBox" hidden="true">
+  <dropdown
+    width="100%"
+    size="xs"
+    field="fieldAdjust"
+    label="Check to Adjust"
+    placeholder="Select Checks to Adjust"
+    onchange="setField(value)"
+    options='[{"label": "All", "value": "all"}, 
+    {"label": "Reflex Save", "value": "reflex"},
+    {"label": "Fortitude Save", "value": "fortitude"},
+    {"label": "Will Save", "value": "will"},
+    {"label": "Strength-based", "value": "str"},
+    {"label": "Dexterity-based", "value": "dex"},
+    {"label": "Constitution-based", "value": "con"},
+    {"label": "Intelligence-based", "value": "int"},
+    {"label": "Wisdom-based", "value": "wis"},
+    {"label": "Charisma-based", "value": "cha"},
+    {"label": "Acrobatics", "value": "acrobatics"},
+    {"label": "Arcana", "value": "arcana"},
+    {"label": "Athletics", "value": "athletics"},
+    {"label": "Crafting", "value": "crafting"},
+    {"label": "Deception", "value": "deception"},
+    {"label": "Diplomacy", "value": "diplomacy"},
+    {"label": "Intimidation", "value": "intimidation"},
+    {"label": "Medicine", "value": "medicine"},
+    {"label": "Nature", "value": "nature"},
+    {"label": "Occultism", "value": "occultism"},
+    {"label": "Performance", "value": "performance"},
+    {"label": "Religion", "value": "religion"},
+    {"label": "Society", "value": "society"},
+    {"label": "Stealth", "value": "stealth"},
+    {"label": "Survival", "value": "survival"},
+    {"label": "Thievery", "value": "thievery"}]'
+  ></dropdown>
+
+  <div style="display: flex; flex-direction: row; gap: 4px">
+    <dropdown
+      width="100%"
+      size="xs"
+      field="adjustment.all"
+      label="Adjust All"
+      placeholder="Select Success Adjustment"
+      defaultvalue="none"
+      options='[{"label": "None", "value": "none"}, 
+{"label": "One Degree Better", "value": "one-degree-better"}, 
+{"label": "Two Degrees Better", "value": "two-degrees-better"},
+{"label": "One Degree Worse", "value": "one-degree-worse"},
+{"label": "Two Degrees Worse", "value": "two-degrees-worse"}]'
+    ></dropdown>
+    <dropdown
+      width="100%"
+      size="xs"
+      field="adjustment.success"
+      label="Adjust Success"
+      placeholder="Select Success Adjustment"
+      defaultvalue="none"
+      options='[{"label": "None", "value": "none"}, 
+      {"label": "One Degree Better", "value": "one-degree-better"}, 
+      {"label": "One Degree Worse", "value": "one-degree-worse"},
+      {"label": "Two Degrees Worse", "value": "two-degrees-worse"},
+      {"label": "To Critical Success", "value": "to-critical-success"}]'
+    ></dropdown>
+  </div>
+  <div style="display: flex; flex-direction: row; gap: 4px">
+    <dropdown
+      width="100%"
+      size="xs"
+      field="adjustment.failure"
+      label="Adjust Failure"
+      placeholder="Select Success Adjustment"
+      defaultvalue="none"
+      options='[{"label": "None", "value": "none"}, 
+  {"label": "One Degree Better", "value": "one-degree-better"},
+  {"label": "Two Degrees Better", "value": "two-degrees-better"},
+  {"label": "One Degree Worse", "value": "one-degree-worse"}]'
+    ></dropdown>
+    <dropdown
+      width="100%"
+      size="xs"
+      field="adjustment.criticalFailure"
+      label="Adjust Critical Failure"
+      placeholder="Select Success Adjustment"
+      defaultvalue="none"
+      options='[{"label": "None", "value": "none"}, 
+{"label": "One Degree Better", "value": "one-degree-better"},
+{"label": "Two Degrees Better", "value": "two-degrees-better"},
+{"label": "To Failure", "value": "to-failure"}]'
+    ></dropdown>
+  </div>
+</box>
+
 <stringfield
   width="100%"
   size="xs"
   field="predicate"
   label="Predicate"
-  placeholder="Enter optional predicate as a comma separated list of strings"
+  placeholder='Enter optional predicate, e.g. or(["trait:fire","trait:cold"])'
   multiline="true"
 ></stringfield>
