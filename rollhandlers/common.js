@@ -3429,10 +3429,13 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     // Apply all changes
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet, () => {
-        promptForChoices(record, choicesToMake, index + 1);
+        // Re-query the record to get the latest values before processing next choice
+        api.getRecord("characters", record._id, (updatedRecord) => {
+          promptForChoices(updatedRecord, choicesToMake, index + 1, depth);
+        });
       });
     } else {
-      promptForChoices(record, choicesToMake, index + 1);
+      promptForChoices(record, choicesToMake, index + 1, depth);
     }
   };
 
@@ -3915,7 +3918,16 @@ function updateProficiencies(record, valuesToSet) {
       const skillName = skill.toLowerCase();
       // Check if it's a lore skill (ends with " lore")
       if (skillName.endsWith(" lore")) {
-        const loreSkillName = skillName.replace(" lore", "");
+        // Handle both "Farming Lore" and "<Farming> Lore" formats
+        let loreSkillName = skillName.replace(" lore", "");
+
+        // Extract name from angle brackets if present (e.g., "<farming>" becomes "farming")
+        const angleBracketMatch = loreSkillName.match(/^<(.+)>$/);
+        if (angleBracketMatch) {
+          loreSkillName = angleBracketMatch[1].trim();
+        }
+
+        // Set proficiency to trained (1) if not already set or if current is lower
         if (
           !proficiencies.lore[loreSkillName] ||
           1 > proficiencies.lore[loreSkillName]
@@ -4492,9 +4504,9 @@ function setProvidedItems(record, callback = undefined) {
 
     // Determine where to add based on record type
     if (recordType === "items") {
-      // Add to inventory if not already present
+      // Add to inventory if not already present (check by fromId or name)
       const alreadyExists = existingInventory.some(
-        (i) => i.data?.fromId === itemId
+        (i) => i.data?.fromId === itemId || i.name === item.name
       );
       if (!alreadyExists) {
         itemsToAdd.inventory.push({
@@ -4510,9 +4522,9 @@ function setProvidedItems(record, callback = undefined) {
         });
       }
     } else if (recordType === "feats") {
-      // Add to bonusFeats if not already present
+      // Add to bonusFeats if not already present (check by fromId or name)
       const alreadyExists = existingBonusFeats.some(
-        (f) => f.data?.fromId === itemId
+        (f) => f.data?.fromId === itemId || f.name === item.name
       );
       if (!alreadyExists) {
         itemsToAdd.bonusFeats.push({
@@ -4524,9 +4536,9 @@ function setProvidedItems(record, callback = undefined) {
         });
       }
     } else if (recordType === "actions") {
-      // Add to actions if not already present
+      // Add to actions if not already present (check by fromId or name)
       const alreadyExists = existingActions.some(
-        (a) => a.data?.fromId === itemId
+        (a) => a.data?.fromId === itemId || a.name === item.name
       );
       if (!alreadyExists) {
         itemsToAdd.actions.push({
@@ -4548,7 +4560,10 @@ function setProvidedItems(record, callback = undefined) {
         if (ancestryList.length > 0) {
           const ancestryFeaturesList = ancestryList[0].data?.features || [];
           const alreadyExists = ancestryFeaturesList.some(
-            (f) => f.data?.fromId === itemId || f._id === itemId
+            (f) =>
+              f.data?.fromId === itemId ||
+              f._id === itemId ||
+              f.name === item.name
           );
 
           if (!alreadyExists) {
@@ -4568,7 +4583,10 @@ function setProvidedItems(record, callback = undefined) {
         if (classList.length > 0) {
           const classFeaturesList = classList[0].data?.features || [];
           const alreadyExists = classFeaturesList.some(
-            (f) => f.data?.fromId === itemId || f._id === itemId
+            (f) =>
+              f.data?.fromId === itemId ||
+              f._id === itemId ||
+              f.name === item.name
           );
 
           if (!alreadyExists) {
