@@ -1464,11 +1464,14 @@ function getEffectsAndModifiersForToken(
       }
     });
   }
+
+  const isNPC = target?.recordType !== "characters";
   const actions = target?.data?.actions || [];
   actions.forEach((action) => {
     const level = target?.data?.level || 0;
     const actionLevel = action.data?.level || 0;
-    if (actionLevel <= level) {
+    // If we're an NPC we always add actions
+    if (isNPC || actionLevel <= level) {
       features.push(action);
     }
   });
@@ -1476,6 +1479,10 @@ function getEffectsAndModifiersForToken(
   // Filter items that are not equipped or that require investment and not invested
   // Helper function to check if an item requires investment
   const requiresInvestment = (item) => {
+    if (isNPC) {
+      // NPCs don't require investment
+      return false;
+    }
     const traits = item.data?.traits || [];
     // Assume if there are property runes and it is armor it requires investment
     const propertyRunes = item.data?.runes?.property || [];
