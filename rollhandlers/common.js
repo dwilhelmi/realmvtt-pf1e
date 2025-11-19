@@ -7299,6 +7299,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
 
+  // Add material type if present (e.g., "cold-iron", "silver", "adamantine")
+  if (weapon.data?.material?.type) {
+    const materialType = weapon.data.material.type
+      .toLowerCase()
+      .trim()
+      .replace(/ /g, "-");
+    if (materialType) {
+      damageCategories.push(materialType);
+    }
+  }
+
   let reach = getTokenReach(record, weapon);
 
   const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
@@ -8307,6 +8318,17 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     // Format runes like "Ghost Touch" to "ghost-touch"
     damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
   });
+
+  // Add material type if present (e.g., "cold-iron", "silver", "adamantine")
+  if (weapon.data?.material?.type) {
+    const materialType = weapon.data.material.type
+      .toLowerCase()
+      .trim()
+      .replace(/ /g, "-");
+    if (materialType) {
+      damageCategories.push(materialType);
+    }
+  }
 
   // Determine damage stat (for stat-based damage modifiers)
   let damageScore = "";
@@ -9540,6 +9562,8 @@ function applyDamage(
 
         // Check Immunities first (all damage of this type is negated)
         if (!damageIgnoresImmunities.includes(lowerType)) {
+          let isImmune = false;
+
           // Check for specific type immunity
           const immunity = IWR.immunities[lowerType];
           // Check for "all damage" immunity
@@ -9556,15 +9580,60 @@ function applyDamage(
             ) {
               // Exception applies - ignore this immunity
             } else {
-              // Immune to this damage type - negate damage of this type
-              finalDamageByType[type] = 0;
-              return; // Skip weakness/resistance for this type
+              isImmune = true;
             }
+          }
+
+          // Also check immunities against damageCategories
+          if (!isImmune) {
+            const damageCategories = roll?.metadata?.damageCategories || [];
+            for (const category of damageCategories) {
+              const categoryNormalized = category
+                .toLowerCase()
+                .trim()
+                .replace(/-/g, "")
+                .replace(/ /g, "");
+
+              // Find matching immunity by normalizing the immunity type
+              const matchingImmunityKey = Object.keys(IWR.immunities).find(
+                (immunityKey) => {
+                  const immunityNormalized = immunityKey
+                    .toLowerCase()
+                    .trim()
+                    .replace(/-/g, "")
+                    .replace(/ /g, "");
+                  return immunityNormalized === categoryNormalized;
+                }
+              );
+
+              if (matchingImmunityKey) {
+                const categoryImmunity = IWR.immunities[matchingImmunityKey];
+                // Check if this immunity has an exception that matches the roll
+                if (
+                  categoryImmunity.exceptions &&
+                  rollMatchesCondition(roll, categoryImmunity.exceptions)
+                ) {
+                  // Exception applies - ignore this immunity
+                } else {
+                  isImmune = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (isImmune) {
+            // Immune to this damage - negate damage of this type
+            finalDamageByType[type] = 0;
+            return; // Skip weakness/resistance for this type
           }
         }
 
         // Apply Weaknesses (add extra damage)
         if (!damageIgnoresWeaknesses.includes(lowerType)) {
+          // Track which weaknesses we've applied to avoid duplicates
+          const appliedWeaknesses = new Set();
+
           // Check for specific type weakness
           const weakness = IWR.weaknesses[lowerType];
           // Check for "all damage" weakness
@@ -9590,12 +9659,74 @@ function applyDamage(
                 weaknessValue = weaknessValue * 2;
               }
               damageOfThisType += weaknessValue;
+              // Mark this weakness as applied
+              if (weakness) appliedWeaknesses.add(lowerType);
+              if (allDamageWeakness)
+                appliedWeaknesses.add("all damage");
             }
           }
+
+          // Also check weaknesses against damageCategories (e.g., materials like "cold-iron", "silver")
+          const damageCategories = roll?.metadata?.damageCategories || [];
+          damageCategories.forEach((category) => {
+            const categoryNormalized = category
+              .toLowerCase()
+              .trim()
+              .replace(/-/g, "")
+              .replace(/ /g, "");
+
+            // Find matching weakness by normalizing the weakness type
+            const matchingWeaknessKey = Object.keys(IWR.weaknesses).find(
+              (weaknessKey) => {
+                const weaknessNormalized = weaknessKey
+                  .toLowerCase()
+                  .trim()
+                  .replace(/-/g, "")
+                  .replace(/ /g, "");
+                return weaknessNormalized === categoryNormalized;
+              }
+            );
+
+            if (matchingWeaknessKey) {
+              const matchingWeaknessNormalized = matchingWeaknessKey
+                .toLowerCase()
+                .trim()
+                .replace(/-/g, "")
+                .replace(/ /g, "");
+
+              // Skip if we've already applied this weakness
+              if (appliedWeaknesses.has(matchingWeaknessNormalized)) {
+                return;
+              }
+
+              const categoryWeakness = IWR.weaknesses[matchingWeaknessKey];
+              // Check if this weakness has an exception that matches the roll
+              if (
+                categoryWeakness.exceptions &&
+                rollMatchesCondition(roll, categoryWeakness.exceptions)
+              ) {
+                // Exception applies - ignore this weakness
+              } else {
+                // Apply weakness value (double it if doubleVs condition matches)
+                let weaknessValue = categoryWeakness.value;
+                if (
+                  categoryWeakness.doubleVs &&
+                  rollMatchesCondition(roll, categoryWeakness.doubleVs)
+                ) {
+                  weaknessValue = weaknessValue * 2;
+                }
+                damageOfThisType += weaknessValue;
+                appliedWeaknesses.add(matchingWeaknessNormalized);
+              }
+            }
+          });
         }
 
         // Apply Resistances (reduce damage)
         if (!damageIgnoresResistances.includes(lowerType)) {
+          // Track which resistances we've applied to avoid duplicates
+          const appliedResistances = new Set();
+
           // Check for specific type resistance
           const resistance = IWR.resistances[lowerType];
           // Check for "all damage" resistance
@@ -9621,8 +9752,67 @@ function applyDamage(
                 resistanceValue = resistanceValue * 2;
               }
               damageOfThisType -= resistanceValue;
+              // Mark this resistance as applied
+              if (resistance) appliedResistances.add(lowerType);
+              if (allDamageResistance)
+                appliedResistances.add("all damage");
             }
           }
+
+          // Also check resistances against damageCategories (e.g., materials like "cold-iron", "silver")
+          const damageCategories = roll?.metadata?.damageCategories || [];
+          damageCategories.forEach((category) => {
+            const categoryNormalized = category
+              .toLowerCase()
+              .trim()
+              .replace(/-/g, "")
+              .replace(/ /g, "");
+
+            // Find matching resistance by normalizing the resistance type
+            const matchingResistanceKey = Object.keys(IWR.resistances).find(
+              (resistanceKey) => {
+                const resistanceNormalized = resistanceKey
+                  .toLowerCase()
+                  .trim()
+                  .replace(/-/g, "")
+                  .replace(/ /g, "");
+                return resistanceNormalized === categoryNormalized;
+              }
+            );
+
+            if (matchingResistanceKey) {
+              const matchingResistanceNormalized = matchingResistanceKey
+                .toLowerCase()
+                .trim()
+                .replace(/-/g, "")
+                .replace(/ /g, "");
+
+              // Skip if we've already applied this resistance
+              if (appliedResistances.has(matchingResistanceNormalized)) {
+                return;
+              }
+
+              const categoryResistance = IWR.resistances[matchingResistanceKey];
+              // Check if this resistance has an exception that matches the roll
+              if (
+                categoryResistance.exceptions &&
+                rollMatchesCondition(roll, categoryResistance.exceptions)
+              ) {
+                // Exception applies - ignore this resistance
+              } else {
+                // Apply resistance value (double it if doubleVs condition matches)
+                let resistanceValue = categoryResistance.value;
+                if (
+                  categoryResistance.doubleVs &&
+                  rollMatchesCondition(roll, categoryResistance.doubleVs)
+                ) {
+                  resistanceValue = resistanceValue * 2;
+                }
+                damageOfThisType -= resistanceValue;
+                appliedResistances.add(matchingResistanceNormalized);
+              }
+            }
+          });
         }
 
         // Ensure this damage type doesn't go below 0
