@@ -5752,6 +5752,20 @@ function isOffGuardDueToFlanking({
     targetToken?.data?.size || targetToken?.record?.data?.size || "medium";
   const targetSizeSquares = getSizeInSquares(targetSize);
 
+  const targetTokenHasAllAroundVision =
+    targetToken?.data?.acDetails
+      ?.toLowerCase()
+      .replace(/ /g, "-")
+      .includes("all-around") ||
+    targetToken?.record?.data?.acDetails
+      ?.toLowerCase()
+      .replace(/ /g, "-")
+      .includes("all-around");
+
+  if (targetTokenHasAllAroundVision) {
+    return false;
+  }
+
   // Find allied tokens (same faction as source)
   const sourceFaction = sourceToken.faction;
   const allies = otherTokens.filter((token) => {
@@ -9661,8 +9675,7 @@ function applyDamage(
               damageOfThisType += weaknessValue;
               // Mark this weakness as applied
               if (weakness) appliedWeaknesses.add(lowerType);
-              if (allDamageWeakness)
-                appliedWeaknesses.add("all damage");
+              if (allDamageWeakness) appliedWeaknesses.add("all damage");
             }
           }
 
@@ -9754,8 +9767,7 @@ function applyDamage(
               damageOfThisType -= resistanceValue;
               // Mark this resistance as applied
               if (resistance) appliedResistances.add(lowerType);
-              if (allDamageResistance)
-                appliedResistances.add("all damage");
+              if (allDamageResistance) appliedResistances.add("all damage");
             }
           }
 
