@@ -10561,3 +10561,193 @@ function updateDamageMacros(description, context = {}) {
   );
   return result;
 }
+
+// Treat Wounds Macro for Pathfinder 2e
+// This function handles the Treat Wounds action from the Medicine skill
+function treatWounds() {
+  let selectedTokens = api.getSelectedOrDroppedToken();
+
+  // If no tokens selected, try to get the current token
+  if (!selectedTokens || selectedTokens.length === 0) {
+    return;
+  }
+
+  // Get the first selected token (the healer)
+  let healer = selectedTokens[0];
+
+  // If healer has a .token property, use that (it's wrapped)
+  if (healer && healer.token) {
+    healer = healer.token;
+  }
+
+  // Ensure we have a valid healer with data
+  if (!healer || !healer.data) {
+    return;
+  }
+
+  // Get Medicine skill information
+  const medicineMod = parseInt(healer.data?.medicineMod || "0", 10);
+  const medicineTraining = parseInt(healer.data?.medicine || "0", 10);
+
+  // Training levels: 0 = Untrained, 1 = Trained, 2 = Expert, 3 = Master, 4 = Legendary
+  const proficiencyNames = [
+    "Untrained",
+    "Trained",
+    "Expert",
+    "Master",
+    "Legendary",
+  ];
+  const proficiencyName = proficiencyNames[medicineTraining] || "Untrained";
+
+  // Check if character is trained in Medicine
+  if (medicineTraining < 1) {
+    api.showNotification(
+      "You must be at least Trained in Medicine to use Treat Wounds",
+      "red",
+      "Notice"
+    );
+    return;
+  }
+
+  // Determine available DC options based on proficiency
+  const dcOptions = [
+    { label: "DC 15 (Trained) - Restore 2d8 HP", value: "15" },
+  ];
+
+  if (medicineTraining >= 2) {
+    dcOptions.push({
+      label: "DC 20 (Expert) - Restore 2d8+10 HP",
+      value: "20",
+    });
+  }
+  if (medicineTraining >= 3) {
+    dcOptions.push({
+      label: "DC 30 (Master) - Restore 2d8+30 HP",
+      value: "30",
+    });
+  }
+  if (medicineTraining >= 4) {
+    dcOptions.push({
+      label: "DC 40 (Legendary) - Restore 2d8+50 HP",
+      value: "40",
+    });
+  }
+
+  // Get targets for healing
+  const targets = api.getTargets();
+  let targetInfo = "";
+  if (targets && targets.length > 0) {
+    targetInfo = `Target${targets.length > 1 ? "s" : ""}: ${targets
+      .map((t) => t.name)
+      .join(", ")}`;
+  }
+
+  // Prompt for DC selection
+  api.showPrompt(
+    "Treat Wounds",
+    `Select the DC for your Medicine check.\n\n${proficiencyName} in Medicine (${
+      medicineMod >= 0 ? "+" : ""
+    }${medicineMod})\n\n${targetInfo}\n\nNote: This takes 10 minutes. Target becomes immune to Treat Wounds for 1 hour.\nTreating for a full hour doubles the healing.`,
+    "Select DC...",
+    dcOptions,
+    null,
+    (selectedDC) => {
+      if (!selectedDC) return;
+
+      const dc = parseInt(selectedDC, 10);
+
+      // Determine healing amounts based on DC
+      let successHealing = "2d8";
+      let critSuccessHealing = "4d8";
+
+      if (dc === 20) {
+        successHealing = "2d8 + 10";
+        critSuccessHealing = "4d8 + 10";
+      } else if (dc === 30) {
+        successHealing = "2d8 + 30";
+        critSuccessHealing = "4d8 + 30";
+      } else if (dc === 40) {
+        successHealing = "2d8 + 50";
+        critSuccessHealing = "4d8 + 50";
+      }
+
+      // Build modifiers array for the Medicine check
+      const modifiers = [];
+
+      if (medicineMod !== 0) {
+        modifiers.push({
+          name: `Medicine (${proficiencyName})`,
+          type: "",
+          value: medicineMod,
+          active: true,
+        });
+      }
+
+      // Get Medicine skill-specific modifiers
+      const additionalModsSet = new Set();
+      const skillMods = getEffectsAndModifiersForToken(
+        healer,
+        ["skillBonus", "skillPenalty"],
+        "medicine"
+      );
+
+      skillMods.forEach((mod) => {
+        const modString = modToString(mod);
+        if (!additionalModsSet.has(modString)) {
+          additionalModsSet.add(modString);
+          modifiers.push(mod);
+        }
+      });
+
+      // Get Wisdom-based all modifiers (Medicine uses Wisdom by default)
+      const wisdomAbility = healer.data?.medicineAbility || "wis";
+      const allMods = getEffectsAndModifiersForToken(
+        healer,
+        ["allBonus", "allPenalty"],
+        wisdomAbility
+      );
+
+      allMods.forEach((mod) => {
+        const modString = modToString(mod);
+        if (!additionalModsSet.has(modString)) {
+          additionalModsSet.add(modString);
+          modifiers.push(mod);
+        }
+      });
+
+      // Get degree of success adjustments
+      const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(healer, [
+        "medicine",
+        wisdomAbility,
+      ]);
+
+      // Prepare metadata for the roll
+      const metadata = {
+        rollName: "Treat Wounds",
+        tooltip: "Treat Wounds (Medicine Check)",
+        skillName: "medicine",
+        dc: dc,
+        degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
+        action: "Treat Wounds",
+        // Store healing info for the roll handler
+        treatWounds: {
+          successHealing: successHealing,
+          critSuccessHealing: critSuccessHealing,
+          dc: dc,
+        },
+      };
+
+      // Make the Medicine check
+      api.promptRoll(
+        "Treat Wounds (Medicine)",
+        "1d20",
+        modifiers,
+        metadata,
+        "skill"
+      );
+    },
+    "Roll",
+    "Cancel",
+    1
+  );
+}

@@ -137,6 +137,81 @@ if (dc > 0) {
     message += `\n\n${outcomeMessage}`;
   }
 
+  // Handle Treat Wounds results
+  const treatWoundsData = data?.roll?.metadata?.treatWounds;
+  if (
+    treatWoundsData &&
+    (degreeOfSuccess === 1 || degreeOfSuccess === 2 || degreeOfSuccess === -1)
+  ) {
+    let healingFormula = "";
+    let damageFormula = "";
+
+    if (degreeOfSuccess === 2) {
+      // Critical Success: 4d8 HP (+ bonus) and remove wounded condition
+      healingFormula = treatWoundsData.critSuccessHealing;
+      message += `\n\n**The target regains ${healingFormula} Hit Points and loses the wounded condition.**`;
+    } else if (degreeOfSuccess === 1) {
+      // Success: 2d8 HP (+ bonus) and remove wounded condition
+      healingFormula = treatWoundsData.successHealing;
+      message += `\n\n**The target regains ${healingFormula} Hit Points and loses the wounded condition.**`;
+    } else if (degreeOfSuccess === -1) {
+      // Critical Failure: 1d8 damage
+      damageFormula = "1d8";
+      message += `\n\n**The target takes ${damageFormula} damage.**`;
+    }
+
+    // Create healing or damage macro
+    if (healingFormula) {
+      const healingMacro = `\`\`\`Roll_Treat_Wounds_Healing
+let targets = api.getSelectedOrDroppedToken();
+
+// If record is not null, check if we're the GM or owner and use it
+if (record) {
+  if (isGM || record?.record?.ownerId === userId) {
+    targets = [record];
+  }
+}
+
+// If we're a player and we did not drop on a record, get our owned tokens
+if (!isGM && targets.length === 0) {
+  targets = api.getSelectedOwnedTokens().map(target => target.token);
+}
+
+if (targets.length === 0) {
+  api.showNotification("No targets selected for healing", "error");
+} else {
+  // Roll healing for the first target
+  api.roll("${healingFormula}", { rollName: "Treat Wounds Healing", targets: targets }, "healing");
+}
+\`\`\``;
+      message += `\n\n${healingMacro}`;
+    } else if (damageFormula) {
+      const damageMacro = `\`\`\`Roll_Treat_Wounds_Damage
+let targets = api.getSelectedOrDroppedToken();
+
+// If record is not null, check if we're the GM or owner and use it
+if (record) {
+  if (isGM || record?.record?.ownerId === userId) {
+    targets = [record];
+  }
+}
+
+// If we're a player and we did not drop on a record, get our owned tokens
+if (!isGM && targets.length === 0) {
+  targets = api.getSelectedOwnedTokens().map(target => target.token);
+}
+
+if (targets.length === 0) {
+  api.showNotification("No targets selected for damage", "error");
+} else {
+  // Roll damage for the first target
+  api.roll("${damageFormula}", { rollName: "Treat Wounds Critical Failure", targets: targets }, "damage");
+}
+\`\`\``;
+      message += `\n\n${damageMacro}`;
+    }
+  }
+
   // Handle item crafting - copy to inventory on success or critical success
   if (itemDataPath && (degreeOfSuccess === 1 || degreeOfSuccess === 2)) {
     const craftedItem = api.getValueOnRecord(record, itemDataPath);
