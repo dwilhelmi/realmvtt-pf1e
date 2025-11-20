@@ -2724,7 +2724,8 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   // (already returns highest of each type)
   acModifiers.forEach((mod) => {
     // Only if it's from an effect, because features/feats adjust it directly if it's a character
-    if (mod.isEffect || token.recordType !== "characters") {
+    // and if the modifier was active
+    if ((mod.isEffect || token.recordType !== "characters") && mod.active) {
       const value = parseInt(mod.value || 0, 10);
       ac += value;
     }
@@ -2876,7 +2877,11 @@ function updateAttribute({
   const armorModsSet = new Set();
   acBonus.forEach((modifier) => {
     // Only if it was from a feature or item, not effect
-    if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
+    // And also if it had a predicate, only if it evaluates to true (modifier.active is true)
+    if (
+      !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
+      modifier.active
+    ) {
       ac += modifier.value;
       armorModsSet.add(JSON.stringify(modifier));
     }
@@ -2893,7 +2898,11 @@ function updateAttribute({
     );
     armorTypeBonus.forEach((modifier) => {
       // Only if it was from a feature or item, not effect
-      if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
+      // And also if it had a predicate, only if it evaluates to true (modifier.active is true)
+      if (
+        !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
+        modifier.active
+      ) {
         ac += modifier.value;
         armorModsSet.add(JSON.stringify(modifier));
       }
@@ -2911,7 +2920,10 @@ function updateAttribute({
     );
     shieldBonus.forEach((modifier) => {
       // Only if it was from a feature or item, not effect
-      if (!armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect)) {
+      if (
+        !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
+        modifier.active
+      ) {
         ac += modifier.value;
         armorModsSet.add(JSON.stringify(modifier));
       }
