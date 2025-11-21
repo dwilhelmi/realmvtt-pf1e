@@ -1870,8 +1870,14 @@ function applyDegreeOfSuccessAdjustment(degreeOfSuccess, adjustments) {
     case "to-critical-success":
       newDegree = 2;
       break;
+    case "to-success":
+      newDegree = 1;
+      break;
     case "to-failure":
       newDegree = 0;
+      break;
+    case "to-critical-failure":
+      newDegree = -1;
       break;
   }
 
