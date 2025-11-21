@@ -7417,6 +7417,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
   // Check if this is an NPC attack
   const isNPCAttack = weapon.recordType === "npc_attacks";
+  const isSpell = weapon.recordType === "spells";
 
   // Helper function to get range from NPC attack traits
   function getRangeFromTraits(traits) {
@@ -7971,7 +7972,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     const mapReductionMod = getEffectsAndModifiersForToken(
       record,
       ["mapReduction"],
-      undefined,
+      isSpell ? "spell" : "attack",
       weapon._id,
       undefined,
       { weapon }
@@ -7980,20 +7981,13 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     if (mapReductionMod.length) {
       mapReductionMod.forEach((mod) => {
         const mapReduction = mod.value;
-        if (
-          (Math.abs(mapReduction) > 0 &&
-            hasAgileTrait &&
-            mod.field === "agile") ||
-          (Math.abs(mapReduction) > 0 &&
-            !hasAgileTrait &&
-            mod.field !== "agile")
-        ) {
+        if (mod.active && Math.abs(mapReduction) > 0) {
           modifiers.push({
             name: `${mod.name} (Reduce MAP)`,
             value: Math.abs(mapReduction),
             isPenalty: false,
             valueType: "number",
-            active: mod.active,
+            active: true,
           });
         }
       });
