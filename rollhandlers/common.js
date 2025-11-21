@@ -874,6 +874,21 @@ function collectTraitsAndProperties(token, context = {}) {
     }
   }
 
+  // Collect predicateValues from active toggles
+  if (token?.data?.toggles) {
+    const toggles = Array.isArray(token.data.toggles) ? token.data.toggles : [];
+    toggles.forEach((toggle) => {
+      // Check if toggle is active
+      if (toggle.data?.toggled === true && toggle.data?.predicateValue) {
+        const predicateValue = toggle.data.predicateValue;
+        // Add the predicate value directly (it's already in the correct format)
+        if (typeof predicateValue === "string" && predicateValue.trim()) {
+          traits.add(predicateValue.trim());
+        }
+      }
+    });
+  }
+
   return traits;
 }
 
@@ -1543,24 +1558,20 @@ function getEffectsAndModifiersForToken(
 
   [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
-    const toggleable = feature.data?.toggleable || false;
     modifiers.forEach((modifier) => {
       const ruleType = modifier.data?.type || "";
       const bonusPenaltyType = modifier.data?.modifierType || "";
-      const isPenalty = ruleType.toLowerCase().includes("penalty");
+      const isPenalty =
+        ruleType.toLowerCase().includes("penalty") &&
+        !ruleType.toLowerCase() === "ignoreRangePenalty";
       let value = modifier.data?.value || "";
 
-      let active = toggleable ? false : modifier.data?.active === true;
-
-      // Degree of success adjustments are always active by default unless predicate is false
-      if (ruleType === "adjustDegreeOfSuccess") {
-        active = true;
-      }
-
-      // Check for predicate value in modifier data
+      // Check for predicate value in modifier data first
       const predicate = modifier.data?.predicate || "";
+      let active = true; // Default to active
+
       if (predicate) {
-        // Parse the modifier predicate string into the format expected by evaluateEffectPredicate
+        // If there's a predicate, use its result to determine active state
         const parsedPredicate = parseModifierPredicate(predicate);
         const predicatePassed = evaluateEffectPredicate(
           parsedPredicate,
@@ -1568,9 +1579,15 @@ function getEffectsAndModifiersForToken(
           target,
           context
         );
-        if (!predicatePassed) {
-          active = false;
-        }
+        active = predicatePassed;
+      } else {
+        // No predicate - use modifier's active field if set, otherwise default to true
+        active = modifier.data?.active !== false;
+      }
+
+      // Degree of success adjustments are always active by default unless predicate is false
+      if (ruleType === "adjustDegreeOfSuccess") {
+        active = predicate ? active : true;
       }
 
       if (modifier.data?.valueType === "number") {
@@ -4688,6 +4705,168 @@ function setProvidedItems(record, callback = undefined) {
   }
 }
 
+// Update toggles list with all toggleable items from actions, feats, and features
+function updateTogglesList(record, valuesToSet) {
+  const toggleableItems = [];
+  const seenNames = new Set();
+
+  // Get all actions
+  const actions = record.data?.actions || [];
+  actions.forEach((action) => {
+    if (
+      action.data?.toggleable === true &&
+      action.name &&
+      !seenNames.has(action.name)
+    ) {
+      toggleableItems.push({
+        name: action.name,
+        predicateValue: action.data?.predicateValue || "",
+      });
+      seenNames.add(action.name);
+    }
+  });
+
+  // Get all feats
+  const feats = record.data?.feats || [];
+  feats.forEach((feat) => {
+    if (
+      feat.data?.toggleable === true &&
+      feat.name &&
+      !seenNames.has(feat.name)
+    ) {
+      toggleableItems.push({
+        name: feat.name,
+        predicateValue: feat.data?.predicateValue || "",
+      });
+      seenNames.add(feat.name);
+    }
+  });
+
+  // Get class features (from first class)
+  const classes = record.data?.classes || [];
+  if (classes.length > 0) {
+    const classObj = classes[0];
+    const classFeatures = classObj.data?.features || [];
+    classFeatures.forEach((feature) => {
+      if (
+        feature.data?.toggleable === true &&
+        feature.name &&
+        !seenNames.has(feature.name)
+      ) {
+        toggleableItems.push({
+          name: feature.name,
+          predicateValue: feature.data?.predicateValue || "",
+        });
+        seenNames.add(feature.name);
+      }
+    });
+  }
+
+  // Get ancestry features (from first ancestry)
+  const ancestries = record.data?.ancestries || [];
+  if (ancestries.length > 0) {
+    const ancestry = ancestries[0];
+    const ancestryFeatures = ancestry.data?.features || [];
+    ancestryFeatures.forEach((feature) => {
+      if (
+        feature.data?.toggleable === true &&
+        feature.name &&
+        !seenNames.has(feature.name)
+      ) {
+        toggleableItems.push({
+          name: feature.name,
+          predicateValue: feature.data?.predicateValue || "",
+        });
+        seenNames.add(feature.name);
+      }
+    });
+  }
+
+  // Get heritage features (from first heritage)
+  const heritages = record.data?.heritages || [];
+  if (heritages.length > 0) {
+    const heritage = heritages[0];
+    const heritageFeatures = heritage.data?.features || [];
+    heritageFeatures.forEach((feature) => {
+      if (
+        feature.data?.toggleable === true &&
+        feature.name &&
+        !seenNames.has(feature.name)
+      ) {
+        toggleableItems.push({
+          name: feature.name,
+          predicateValue: feature.data?.predicateValue || "",
+        });
+        seenNames.add(feature.name);
+      }
+    });
+  }
+
+  // Get existing toggles to preserve their state
+  const existingToggles = record.data?.toggles || [];
+  const existingTogglesMap = new Map();
+  existingToggles.forEach((toggle) => {
+    if (toggle.name) {
+      existingTogglesMap.set(toggle.name, toggle);
+    }
+  });
+
+  // Build the new toggles list, preserving existing state where possible
+  const newToggles = toggleableItems.map((item) => {
+    const existing = existingTogglesMap.get(item.name);
+    if (existing) {
+      // Update predicateValue but keep existing toggle state
+      return {
+        ...existing,
+        data: {
+          ...existing.data,
+          predicateValue: item.predicateValue,
+        },
+      };
+    } else {
+      // Create new toggle entry
+      return {
+        _id: generateUuid(),
+        name: item.name,
+        identified: true,
+        data: {
+          predicateValue: item.predicateValue,
+          toggled: false, // Default to inactive
+        },
+      };
+    }
+  });
+
+  // Only update if toggles actually changed
+  // Check if the lists are different (different length or different names/predicateValues)
+  let hasChanges = existingToggles.length !== newToggles.length;
+
+  if (!hasChanges) {
+    // Same length, check if any items are different
+    const existingMap = new Map(
+      existingToggles.map((t) => [t.name, t.data?.predicateValue || ""])
+    );
+
+    for (const newToggle of newToggles) {
+      const existingPredicateValue = existingMap.get(newToggle.name);
+      const newPredicateValue = newToggle.data?.predicateValue || "";
+
+      if (
+        existingPredicateValue === undefined ||
+        existingPredicateValue !== newPredicateValue
+      ) {
+        hasChanges = true;
+        break;
+      }
+    }
+  }
+
+  // Only set if there are changes
+  if (hasChanges) {
+    valuesToSet["data.toggles"] = newToggles;
+  }
+}
+
 // This function is called after adding/editing a talent/feature or equipping an item
 function onAddEditFeature(
   record,
@@ -4870,6 +5049,9 @@ function onAddEditFeature(
 
   // Check all spellcasting entries and update DC and Mod
   updateSpellcastingEntries(record, valuesToSet);
+
+  // Update toggles list with all toggleable items
+  updateTogglesList(record, valuesToSet);
 
   // Set provided items (feats, actions, items, features) from providesItems
   const setItemsCallback = () => {
@@ -7992,7 +8174,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         );
         let ignoreRangePenalty = 0;
         for (const mod of ignoreRangePenaltyMod) {
-          if (mod.value > 0 && mod.value > ignoreRangePenalty) {
+          if (mod.value > 0 && mod.value > ignoreRangePenalty && mod.active) {
             ignoreRangePenalty = mod.value;
           }
         }
