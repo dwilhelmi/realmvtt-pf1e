@@ -724,6 +724,7 @@ function collectTraitsAndProperties(token, context = {}) {
         const traitName = typeof trait === "string" ? trait : trait.name;
         if (traitName) {
           traits.add(`item:trait:${traitName.toLowerCase()}`);
+          traits.add(`${traitName.toLowerCase()}`);
         }
       });
     }
