@@ -4507,11 +4507,44 @@ function setProvidedItems(record, callback = undefined) {
     return sourceLevel <= characterLevel;
   });
 
-  // Collect all provided items from valid sources
+  // First pass: Collect all flags from valid sources
+  const flagMap = new Map();
+  for (const source of validSources) {
+    if (source.data?.flags && source.data.flags.length > 0) {
+      for (const flag of source.data.flags) {
+        if (flag.key && flag.value) {
+          flagMap.set(flag.key, flag.value);
+        }
+      }
+    }
+  }
+
+  // Second pass: Collect all provided items from valid sources
   const providedItems = [];
   for (const source of validSources) {
+    // Add items from providesItems
     if (source.data?.providesItems && source.data.providesItems.length > 0) {
       providedItems.push(...source.data.providesItems);
+    }
+
+    // Add items from conditionalGrants based on flag values
+    if (source.data?.conditionalGrants && source.data.conditionalGrants.length > 0) {
+      for (const grant of source.data.conditionalGrants) {
+        if (!grant.flagKey) continue;
+
+        const flagValue = flagMap.get(grant.flagKey);
+        if (flagValue && Array.isArray(flagValue)) {
+          if (grant.allowMultiple) {
+            // Grant all items from the flag's value array
+            providedItems.push(...flagValue);
+          } else {
+            // Grant only the first item
+            if (flagValue.length > 0) {
+              providedItems.push(flagValue[0]);
+            }
+          }
+        }
+      }
     }
   }
 

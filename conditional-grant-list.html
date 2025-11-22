@@ -1,0 +1,18 @@
+<!-- Represents a conditional grant that checks if a flag key exists and grants items based on the flag's value -->
+<div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+  <stringfield
+    field="flagKey"
+    label="Required Flag Key"
+    size="xs"
+    placeholder="e.g., firstDoctrine, feat, domain..."
+    width="100%"
+    description="The flag key to check. Items will be granted from the value at this flag key."
+  ></stringfield>
+  <checkbox
+    field="allowMultiple"
+    label="Grant All Items from Flag"
+    size="xs"
+    textalign="right"
+    description="If checked, grants all items from the flag's value array. If unchecked, grants only one item (useful when flag points to a single item)."
+  ></checkbox>
+</div>

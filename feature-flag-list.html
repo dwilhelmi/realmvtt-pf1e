@@ -1,0 +1,13 @@
+<!-- Represents a list of flags (key-value pairs) that other features can reference -->
+<div style="display: flex; flex-direction: column; width: 100%; gap: 4px">
+  <stringfield
+    field="key"
+    label="Flag Key"
+    size="xs"
+    placeholder="e.g., firstDoctrine, feat, domain..."
+    width="100%"
+    description="The key name that other features will reference"
+  ></stringfield>
+  <label label="Flag Value" size="xs" textalign="left" variant="bold"></label>
+  <list field="value" variant="outline" listtype="provides_item_list"></list>
+</div>

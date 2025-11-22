@@ -57,6 +57,44 @@
     ></list>
   </div>
 
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
+    <label
+      label="Flags (Key-Value Pairs)"
+      size="sm"
+      textalign="left"
+      variant="bold"
+    ></label>
+    <label
+      label="Set flag keys and values that other features can reference"
+      size="xs"
+      textalign="left"
+    ></label>
+    <list
+      field="flags"
+      listtype="feature_flag_list"
+      variant="striped"
+    ></list>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
+    <label
+      label="Conditional Grants"
+      size="sm"
+      textalign="left"
+      variant="bold"
+    ></label>
+    <label
+      label="Grant items based on flag values set by other features"
+      size="xs"
+      textalign="left"
+    ></label>
+    <list
+      field="conditionalGrants"
+      listtype="conditional_grant_list"
+      variant="striped"
+    ></list>
+  </div>
+
   <label label="Modifiers" size="md" textalign="center" variant="bold"></label>
 
   <list field="modifiers" listtype="modifier_list" variant="striped"></list>
