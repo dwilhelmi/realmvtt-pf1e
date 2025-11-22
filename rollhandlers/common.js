@@ -3107,10 +3107,11 @@ function processChoices(record, depth = 0) {
           const options = choiceObj.data?.options || [];
           const hasQuery =
             choiceObj.data?.query && choiceObj.data.query.trim() !== "";
+          const isTextInput = choiceObj.data?.isTextInput === true;
 
-          // If there are options or a query, and no selection has been made yet, prompt for choice
+          // If there are options, a query, or it's a text input, and no selection has been made yet, prompt for choice
           if (
-            (options.length > 0 || hasQuery) &&
+            (options.length > 0 || hasQuery || isTextInput) &&
             selectedChoices.length === 0
           ) {
             choicesToMake.push({ feature, group, choiceObj });
@@ -3208,10 +3209,14 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
   const feature = choiceData.feature;
   const group = choiceData.group;
   const choiceObj = choiceData.choiceObj;
+  const featureDataPath = group.dataPath; // Define early so both callbacks can access it
 
   const promptName =
     choiceObj.data?.description || choiceObj.name || "Make a choice";
   const promptDescription = "";
+
+  // Check if this is a text input choice
+  const isTextInput = choiceObj.data?.isTextInput === true;
 
   // Check if there's a query parameter first
   const queryString = choiceObj.data?.query;
@@ -3316,7 +3321,6 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       };
     }
 
-    const featureDataPath = group.dataPath;
     const featureIndex = group.features.findIndex((f) => f._id === feature._id);
 
     // Accumulate items by type to avoid path conflicts
@@ -3483,7 +3487,166 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
   };
 
   // Prompt the user for the choice
-  if (useQuery) {
+  if (isTextInput) {
+    // Use text input prompt
+    const textInputCallback = (value) => {
+      if (!value || value.trim() === "") {
+        // User cancelled or entered nothing
+        promptForChoices(record, choicesToMake, index + 1, depth);
+        return;
+      }
+
+      // Create a one-off feature based on the text input
+      // For feats, create a feat object; otherwise create a feature
+      const isFeat =
+        featureDataPath === "data.feats" ||
+        featureDataPath === "data.bonusFeats";
+      const newFeature = {
+        _id: generateUuid(),
+        name: value,
+        portrait: "/icons/fantasy/sundries/books/book-red-square.webp",
+        recordType: isFeat ? "feats" : "features",
+        identified: true,
+        data: {
+          type: isFeat
+            ? undefined
+            : group.name === "Ancestry"
+            ? "ancestryfeature"
+            : "classfeature",
+          level: feature.data?.level || 1,
+          description: `Choice made for: ${feature.name}`,
+        },
+      };
+
+      // Update the choice as selected
+      const selectedChoiceData = {
+        _id: generateUuid(),
+        name: value,
+      };
+
+      // Prepare values to set
+      const valuesToSet = {};
+
+      // Clone the feature and update its choice
+      const updatedFeature = { ...feature };
+      const choiceObjects = feature.data?.choices || [];
+      const choiceIndex = choiceObjects.findIndex(
+        (c) => c._id === choiceObj._id
+      );
+
+      if (choiceIndex >= 0) {
+        // Create choice entry
+        const choiceEntry = JSON.stringify(selectedChoiceData);
+
+        // Clone the choices array and update the specific choice
+        const updatedChoices = [...choiceObjects];
+        updatedChoices[choiceIndex] = {
+          ...updatedChoices[choiceIndex],
+          data: {
+            ...updatedChoices[choiceIndex].data,
+            choices: [choiceEntry],
+          },
+        };
+
+        // Update the feature with the new choices
+        updatedFeature.data = {
+          ...updatedFeature.data,
+          choices: updatedChoices,
+        };
+      }
+
+      const featureIndex = group.features.findIndex(
+        (f) => f._id === feature._id
+      );
+
+      // Add the new feature to the appropriate location
+      if (featureDataPath === "data.ancestries.0.data.features") {
+        const ancestryList = record.data?.ancestries || [];
+        if (ancestryList.length > 0) {
+          let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
+
+          // Replace the feature that had the choice with the updated version
+          if (featureIndex >= 0) {
+            ancestryFeatures[featureIndex] = updatedFeature;
+          }
+
+          // Add the new feature
+          ancestryFeatures = [...ancestryFeatures, newFeature];
+
+          valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
+        }
+      } else if (featureDataPath === "data.heritages.0.data.features") {
+        const heritageList = record.data?.heritages || [];
+        if (heritageList.length > 0) {
+          let heritageFeatures = [...(heritageList[0].data?.features || [])];
+
+          // Replace the feature that had the choice with the updated version
+          if (featureIndex >= 0) {
+            heritageFeatures[featureIndex] = updatedFeature;
+          }
+
+          // Add the new feature
+          heritageFeatures = [...heritageFeatures, newFeature];
+
+          valuesToSet["data.heritages.0.data.features"] = heritageFeatures;
+        }
+      } else if (featureDataPath === "data.classes.0.data.features") {
+        const classList = record.data?.classes || [];
+        if (classList.length > 0) {
+          let classFeatures = [...(classList[0].data?.features || [])];
+
+          // Replace the feature that had the choice with the updated version
+          if (featureIndex >= 0) {
+            classFeatures[featureIndex] = updatedFeature;
+          }
+
+          // Add the new feature
+          classFeatures = [...classFeatures, newFeature];
+
+          valuesToSet["data.classes.0.data.features"] = classFeatures;
+        }
+      } else if (
+        featureDataPath === "data.feats" ||
+        featureDataPath === "data.bonusFeats"
+      ) {
+        let feats = [...(record.data?.feats || [])];
+        let bonusFeats = [...(record.data?.bonusFeats || [])];
+
+        // Replace the feature that had the choice with the updated version
+        if (featureDataPath === "data.feats" && featureIndex >= 0) {
+          feats[featureIndex] = updatedFeature;
+        } else if (featureDataPath === "data.bonusFeats" && featureIndex >= 0) {
+          bonusFeats[featureIndex] = updatedFeature;
+        }
+
+        // Add the text input as a bonus feat
+        bonusFeats = [...bonusFeats, newFeature];
+
+        valuesToSet["data.feats"] = feats;
+        valuesToSet["data.bonusFeats"] = bonusFeats;
+      }
+
+      // Apply all changes
+      if (Object.keys(valuesToSet).length > 0) {
+        api.setValues(valuesToSet, () => {
+          // Re-query the record to get the latest values
+          api.getRecord("characters", record._id, (updatedRecord) => {
+            // Call onAddEditFeature which will rebuild choicesToMake and process any remaining choices
+            onAddEditFeature(updatedRecord, undefined, false, depth);
+          });
+        });
+      } else {
+        // Call onAddEditFeature which will rebuild choicesToMake and process any remaining choices
+        onAddEditFeature(record, undefined, false, depth);
+      }
+    };
+
+    api.showValuePrompt(
+      choiceObj.name || "Enter Value",
+      promptName,
+      textInputCallback
+    );
+  } else if (useQuery) {
     // Use query to populate options
     api.showPrompt(
       promptName,
@@ -4512,8 +4675,12 @@ function setProvidedItems(record, callback = undefined) {
   for (const source of validSources) {
     if (source.data?.flags && source.data.flags.length > 0) {
       for (const flag of source.data.flags) {
-        if (flag.key && flag.value) {
-          flagMap.set(flag.key, flag.value);
+        // Access nested data properties
+        const key = flag.data?.key || flag.key;
+        const value = flag.data?.value || flag.value;
+
+        if (key && value) {
+          flagMap.set(key, value);
         }
       }
     }
@@ -4528,13 +4695,20 @@ function setProvidedItems(record, callback = undefined) {
     }
 
     // Add items from conditionalGrants based on flag values
-    if (source.data?.conditionalGrants && source.data.conditionalGrants.length > 0) {
+    if (
+      source.data?.conditionalGrants &&
+      source.data.conditionalGrants.length > 0
+    ) {
       for (const grant of source.data.conditionalGrants) {
-        if (!grant.flagKey) continue;
+        // Access nested data properties
+        const flagKey = grant.data?.flagKey;
+        const allowMultiple = grant.data?.allowMultiple;
 
-        const flagValue = flagMap.get(grant.flagKey);
+        if (!flagKey) continue;
+
+        const flagValue = flagMap.get(flagKey);
         if (flagValue && Array.isArray(flagValue)) {
-          if (grant.allowMultiple) {
+          if (allowMultiple) {
             // Grant all items from the flag's value array
             providedItems.push(...flagValue);
           } else {
@@ -4731,7 +4905,15 @@ function setProvidedItems(record, callback = undefined) {
   }
 
   if (hasChanges) {
-    api.setValuesOnRecord(record, valuesToSet, callback);
+    api.setValuesOnRecord(record, valuesToSet, () => {
+      // Re-query to get the latest record with all newly added items
+      api.getRecord(record.recordType, record._id, (freshRecord) => {
+        // Recursively call setProvidedItems to process providesItems from newly added features
+        // This ensures that features added via conditionalGrants or providesItems
+        // will have their own providesItems processed
+        setProvidedItems(freshRecord, callback);
+      });
+    });
   } else {
     if (callback) {
       callback(record);
