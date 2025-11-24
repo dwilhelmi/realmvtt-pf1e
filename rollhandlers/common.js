@@ -1240,8 +1240,16 @@ function applyAdjustModifiers(record, currentValue, targetSlug, weapon = null) {
         // Add the values
         adjustedValue = currentNum + adjustNum;
       } else if (adjustMode === "multiply") {
-        // Multiply the values
-        adjustedValue = currentNum * adjustNum;
+        // Multiply the values (use parseFloat for decimals)
+        const currentFloat =
+          typeof adjustedValue === "number"
+            ? adjustedValue
+            : parseFloat(adjustedValue) || 0;
+        const multFloat =
+          typeof adjustValue === "number"
+            ? adjustValue
+            : parseFloat(adjustValue) || 0;
+        adjustedValue = Math.floor(currentFloat * multFloat);
       } else if (adjustMode === "override") {
         // Replace with new value
         adjustedValue = adjustNum;
@@ -1683,7 +1691,7 @@ function getEffectsAndModifiersForToken(
       }
 
       if (valueType === "number") {
-        value = parseInt(modifier.data?.value, 10);
+        value = parseFloat(modifier.data?.value);
         if (isNaN(value)) {
           value = 0;
         }
@@ -1742,6 +1750,7 @@ function getEffectsAndModifiersForToken(
           slug: modifier.data?.slug || "",
           targetSlug: modifier.data?.targetSlug || "",
           adjustMode: modifier.data?.adjustMode || "",
+          predicate: predicate, // Include predicate so it can be evaluated in adjustModifier processing
         });
       }
     });
@@ -1769,13 +1778,32 @@ function getEffectsAndModifiersForToken(
 
     if (!targetSlug) return;
 
+    // Check if this adjustModifier has a predicate that needs evaluation
+    // If it does and it fails, skip this adjustModifier
+    if (adjMod.predicate) {
+      const parsedPredicate = parseModifierPredicate(adjMod.predicate);
+      if (parsedPredicate && parsedPredicate.length > 0) {
+        const predicatePassed = evaluateEffectPredicate(
+          parsedPredicate,
+          traitsSet,
+          target,
+          context
+        );
+        if (!predicatePassed) {
+          return; // Skip this adjustModifier
+        }
+      }
+    }
+
     // Find all modifiers with matching slug and apply adjustment
+    // Note: We don't check result.active here because adjustModifier should modify the value
+    // regardless of whether the target modifier is currently active. The target modifier's
+    // own predicate will determine if the adjusted value gets used in the roll.
     results.forEach((result) => {
       if (
         result.slug === targetSlug &&
         result !== adjMod &&
-        result.modifierType !== "adjustModifier" &&
-        result.active
+        result.modifierType !== "adjustModifier"
       ) {
         // Apply adjustment based on mode
         if (adjustMode === "upgrade") {
@@ -1820,12 +1848,12 @@ function getEffectsAndModifiersForToken(
           const currentVal =
             typeof result.value === "number"
               ? result.value
-              : parseInt(result.value, 10) || 0;
+              : parseFloat(result.value) || 0;
           const multVal =
             typeof adjustValue === "number"
               ? adjustValue
-              : parseInt(adjustValue, 10) || 0;
-          result.value = currentVal * multVal;
+              : parseFloat(adjustValue) || 0;
+          result.value = Math.floor(currentVal * multVal);
         } else if (adjustMode === "override") {
           // Replace the value
           result.value = adjustValue;
