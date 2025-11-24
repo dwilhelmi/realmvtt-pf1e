@@ -5,7 +5,9 @@
 
   function onAddDeleteFeat() {
     // Requery to ensure we get the correct feats
-    onAddEditFeature(record);
+    api.getRecord("characters", record._id, (updatedRecord) => {
+      onAddEditFeature(updatedRecord);
+    });
   }
 </script>
 

@@ -358,6 +358,14 @@ function checkForReplacements(
   const actorLevel = parseInt(thisRecord?.data?.level || "1", 10);
   value = value.replaceAll("@actor.level", String(actorLevel));
 
+  // Replace things like @actor.abilities.int.mod with record.data.int
+  value = value.replaceAll(
+    /@actor\.abilities\.(str|dex|con|int|wis|cha)\.mod/g,
+    (_match, ability) => {
+      return String(parseInt(thisRecord?.data?.[ability] || "0", 10));
+    }
+  );
+
   // Replace all @record.data.... with the value of the field
   value = value.replaceAll(/@record\.data\.([\w.]+)/g, (_match, field) => {
     const fullPath = `data.${field}`;
@@ -1179,6 +1187,72 @@ function evaluateEffectPredicate(predicate, traits, target, context = {}) {
 }
 
 /**
+ * Applies adjustModifier effects to values like splash damage.
+ * adjustModifier can upgrade/downgrade/add/multiply/override values based on targetSlug.
+ *
+ * @param {Object} record - The character/token record
+ * @param {number|string} currentValue - The current value to adjust (e.g., splash damage)
+ * @param {string} targetSlug - The slug to match (e.g., "splash")
+ * @param {Object} weapon - The weapon being used (for context)
+ * @returns {number|string} - The adjusted value
+ */
+function applyAdjustModifiers(record, currentValue, targetSlug, weapon = null) {
+  if (!targetSlug) return currentValue;
+
+  // Get all adjustModifier modifiers
+  const adjustModifiers = getEffectsAndModifiersForToken(
+    record,
+    ["adjustModifier"],
+    undefined,
+    weapon?._id,
+    undefined,
+    weapon ? { weapon } : {}
+  );
+
+  let adjustedValue = currentValue;
+
+  // Process each adjustModifier that matches our targetSlug
+  adjustModifiers.forEach((adjMod) => {
+    const modTargetSlug = adjMod.targetSlug || "";
+    const adjustMode = adjMod.adjustMode || "upgrade";
+    const adjustValue = adjMod.value;
+
+    // Only process if this modifier targets our slug and is active
+    if (modTargetSlug === targetSlug && adjMod.active) {
+      // Parse current and adjust values as numbers
+      let currentNum =
+        typeof adjustedValue === "number"
+          ? adjustedValue
+          : parseInt(adjustedValue, 10) || 0;
+      let adjustNum =
+        typeof adjustValue === "number"
+          ? adjustValue
+          : parseInt(adjustValue, 10) || 0;
+
+      // Apply adjustment based on mode
+      if (adjustMode === "upgrade") {
+        // Use the higher value
+        adjustedValue = Math.max(currentNum, adjustNum);
+      } else if (adjustMode === "downgrade") {
+        // Use the lower value
+        adjustedValue = Math.min(currentNum, adjustNum);
+      } else if (adjustMode === "add") {
+        // Add the values
+        adjustedValue = currentNum + adjustNum;
+      } else if (adjustMode === "multiply") {
+        // Multiply the values
+        adjustedValue = currentNum * adjustNum;
+      } else if (adjustMode === "override") {
+        // Replace with new value
+        adjustedValue = adjustNum;
+      }
+    }
+  });
+
+  return adjustedValue;
+}
+
+/**
  * Processes damage modifiers to extract special category damage (persistent, splash, precision)
  * and returns both the filtered modifiers and extracted special damage.
  *
@@ -1333,7 +1407,17 @@ function getEffectsAndModifiersForToken(
         bonusPenaltyType = "status";
       }
 
-      if (rule.valueType === "number") {
+      // Override valueType to string if the value contains non-numerical content that needs replacements
+      let valueType = rule.valueType;
+      if (valueType === "number" && typeof value === "string") {
+        // Check if value starts with a non-numerical character (excluding minus sign and whitespace)
+        const trimmedValue = value.trim();
+        if (trimmedValue && /^[^0-9\-\s]/.test(trimmedValue)) {
+          valueType = "string";
+        }
+      }
+
+      if (valueType === "number") {
         value = parseInt(rule.value, 10);
         if (isNaN(value)) {
           value = 0;
@@ -1342,7 +1426,7 @@ function getEffectsAndModifiersForToken(
           value = -value;
         }
       } else if (
-        rule.valueType === "string" &&
+        valueType === "string" &&
         !value.trim().startsWith("-") &&
         isPenalty &&
         !value.includes("disadvantage")
@@ -1350,7 +1434,7 @@ function getEffectsAndModifiersForToken(
         value = "-" + value;
       }
       // Check for strings that require replacements
-      if (rule.valueType === "string") {
+      if (valueType === "string") {
         // Check if value references a data field on the record (e.g., "data.level")
         if (typeof value === "string" && value.startsWith("data.")) {
           value = api.getValueOnRecord(target, value) || 0;
@@ -1358,10 +1442,7 @@ function getEffectsAndModifiersForToken(
           value = checkForReplacements(value, {}, target, effect, context);
         }
       }
-      if (
-        value !== 0 &&
-        (rule.valueType === "number" || rule.valueType === "string")
-      ) {
+      if (value !== 0 && (valueType === "number" || valueType === "string")) {
         let name = effect.name || "Effect";
         // If this is a stackable effect, add the effect per stack amount with a different name each time
         let times = 1;
@@ -1591,7 +1672,17 @@ function getEffectsAndModifiersForToken(
         active = predicate ? active : true;
       }
 
-      if (modifier.data?.valueType === "number") {
+      // Override valueType to string if the value contains non-numerical content that needs replacements
+      let valueType = modifier.data?.valueType;
+      if (valueType === "number" && typeof value === "string") {
+        // Check if value starts with a non-numerical character (excluding minus sign and whitespace)
+        const trimmedValue = value.trim();
+        if (trimmedValue && /^[^0-9\-\s]/.test(trimmedValue)) {
+          valueType = "string";
+        }
+      }
+
+      if (valueType === "number") {
         value = parseInt(modifier.data?.value, 10);
         if (isNaN(value)) {
           value = 0;
@@ -1599,13 +1690,13 @@ function getEffectsAndModifiersForToken(
         if (isPenalty && value > 0) {
           value = -value;
         }
-      } else if (modifier.data?.valueType === "field") {
+      } else if (valueType === "field") {
         const fieldToUse = modifier.data?.value || "";
         if (fieldToUse) {
           value = target?.data?.[fieldToUse] || "";
         }
       } else if (
-        modifier.data?.valueType === "string" &&
+        valueType === "string" &&
         !value.trim().startsWith("-") &&
         isPenalty
       ) {
@@ -1613,7 +1704,7 @@ function getEffectsAndModifiersForToken(
       }
 
       // Check for strings that require replacements
-      if (modifier.data?.valueType === "string") {
+      if (valueType === "string") {
         // Check if value references a data field on the record (e.g., "data.level")
         if (typeof value === "string" && value.startsWith("data.")) {
           value = api.getValueOnRecord(target, value) || 0;
@@ -1743,11 +1834,14 @@ function getEffectsAndModifiersForToken(
     });
   });
 
-  // Remove adjustModifier entries from results as they've done their job
-  results = results.filter((r) => r.modifierType !== "adjustModifier");
-
   if (allTypes && allTypes.length > 0) {
     results = results.filter((r) => allTypes.includes(r.modifierType));
+  }
+
+  // Remove adjustModifier entries from results as they've done their job
+  // BUT only if we weren't specifically asking for adjustModifier types
+  if (!allTypes || !allTypes.includes("adjustModifier")) {
+    results = results.filter((r) => r.modifierType !== "adjustModifier");
   }
 
   if (field && field !== "") {
@@ -8299,6 +8393,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     return true;
   });
 
+  // Apply adjustModifier effects to splash damage (e.g., upgrade splash based on intelligence)
+  splashDamage = applyAdjustModifiers(record, splashDamage, "splash", weapon);
+
   // Process damage modifiers to extract category-specific damage (persistent, splash, precision)
   const processedDamage = processDamageModifierCategories(
     damageModifiers,
@@ -8924,6 +9021,9 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
       });
     });
   }
+
+  // Apply adjustModifier effects to splash damage (e.g., upgrade splash based on intelligence)
+  splashDamage = applyAdjustModifiers(record, splashDamage, "splash", weapon);
 
   // Process damage modifiers to extract category-specific damage (persistent, splash, precision)
   const processedDamage = processDamageModifierCategories(
