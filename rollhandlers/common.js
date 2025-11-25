@@ -668,6 +668,16 @@ function getDamageEffectsForTarget(ourToken, target) {
   return results;
 }
 
+// Helper to convert name to kebab-case slug
+const toSlug = (name) => {
+  return (name || "")
+    .replace(/[''ʼ`]/g, "") // Remove all types of apostrophes and quotes
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphen
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+};
+
 /**
  * Collects all relevant traits and properties from a token and context objects
  * for predicate evaluation.
@@ -709,9 +719,9 @@ function collectTraitsAndProperties(token, context = {}) {
     effects.forEach((effect) => {
       const effectName = effect?.name || "";
       if (effectName) {
-        const conditionName = effectName.toLowerCase().replace(/\s+/g, "-");
+        const conditionName = toSlug(effectName);
         traits.add(`self:condition:${conditionName}`);
-        traits.add(`self:effect:${effectName}`);
+        traits.add(`self:effect:${conditionName}`);
       }
     });
   }
@@ -755,16 +765,6 @@ function collectTraitsAndProperties(token, context = {}) {
       }
     });
   }
-
-  // Helper to convert name to kebab-case slug
-  const toSlug = (name) => {
-    return (name || "")
-      .replace(/[''ʼ`]/g, "") // Remove all types of apostrophes and quotes
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphen
-      .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
-  };
 
   // Collect feat names (e.g., "Raging Thrower" becomes "feat:raging-thrower")
   if (token?.data?.feats) {
@@ -9648,6 +9648,11 @@ function getIWR(target, armorSpecDetails = null) {
   ]);
 
   iwrModifiers.forEach((modifier) => {
+    // Skip modifiers that aren't active (predicate didn't pass)
+    if (!modifier.active) {
+      return;
+    }
+
     const modifierType = modifier.modifierType || "";
     const value = modifier.value || "";
 
@@ -9655,27 +9660,36 @@ function getIWR(target, armorSpecDetails = null) {
       return; // Skip non-string values
     }
 
-    // Parse the value string (e.g., "fire", "fire 4", "all damage 5")
-    // Find the last numeric value and treat everything before it as the type
+    // Parse the value string (e.g., "fire", "fire 4", "all damage 5", "cold 0+3")
+    // Find the last numeric value (or math expression) and treat everything before it as the type
     const trimmedValue = value.trim();
     const parts = trimmedValue.split(/\s+/);
 
-    // Check if the last part is a number
+    // Check if the last part is a number or math expression
     let damageType = "";
     let numericValue = 0;
 
     if (parts.length > 0) {
       const lastPart = parts[parts.length - 1];
-      const parsedNumber = parseInt(lastPart, 10);
 
-      if (!isNaN(parsedNumber) && parsedNumber.toString() === lastPart) {
-        // Last part is a number - everything else is the type
-        numericValue = parsedNumber;
+      // Check if last part contains math operators or is a plain number
+      const isMathExpression = /^[0-9+\-*/().]+$/.test(lastPart);
+
+      if (isMathExpression) {
+        // Evaluate the math expression (handles both "3" and "0+3")
+        numericValue = evaluateMath(lastPart);
         damageType = parts.slice(0, -1).join(" ").toLowerCase().trim();
       } else {
         // No number found - entire string is the type
         damageType = trimmedValue.toLowerCase().trim();
       }
+    }
+
+    // If damageType is empty but we have a field, use the field as the damage type
+    // This handles cases where value is just a number/expression (e.g., "1+3")
+    // and the damage type is in the field property
+    if (!damageType && modifier.field) {
+      damageType = modifier.field.toLowerCase().trim();
     }
 
     if (!damageType) {
