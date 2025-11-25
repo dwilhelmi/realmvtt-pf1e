@@ -8388,6 +8388,25 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   });
 
+  // In unarmed, get for unarmed
+  if (weaponCategory === "unarmed") {
+    const unarmedBonusesAndPenalties = getEffectsAndModifiersForToken(
+      record,
+      ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
+      "unarmed",
+      weapon._id,
+      undefined,
+      { weapon }
+    );
+    unarmedBonusesAndPenalties.forEach((mod) => {
+      const modString = modToString(mod);
+      if (!seenAttackModifiers.has(modString)) {
+        seenAttackModifiers.add(modString);
+        modifiers.push(mod);
+      }
+    });
+  }
+
   // Get bonuses and penalties for stat-based checks
   const statBonusesAndPenalties = getEffectsAndModifiersForToken(
     record,
