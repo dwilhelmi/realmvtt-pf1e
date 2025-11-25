@@ -711,6 +711,7 @@ function collectTraitsAndProperties(token, context = {}) {
       if (effectName) {
         const conditionName = effectName.toLowerCase().replace(/\s+/g, "-");
         traits.add(`self:condition:${conditionName}`);
+        traits.add(`self:effect:${effectName}`);
       }
     });
   }
@@ -752,6 +753,104 @@ function collectTraitsAndProperties(token, context = {}) {
         const heritageSlug = heritageName.toLowerCase().replace(/\s+/g, "-");
         traits.add(`heritage:${heritageSlug}`);
       }
+    });
+  }
+
+  // Helper to convert name to kebab-case slug
+  const toSlug = (name) => {
+    return (name || "")
+      .replace(/[''ʼ`]/g, "") // Remove all types of apostrophes and quotes
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphen
+      .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+  };
+
+  // Collect feat names (e.g., "Raging Thrower" becomes "feat:raging-thrower")
+  if (token?.data?.feats) {
+    const feats = Array.isArray(token.data.feats) ? token.data.feats : [];
+    feats.forEach((feat) => {
+      const featName = feat?.name || "";
+      if (featName) {
+        traits.add(`feat:${toSlug(featName)}`);
+      }
+    });
+  }
+
+  // Collect bonus feat names
+  if (token?.data?.bonusFeats) {
+    const bonusFeats = Array.isArray(token.data.bonusFeats)
+      ? token.data.bonusFeats
+      : [];
+    bonusFeats.forEach((feat) => {
+      const featName = feat?.name || "";
+      if (featName) {
+        traits.add(`feat:${toSlug(featName)}`);
+      }
+    });
+  }
+
+  // Collect feature names from data.features
+  if (token?.data?.features) {
+    const features = Array.isArray(token.data.features)
+      ? token.data.features
+      : [];
+    features.forEach((feature) => {
+      const featureName = feature?.name || "";
+      if (featureName) {
+        traits.add(`feature:${toSlug(featureName)}`);
+      }
+    });
+  }
+
+  // Collect features from class features
+  if (token?.data?.classes) {
+    const classes = Array.isArray(token.data.classes) ? token.data.classes : [];
+    const level = token?.data?.level || 0;
+    classes.forEach((classObj) => {
+      const classFeatures = classObj?.data?.features || [];
+      classFeatures.forEach((feature) => {
+        const featureLevel = feature?.data?.level || 0;
+        // Only include features at or below character level
+        if (featureLevel <= level) {
+          const featureName = feature?.name || "";
+          if (featureName) {
+            traits.add(`feature:${toSlug(featureName)}`);
+          }
+        }
+      });
+    });
+  }
+
+  // Collect features from ancestry features
+  if (token?.data?.ancestries) {
+    const ancestries = Array.isArray(token.data.ancestries)
+      ? token.data.ancestries
+      : [];
+    ancestries.forEach((ancestry) => {
+      const ancestryFeatures = ancestry?.data?.features || [];
+      ancestryFeatures.forEach((feature) => {
+        const featureName = feature?.name || "";
+        if (featureName) {
+          traits.add(`feature:${toSlug(featureName)}`);
+        }
+      });
+    });
+  }
+
+  // Collect features from heritage features
+  if (token?.data?.heritages) {
+    const heritages = Array.isArray(token.data.heritages)
+      ? token.data.heritages
+      : [];
+    heritages.forEach((heritage) => {
+      const heritageFeatures = heritage?.data?.features || [];
+      heritageFeatures.forEach((feature) => {
+        const featureName = feature?.name || "";
+        if (featureName) {
+          traits.add(`feature:${toSlug(featureName)}`);
+        }
+      });
     });
   }
 
