@@ -715,6 +715,46 @@ function collectTraitsAndProperties(token, context = {}) {
     });
   }
 
+  // Collect class names (e.g., "Barbarian" becomes "class:barbarian")
+  if (token?.data?.classes) {
+    const classes = Array.isArray(token.data.classes) ? token.data.classes : [];
+    classes.forEach((classObj) => {
+      const className = classObj?.name || "";
+      if (className) {
+        const classSlug = className.toLowerCase().replace(/\s+/g, "-");
+        traits.add(`class:${classSlug}`);
+      }
+    });
+  }
+
+  // Collect ancestry names (e.g., "Human" becomes "ancestry:human")
+  if (token?.data?.ancestries) {
+    const ancestries = Array.isArray(token.data.ancestries)
+      ? token.data.ancestries
+      : [];
+    ancestries.forEach((ancestryObj) => {
+      const ancestryName = ancestryObj?.name || "";
+      if (ancestryName) {
+        const ancestrySlug = ancestryName.toLowerCase().replace(/\s+/g, "-");
+        traits.add(`ancestry:${ancestrySlug}`);
+      }
+    });
+  }
+
+  // Collect heritage names (e.g., "Skilled Heritage" becomes "heritage:skilled-heritage")
+  if (token?.data?.heritages) {
+    const heritages = Array.isArray(token.data.heritages)
+      ? token.data.heritages
+      : [];
+    heritages.forEach((heritageObj) => {
+      const heritageName = heritageObj?.name || "";
+      if (heritageName) {
+        const heritageSlug = heritageName.toLowerCase().replace(/\s+/g, "-");
+        traits.add(`heritage:${heritageSlug}`);
+      }
+    });
+  }
+
   // Collect action name if provided (e.g., "Subsist" becomes "action:subsist")
   if (context.action && context.action.name) {
     const actionName = context.action.name.toLowerCase().replace(/\s+/g, "-");
@@ -951,8 +991,8 @@ function resolvePredicateValue(value, target, context, traits) {
     return 0;
   }
 
-  // actor:level - get level from target record
-  if (value === "actor:level") {
+  // actor:level or self:level - get level from target record
+  if (value === "actor:level" || value === "self:level") {
     return target?.data?.level || 0;
   }
 
