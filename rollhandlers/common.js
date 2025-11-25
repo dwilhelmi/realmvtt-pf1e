@@ -1773,6 +1773,11 @@ function getEffectsAndModifiersForToken(
   }
 
   // Add traits to the traitsSet for each feature's name in kebab-case
+  // Unless that feature had a toggleable predicate of the same value
+  const toggles = target?.data?.toggles || [];
+  const togglePredicateValues = toggles
+    .map((toggle) => toggle.data?.predicateValue || "")
+    .filter((value) => value !== "");
   [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
     const name = (feature?.name || "")
       .replace(/'/g, "") // Remove apostrophes (Mage's -> Mages)
@@ -1780,7 +1785,7 @@ function getEffectsAndModifiersForToken(
       .trim()
       .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphen
       .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
-    if (name) {
+    if (name && !togglePredicateValues.includes(name)) {
       traitsSet.add(name);
     }
   });
