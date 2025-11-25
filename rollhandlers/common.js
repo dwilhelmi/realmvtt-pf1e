@@ -960,6 +960,25 @@ function collectTraitsAndProperties(token, context = {}) {
         }
       });
     }
+
+    // Collect weapon range traits (melee, ranged, thrown)
+    if (obj.recordType === "items" && obj.data?.type === "weapon") {
+      const itemTraits = Array.isArray(obj.data.traits) ? obj.data.traits : [];
+      const traitNames = itemTraits.map((t) =>
+        (typeof t === "string" ? t : t.name || "").toLowerCase()
+      );
+      const hasThrown = traitNames.includes("thrown");
+      const range = parseInt(obj.data?.range, 10) || 0;
+
+      if (hasThrown) {
+        traits.add("item:thrown");
+      }
+      if (range > 0) {
+        traits.add("item:ranged");
+      } else {
+        traits.add("item:melee");
+      }
+    }
   });
 
   // Add "id:${item._id}" to the traits for each item in the context
@@ -1019,6 +1038,25 @@ function collectTraitsAndProperties(token, context = {}) {
           traits.add(`target:condition:${conditionName}`);
         }
       });
+    }
+
+    // Calculate target range increment based on weapon range and distance
+    const weapon = context.weapon || context.item;
+    const targetDistance = context.targetDistance || target.distance || 0;
+    if (weapon && targetDistance > 0) {
+      const weaponRange = parseInt(weapon.data?.range, 10) || 0;
+      if (weaponRange > 0) {
+        // Calculate which range increment we're in (1 = within first increment, 2 = second, etc.)
+        const rangeIncrement = Math.ceil(targetDistance / weaponRange);
+        traits.add(`target:range-increment:${rangeIncrement}`);
+      } else {
+        // Melee weapon - if we're in melee range, it's increment 1
+        // Use token's reach or default to 5ft
+        const reach = token?.data?.reach || 5;
+        if (targetDistance <= reach) {
+          traits.add(`target:range-increment:1`);
+        }
+      }
     }
   }
 
