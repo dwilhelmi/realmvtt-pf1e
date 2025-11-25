@@ -187,6 +187,21 @@
   placeholder="None"
 ></stringfield>
 
+<div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+  <dropdown
+    size="sm"
+    field="effects"
+    width="100%"
+    label="Effects"
+    searchable="true"
+    multiselect="20"
+    description="Effects that this feat can apply"
+    optionsquery='{"type": "effects", "query": {}}'
+    placeholder="Select Effects..."
+  >
+  </dropdown>
+</div>
+
 <div style="margin-top: 8px; margin-bottom: 8px">
   <divider label="Description"></divider>
 </div>
