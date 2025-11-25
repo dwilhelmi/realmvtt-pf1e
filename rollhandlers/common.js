@@ -8303,7 +8303,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   );
   attackCalculationMod.forEach((mod) => {
     const attackCalculation = mod.field;
-    if (attackCalculation) {
+    if (attackCalculation && mod.active) {
       if (
         record.data?.[`${attackCalculation}`] > record.data?.[`${abilityScore}`]
       ) {
