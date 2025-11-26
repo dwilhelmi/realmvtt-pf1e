@@ -279,6 +279,30 @@
   </div>
 </div>
 
+<box field="preparedBox" hidden="true">
+  <accordion size="xs" field="preparedAccordion" label="Available Spells">
+    <label
+      label="Drag spells from the compendium to the list below to track your available spells."
+      size="xs"
+      color="dimmed"
+      textalign="center"
+      width="100%"
+    ></label>
+    <label
+      label="To select a spell from this list, click the wand icon in the spell slot."
+      size="xs"
+      textalign="center"
+      color="dimmed"
+      width="100%"
+    ></label>
+    <list
+      listtype="known_spell_list"
+      field="knownSpells"
+      variant="striped"
+    ></list>
+  </accordion>
+</box>
+
 <!-- Cantrips List -->
 <box field="cantripsBox" hidden="true">
   <div

@@ -271,12 +271,23 @@
     const spellSlotLevel = getSlotLevelFromPath(dataPathToSpell);
     const actualLevel = spellSlotLevel === 0 ? 1 : spellSlotLevel;
 
-    const options = [];
+    let options = null;
 
     const optionSelection = (values) => {
       if (values.length > 0) {
         const spell = values[0];
-        onDrop("spells", { value: spell, tooltip: spell.name });
+        // If this is a spell from knownSpells, we get it from there first
+        if (typeof spell === "string") {
+          // It's the id from knownSpells
+          const knownSpell = spellList?.data?.knownSpells?.find(
+            (knownSpell) => knownSpell._id === spell
+          );
+          if (knownSpell) {
+            onDrop("spells", { value: knownSpell, tooltip: knownSpell.name });
+          }
+        } else {
+          onDrop("spells", { value: spell, tooltip: spell.name });
+        }
       }
     };
 
@@ -286,7 +297,7 @@
     const spellList = api.getValue(spellListDataPath);
     const tradition = spellList?.data?.tradition || "Arcane";
 
-    const optionsQuery = {
+    let optionsQuery = {
       type: "spells",
       query: {
         $or: [
@@ -330,9 +341,50 @@
       },
     };
 
-    let message = `Select a Rank ${spellSlotLevel} Spell`;
+    // If this is a prepared list, and we have spells in knownSpells that match,
+    // we show those options instead of querying the database
+    const isPrepared =
+      spellList?.data?.type === undefined ||
+      spellList?.data?.type === "prepared";
+
+    if (isPrepared) {
+      const allKnownSpells = spellList?.data?.knownSpells || [];
+      let knownSpellsOfLevel = [];
+
+      if (spellSlotLevel === 0) {
+        // For cantrips, filter for spells WITH the cantrip trait
+        knownSpellsOfLevel = allKnownSpells.filter((spell) => {
+          const traits = (spell?.data?.traits || []).map((trait) =>
+            (typeof trait === "string" ? trait : trait.name || "").toLowerCase()
+          );
+          return traits.includes("cantrip");
+        });
+      } else {
+        // For non-cantrips, filter for spells WITHOUT the cantrip trait
+        // where the spell level is <= the slot level
+        knownSpellsOfLevel = allKnownSpells.filter((spell) => {
+          const spellLevel = parseInt(spell?.data?.level, 10) || 0;
+          const traits = (spell?.data?.traits || []).map((trait) =>
+            (typeof trait === "string" ? trait : trait.name || "").toLowerCase()
+          );
+          const isCantrip = traits.includes("cantrip");
+          return !isCantrip && spellLevel <= spellSlotLevel;
+        });
+      }
+
+      if (knownSpellsOfLevel.length > 0) {
+        optionsQuery = null;
+        options = knownSpellsOfLevel.map((spell) => ({
+          value: spell._id,
+          label: spell.name,
+        }));
+      }
+    }
+
+    let knownCopy = options && options.length > 0 ? "Known " : " ";
+    let message = `Select a ${knownCopy}Rank ${spellSlotLevel} Spell`;
     if (spellSlotLevel === 0) {
-      message += "Select a Cantrip";
+      message = `Select a ${knownCopy}Cantrip`;
     }
     if (tradition) {
       message += ` from the ${capitalize(tradition)} Tradition`;
@@ -342,7 +394,7 @@
       message,
       spellSlotLevel === 0 ? "Select Cantrip" : "Select Spell",
       spellSlotLevel === 0 ? "Select a Cantrip..." : "Select a Spell...",
-      null,
+      options,
       optionsQuery,
       optionSelection
     );

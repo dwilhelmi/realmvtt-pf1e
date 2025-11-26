@@ -79,6 +79,8 @@ function updateSpellcastingEntry(
   // Set field visibility based on spellcasting type
   valuesToSet[`${spellcastingEntryDataPath}.fields.spontaneousBox.hidden`] =
     !isSpontaneous;
+  valuesToSet[`${spellcastingEntryDataPath}.fields.preparedBox.hidden`] =
+    !isPrepared;
   valuesToSet[`${spellcastingEntryDataPath}.fields.addBtn.hidden`] =
     !isSpontaneous && !isFocus && !isInnate;
   valuesToSet[`${spellcastingEntryDataPath}.fields.numCantrips.hidden`] =
@@ -382,6 +384,7 @@ function addSpellcastingEntry(record) {
     const isFocus = type === "focus";
     const isSpontaneous = type === "spontaneous";
     const isInnate = type === "innate" || type === "item";
+    const isPrepared = !isInnate && !isFocus && !isSpontaneous;
     const index = (updatedRecord.data?.spells || []).length || 0;
 
     api.addValue(
@@ -403,6 +406,9 @@ function addSpellcastingEntry(record) {
         },
         // By default, we show these
         fields: {
+          preparedBox: {
+            hidden: !isPrepared,
+          },
           training: {
             // Item type casting will always be manually setting DC/Mod
             hidden: isItem,
