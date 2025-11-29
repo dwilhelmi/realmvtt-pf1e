@@ -28,6 +28,7 @@
     let showValueField = true;
     let showAdjustDegreeOfSuccessField = false;
     let showAdjustModifierField = false;
+    let showActiveEffectField = false;
 
     if (typeValue === "attributeBonus") {
       showAttributeField = true;
@@ -73,6 +74,10 @@
       showFieldField = false;
       showAdjustModifierField = true;
       showValueField = true;
+    } else if (typeValue === "activeEffect") {
+      showFieldField = false;
+      showValueField = false;
+      showActiveEffectField = true;
     }
 
     if (modifier.fields?.value?.hidden !== !showValueField) {
@@ -114,6 +119,10 @@
     ) {
       valuesToSet[`${modPath}.fields.adjustModifierBox.hidden`] =
         !showAdjustModifierField;
+    }
+    if (modifier.fields?.activeEffectBox?.hidden !== !showActiveEffectField) {
+      valuesToSet[`${modPath}.fields.activeEffectBox.hidden`] =
+        !showActiveEffectField;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -187,7 +196,8 @@
       {"label": "Adjust Modifier", "value": "adjustModifier"},
       {"label": "Off-Guard Prevention", "value": "offGuardPrevention"},
       {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
-      {"label": "Armor Specialization Effect", "value": "armorSpecialization"}
+      {"label": "Armor Specialization Effect", "value": "armorSpecialization"},
+      {"label": "Active Effect", "value": "activeEffect"}
       ]'
   >
   </dropdown>
@@ -452,6 +462,38 @@
       {"label": "Add (sum values)", "value": "add"},
       {"label": "Override (replace value)", "value": "override"},
       {"label": "Multiply (multiply values)", "value": "multiply"}]'
+  ></dropdown>
+</box>
+
+<box field="activeEffectBox" hidden="true">
+  <stringfield
+    width="100%"
+    size="xs"
+    field="effectField"
+    label="Field Path"
+    placeholder="Enter field path (e.g., flags.pf2e.inventor.explode)"
+  ></stringfield>
+
+  <stringfield
+    width="100%"
+    size="xs"
+    field="effectValue"
+    label="Value"
+    placeholder="Enter value to set"
+  ></stringfield>
+
+  <dropdown
+    width="100%"
+    size="xs"
+    field="effectMode"
+    label="Mode"
+    placeholder="Select Mode"
+    defaultvalue="override"
+    options='[{"label": "Override (replace value)", "value": "override"},
+      {"label": "Add (sum values)", "value": "add"},
+      {"label": "Multiply (multiply values)", "value": "multiply"},
+      {"label": "Append (add to array)", "value": "append"},
+      {"label": "Remove (remove from array)", "value": "remove"}]'
   ></dropdown>
 </box>
 

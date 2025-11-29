@@ -1913,11 +1913,16 @@ function getEffectsAndModifiersForToken(
         };
       }
 
-      // Only relevant if it has a value
-      if (value !== 0) {
+      // If this is activeEffect, set value to the effectValue
+      if (ruleType === "activeEffect") {
+        value = modifier.data?.effectValue || "";
+      }
+
+      // Only relevant if it has a value (activeEffect can have empty string values, so allow those)
+      if (value !== 0 || ruleType === "activeEffect") {
         // Check if this only applies to equipped item and mark it with ID if so
         const itemOnly = modifier.data?.itemOnly || false;
-        results.push({
+        const resultObj = {
           name: feature?.name || "Feature",
           value: value,
           // If toggleable is true, make all modifiers inactive by default
@@ -1933,7 +1938,15 @@ function getEffectsAndModifiersForToken(
           targetSlug: modifier.data?.targetSlug || "",
           adjustMode: modifier.data?.adjustMode || "",
           predicate: predicate, // Include predicate so it can be evaluated in adjustModifier processing
-        });
+        };
+
+        // Add activeEffect-specific fields
+        if (ruleType === "activeEffect") {
+          resultObj.effectField = modifier.data?.effectField || "";
+          resultObj.effectMode = modifier.data?.effectMode || "override";
+        }
+
+        results.push(resultObj);
       }
     });
   });
@@ -3599,9 +3612,43 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     const valuesToSet = {};
 
     // We'll need to update the feature with the choice selection
-    // Clone the feature and update its choice
-    const updatedFeature = { ...feature };
-    const choiceObjects = feature.data?.choices || [];
+    // IMPORTANT: Re-fetch the current feature from `record` instead of using the stale
+    // `feature` from choicesToMake, since previous choices may have updated it
+    let currentFeature = feature; // default fallback
+
+    // Find the current version of this feature in the record
+    if (featureDataPath === "data.ancestries.0.data.features") {
+      const ancestryList = record.data?.ancestries || [];
+      if (ancestryList.length > 0) {
+        const ancestryFeatures = ancestryList[0].data?.features || [];
+        currentFeature =
+          ancestryFeatures.find((f) => f._id === feature._id) || feature;
+      }
+    } else if (featureDataPath === "data.heritages.0.data.features") {
+      const heritageList = record.data?.heritages || [];
+      if (heritageList.length > 0) {
+        const heritageFeatures = heritageList[0].data?.features || [];
+        currentFeature =
+          heritageFeatures.find((f) => f._id === feature._id) || feature;
+      }
+    } else if (featureDataPath === "data.classes.0.data.features") {
+      const classList = record.data?.classes || [];
+      if (classList.length > 0) {
+        const classFeatures = classList[0].data?.features || [];
+        currentFeature =
+          classFeatures.find((f) => f._id === feature._id) || feature;
+      }
+    } else if (featureDataPath === "data.feats") {
+      const feats = record.data?.feats || [];
+      currentFeature = feats.find((f) => f._id === feature._id) || feature;
+    } else if (featureDataPath === "data.bonusFeats") {
+      const bonusFeats = record.data?.bonusFeats || [];
+      currentFeature = bonusFeats.find((f) => f._id === feature._id) || feature;
+    }
+
+    // Clone the current feature (not the stale one) and update its choice
+    const updatedFeature = { ...currentFeature };
+    const choiceObjects = currentFeature.data?.choices || [];
     const choiceIndex = choiceObjects.findIndex((c) => c._id === choiceObj._id);
 
     if (choiceIndex >= 0) {
@@ -3625,7 +3672,9 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       };
     }
 
-    const featureIndex = group.features.findIndex((f) => f._id === feature._id);
+    // Note: group.features might be stale if record was re-queried between choices
+    // So we need to find the feature in the current record by _id, not by using the old group
+    let featureIndex = -1;
 
     // Accumulate items by type to avoid path conflicts
     const itemsByType = {
@@ -3708,17 +3757,27 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       if (ancestryList.length > 0) {
         let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
 
+        // Find the feature in the current record by _id
+        featureIndex = ancestryFeatures.findIndex((f) => f._id === feature._id);
+
         // Replace the feature that had the choice with the updated version
         if (featureIndex >= 0) {
           ancestryFeatures[featureIndex] = updatedFeature;
         }
 
-        // Add any new features from the choice
+        // Add any new features from the choice (filter out duplicates)
         if (itemsByType.ancestryFeatures.length > 0) {
-          ancestryFeatures = [
-            ...ancestryFeatures,
-            ...itemsByType.ancestryFeatures,
-          ];
+          const newFeatures = itemsByType.ancestryFeatures.filter(
+            (newFeature) => {
+              // Check if a feature with the same name OR _id already exists
+              return !ancestryFeatures.some(
+                (existingFeature) =>
+                  existingFeature.name === newFeature.name ||
+                  existingFeature._id === newFeature._id
+              );
+            }
+          );
+          ancestryFeatures = [...ancestryFeatures, ...newFeatures];
         }
 
         valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
@@ -3727,6 +3786,9 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       const heritageList = record.data?.heritages || [];
       if (heritageList.length > 0) {
         let heritageFeatures = [...(heritageList[0].data?.features || [])];
+
+        // Find the feature in the current record by _id
+        featureIndex = heritageFeatures.findIndex((f) => f._id === feature._id);
 
         // Replace the feature that had the choice with the updated version
         if (featureIndex >= 0) {
@@ -3740,20 +3802,34 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       if (classList.length > 0) {
         let classFeatures = [...(classList[0].data?.features || [])];
 
+        // Find the feature in the current record by _id
+        featureIndex = classFeatures.findIndex((f) => f._id === feature._id);
+
         // Replace the feature that had the choice with the updated version
         if (featureIndex >= 0) {
           classFeatures[featureIndex] = updatedFeature;
         }
 
-        // Add any new features from the choice
+        // Add any new features from the choice (filter out duplicates)
         if (itemsByType.classFeatures.length > 0) {
-          classFeatures = [...classFeatures, ...itemsByType.classFeatures];
+          const newFeatures = itemsByType.classFeatures.filter((newFeature) => {
+            // Check if a feature with the same name OR _id already exists
+            return !classFeatures.some(
+              (existingFeature) =>
+                existingFeature.name === newFeature.name ||
+                existingFeature._id === newFeature._id
+            );
+          });
+          classFeatures = [...classFeatures, ...newFeatures];
         }
 
         valuesToSet["data.classes.0.data.features"] = classFeatures;
       }
     } else if (featureDataPath === "data.feats") {
       let feats = [...(record.data?.feats || [])];
+
+      // Find the feature in the current record by _id
+      featureIndex = feats.findIndex((f) => f._id === feature._id);
 
       // Replace the feature that had the choice with the updated version
       if (featureIndex >= 0) {
@@ -3764,14 +3840,23 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     } else if (featureDataPath === "data.bonusFeats") {
       let bonusFeats = [...(record.data?.bonusFeats || [])];
 
+      // Find the feature in the current record by _id
+      featureIndex = bonusFeats.findIndex((f) => f._id === feature._id);
+
       // Replace the feature that had the choice with the updated version
       if (featureIndex >= 0) {
         bonusFeats[featureIndex] = updatedFeature;
       }
 
-      // Add any new feats from the choice
+      // Add any new feats from the choice (filter out duplicates)
       if (itemsByType.bonusFeats.length > 0) {
-        bonusFeats = [...bonusFeats, ...itemsByType.bonusFeats];
+        const newFeats = itemsByType.bonusFeats.filter((newFeat) => {
+          // Check if a feat with the same name already exists
+          return !bonusFeats.some(
+            (existingFeat) => existingFeat.name === newFeat.name
+          );
+        });
+        bonusFeats = [...bonusFeats, ...newFeats];
       }
 
       valuesToSet["data.bonusFeats"] = bonusFeats;
@@ -3831,9 +3916,44 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       // Prepare values to set
       const valuesToSet = {};
 
-      // Clone the feature and update its choice
-      const updatedFeature = { ...feature };
-      const choiceObjects = feature.data?.choices || [];
+      // IMPORTANT: Re-fetch the current feature from `record` instead of using the stale
+      // `feature` from choicesToMake, since previous choices may have updated it
+      let currentFeature = feature; // default fallback
+
+      // Find the current version of this feature in the record
+      if (featureDataPath === "data.ancestries.0.data.features") {
+        const ancestryList = record.data?.ancestries || [];
+        if (ancestryList.length > 0) {
+          const ancestryFeatures = ancestryList[0].data?.features || [];
+          currentFeature =
+            ancestryFeatures.find((f) => f._id === feature._id) || feature;
+        }
+      } else if (featureDataPath === "data.heritages.0.data.features") {
+        const heritageList = record.data?.heritages || [];
+        if (heritageList.length > 0) {
+          const heritageFeatures = heritageList[0].data?.features || [];
+          currentFeature =
+            heritageFeatures.find((f) => f._id === feature._id) || feature;
+        }
+      } else if (featureDataPath === "data.classes.0.data.features") {
+        const classList = record.data?.classes || [];
+        if (classList.length > 0) {
+          const classFeatures = classList[0].data?.features || [];
+          currentFeature =
+            classFeatures.find((f) => f._id === feature._id) || feature;
+        }
+      } else if (featureDataPath === "data.feats") {
+        const feats = record.data?.feats || [];
+        currentFeature = feats.find((f) => f._id === feature._id) || feature;
+      } else if (featureDataPath === "data.bonusFeats") {
+        const bonusFeats = record.data?.bonusFeats || [];
+        currentFeature =
+          bonusFeats.find((f) => f._id === feature._id) || feature;
+      }
+
+      // Clone the current feature (not the stale one) and update its choice
+      const updatedFeature = { ...currentFeature };
+      const choiceObjects = currentFeature.data?.choices || [];
       const choiceIndex = choiceObjects.findIndex(
         (c) => c._id === choiceObj._id
       );
@@ -3859,15 +3979,20 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         };
       }
 
-      const featureIndex = group.features.findIndex(
-        (f) => f._id === feature._id
-      );
+      // Note: group.features might be stale if record was re-queried between choices
+      // So we need to find the feature in the current record by _id in each block below
+      let featureIndex = -1;
 
       // Add the new feature to the appropriate location
       if (featureDataPath === "data.ancestries.0.data.features") {
         const ancestryList = record.data?.ancestries || [];
         if (ancestryList.length > 0) {
           let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
+
+          // Find the feature in the current record by _id
+          featureIndex = ancestryFeatures.findIndex(
+            (f) => f._id === feature._id
+          );
 
           // Replace the feature that had the choice with the updated version
           if (featureIndex >= 0) {
@@ -3884,6 +4009,11 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         if (heritageList.length > 0) {
           let heritageFeatures = [...(heritageList[0].data?.features || [])];
 
+          // Find the feature in the current record by _id
+          featureIndex = heritageFeatures.findIndex(
+            (f) => f._id === feature._id
+          );
+
           // Replace the feature that had the choice with the updated version
           if (featureIndex >= 0) {
             heritageFeatures[featureIndex] = updatedFeature;
@@ -3898,6 +4028,9 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         const classList = record.data?.classes || [];
         if (classList.length > 0) {
           let classFeatures = [...(classList[0].data?.features || [])];
+
+          // Find the feature in the current record by _id
+          featureIndex = classFeatures.findIndex((f) => f._id === feature._id);
 
           // Replace the feature that had the choice with the updated version
           if (featureIndex >= 0) {
@@ -3916,6 +4049,13 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         let feats = [...(record.data?.feats || [])];
         let bonusFeats = [...(record.data?.bonusFeats || [])];
 
+        // Find the feature in the current record by _id
+        if (featureDataPath === "data.feats") {
+          featureIndex = feats.findIndex((f) => f._id === feature._id);
+        } else {
+          featureIndex = bonusFeats.findIndex((f) => f._id === feature._id);
+        }
+
         // Replace the feature that had the choice with the updated version
         if (featureDataPath === "data.feats" && featureIndex >= 0) {
           feats[featureIndex] = updatedFeature;
@@ -3933,15 +4073,13 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       // Apply all changes
       if (Object.keys(valuesToSet).length > 0) {
         api.setValues(valuesToSet, () => {
-          // Re-query the record to get the latest values
+          // Re-query the record to get the latest values before processing next choice
           api.getRecord("characters", record._id, (updatedRecord) => {
-            // Call onAddEditFeature which will rebuild choicesToMake and process any remaining choices
-            onAddEditFeature(updatedRecord, undefined, false, depth);
+            promptForChoices(updatedRecord, choicesToMake, index + 1, depth);
           });
         });
       } else {
-        // Call onAddEditFeature which will rebuild choicesToMake and process any remaining choices
-        onAddEditFeature(record, undefined, false, depth);
+        promptForChoices(record, choicesToMake, index + 1, depth);
       }
     };
 
@@ -5573,9 +5711,83 @@ function onAddEditFeature(
   // Update toggles list with all toggleable items
   updateTogglesList(record, valuesToSet);
 
+  // Process active effects from features, feats, items, etc.
+  const activeEffects = getEffectsAndModifiersForToken(record, [
+    "activeEffect",
+  ]);
+  activeEffects.forEach((effect) => {
+    if (!effect.active) return; // Skip inactive effects
+
+    const effectField = effect.effectField || "";
+    const effectMode = effect.effectMode || "override";
+    const effectValue = effect.value;
+
+    if (!effectField) return; // Skip if no field specified
+
+    // Build the data path - prepend "data." if not already present
+    const dataPath = effectField.startsWith("data.")
+      ? effectField
+      : `data.${effectField}`;
+
+    // Get current value at the path
+    const currentValue = api.getValueOnRecord(record, dataPath);
+
+    // Apply the effect based on mode
+    switch (effectMode) {
+      case "override":
+        valuesToSet[dataPath] = effectValue;
+        break;
+      case "add":
+        // Sum numerical values
+        const numericCurrent = parseFloat(currentValue) || 0;
+        const numericNew = parseFloat(effectValue) || 0;
+        valuesToSet[dataPath] = numericCurrent + numericNew;
+        break;
+      case "multiply":
+        const multCurrent = parseFloat(currentValue) || 0;
+        const multNew = parseFloat(effectValue) || 1;
+        valuesToSet[dataPath] = multCurrent * multNew;
+        break;
+      case "append":
+        // Add to array
+        const currentArray = Array.isArray(currentValue)
+          ? [...currentValue]
+          : [];
+        if (!currentArray.includes(effectValue)) {
+          currentArray.push(effectValue);
+        }
+        valuesToSet[dataPath] = currentArray;
+        break;
+      case "remove":
+        // Remove from array
+        if (Array.isArray(currentValue)) {
+          valuesToSet[dataPath] = currentValue.filter(
+            (item) => item !== effectValue
+          );
+        }
+        break;
+      default:
+        valuesToSet[dataPath] = effectValue;
+    }
+  });
+
   // Set provided items (feats, actions, items, features) from providesItems
   const setItemsCallback = () => {
-    setProvidedItems(record, callback);
+    setProvidedItems(record, () => {
+      // Call the original callback first (if provided)
+      if (callback) {
+        callback();
+      }
+
+      // Check for choices that the character needs to make and
+      // process each one sequentially (unless explicitly skipped to prevent infinite loops)
+      if (!skipChoices) {
+        // Re-query the record to get the latest values before processing choices
+        api.getRecord("characters", record._id, (updatedRecord) => {
+          processChoices(updatedRecord, depth);
+        });
+      }
+    });
   };
 
   if (Object.keys(valuesToSet).length > 0) {
@@ -5584,12 +5796,6 @@ function onAddEditFeature(
     });
   } else {
     updateAllAttributes(record, setItemsCallback);
-  }
-
-  // Check for choices that the character needs to make and
-  // process each one sequentially (unless explicitly skipped to prevent infinite loops)
-  if (!skipChoices) {
-    processChoices(record, depth);
   }
 }
 
@@ -8305,7 +8511,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     if (totalDice > 0) {
       // Add scatter splash to existing splash damage
       const existingSplash =
-        typeof splashDamage === "number" ? splashDamage : parseInt(splashDamage, 10) || 0;
+        typeof splashDamage === "number"
+          ? splashDamage
+          : parseInt(splashDamage, 10) || 0;
       splashDamage = existingSplash + totalDice;
       if (!splashDamageType) {
         splashDamageType = damageType;
@@ -9132,7 +9340,9 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     if (totalDice > 0) {
       // Add scatter splash to existing splash damage
       const existingSplash =
-        typeof splashDamage === "number" ? splashDamage : parseInt(splashDamage, 10) || 0;
+        typeof splashDamage === "number"
+          ? splashDamage
+          : parseInt(splashDamage, 10) || 0;
       splashDamage = existingSplash + totalDice;
       if (!splashDamageType) {
         splashDamageType = damageType;
