@@ -1,5 +1,49 @@
 const token = data?.token;
 
+// Helper to check if a value contains dice notation (e.g., "1d6", "2d8")
+const hasDiceRoll = (value) => {
+  if (typeof value !== "string") return false;
+  return /\d*d\d+/i.test(value);
+};
+
+// Helper to process a single persistent damage value
+const processPersistentDamage = (value, partIndex = 0) => {
+  if (!value) return;
+
+  if (hasDiceRoll(value)) {
+    // Has dice - roll it
+    api.roll(
+      value,
+      { isPersistant: true, persistentPartIndex: partIndex },
+      "damage"
+    );
+  } else {
+    // Flat damage - show as clickable macro to apply damage
+    // Parse "5 fire" into value=5, type="fire"
+    const parts = value.trim().split(/\s+/);
+    let damageValue = 0;
+    let damageType = "untyped";
+
+    if (parts.length >= 2) {
+      damageValue = parseInt(parts[0], 10) || 0;
+      damageType = parts.slice(1).join(" ").toLowerCase();
+    } else if (parts.length === 1) {
+      damageValue = parseInt(parts[0], 10) || 0;
+    }
+
+    const macroName = `Apply_${value.replace(/\s+/g, "_")}_Persistent_Damage`;
+    const macro = `\`\`\`${macroName}
+const roll = {
+  types: [{ type: "${damageType}", value: ${damageValue} }],
+  dice: [],
+  metadata: { rollName: "Persistent Damage", isPersistant: true }
+};
+applyDamage(null, roll, false);
+\`\`\``;
+    api.sendMessage(macro, undefined, undefined, undefined, token);
+  }
+};
+
 // Check for persistant damage effects like On Fire
 const modifiers = getEffectsAndModifiersForToken(
   token,
@@ -39,24 +83,14 @@ if (modifiers.length > 0) {
 
     // Handle string or array values
     if (typeof persistentDamageValue === "string") {
-      // String: roll once with index 0
-      api.roll(
-        persistentDamageValue,
-        { isPersistant: true, persistentPartIndex: 0 },
-        "damage"
-      );
+      // String: process once with index 0
+      processPersistentDamage(persistentDamageValue, 0);
     } else if (Array.isArray(persistentDamageValue)) {
-      // Array: roll each value with index as partIndex
+      // Array: process each value with index as partIndex
       // Each element is an object with a value property
       persistentDamageValue.forEach((item, index) => {
         const value = item?.value || item;
-        if (value) {
-          api.roll(
-            value,
-            { isPersistant: true, persistentPartIndex: index },
-            "damage"
-          );
-        }
+        processPersistentDamage(value, index);
       });
     }
   });
