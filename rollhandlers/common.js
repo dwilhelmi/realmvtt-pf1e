@@ -7427,6 +7427,65 @@ function getWeaponDamageInfo(record, weapon) {
 }
 
 /**
+ * Extracts the scatter radius from weapon traits.
+ * Scatter trait format: "Scatter-10", "Scatter 10", "scatter-5", etc.
+ *
+ * @param {Array} traits - Array of trait strings
+ * @returns {number} - The scatter radius in feet, or 0 if no scatter trait
+ */
+function getScatterRadiusFromTraits(traits) {
+  if (!traits || !Array.isArray(traits)) return 0;
+
+  for (const trait of traits) {
+    const traitLower = trait.toLowerCase();
+    // Match "scatter-10" or "scatter 10"
+    const match = traitLower.match(/\bscatter[-\s](\d+)\b/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+  return 0;
+}
+
+/**
+ * Counts the total number of weapon damage dice including base dice and striking runes.
+ * Used for calculating scatter weapon splash damage.
+ *
+ * @param {Object} weapon - The weapon object
+ * @param {number} strikingRune - The striking rune level (0-3)
+ * @returns {number} - Total number of weapon damage dice
+ */
+function countWeaponDamageDice(weapon, strikingRune) {
+  const isNPCAttack = weapon.recordType === "npc_attacks";
+
+  if (isNPCAttack) {
+    // For NPC attacks, count dice from all standard damage rolls
+    const damageRolls = weapon.data?.damageRolls || [];
+    const standardRolls = damageRolls.filter(
+      (roll) => !roll.data?.category || roll.data?.category === "standard"
+    );
+
+    let totalDice = 0;
+    standardRolls.forEach((roll) => {
+      const formula = roll.data?.formula || "0";
+      // Match XdY patterns and sum up the X values
+      const diceMatches = formula.matchAll(/(\d+)d\d+/g);
+      for (const match of diceMatches) {
+        totalDice += parseInt(match[1], 10);
+      }
+    });
+
+    return totalDice;
+  }
+
+  // For PC weapons, get base dice and add striking rune dice
+  const baseDice = parseInt(weapon.data?.damage?.dice || "1", 10);
+  const strikingDice = parseInt(strikingRune || "0", 10);
+
+  return baseDice + strikingDice;
+}
+
+/**
  * Activates Sneak Attack modifiers if conditions are met.
  * Sneak Attack applies when:
  * - Target has the off-guard condition
@@ -8232,6 +8291,26 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       persistentDamageNumber > 0
         ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
         : "";
+  }
+
+  // Check for Scatter trait and calculate scatter splash damage
+  // Scatter weapons deal splash damage equal to 1 point per weapon damage die
+  const scatterRadius = getScatterRadiusFromTraits(traits);
+
+  if (scatterRadius > 0) {
+    // Get the striking rune level to count total dice
+    const strikingRune = parseInt(weapon.data?.runes?.striking || "0", 10);
+    const totalDice = countWeaponDamageDice(weapon, strikingRune);
+
+    if (totalDice > 0) {
+      // Add scatter splash to existing splash damage
+      const existingSplash =
+        typeof splashDamage === "number" ? splashDamage : parseInt(splashDamage, 10) || 0;
+      splashDamage = existingSplash + totalDice;
+      if (!splashDamageType) {
+        splashDamageType = damageType;
+      }
+    }
   }
 
   // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
@@ -9040,8 +9119,28 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
         : "";
   }
 
-  // Create a list of all traits as tags that we'll add to the roll message
+  // Check for Scatter trait and calculate scatter splash damage
+  // Scatter weapons deal splash damage equal to 1 point per weapon damage die
   const traits = weapon.data?.traits || [];
+  const scatterRadius = getScatterRadiusFromTraits(traits);
+
+  if (scatterRadius > 0) {
+    // Get the striking rune level to count total dice
+    const strikingRune = parseInt(weapon.data?.runes?.striking || "0", 10);
+    const totalDice = countWeaponDamageDice(weapon, strikingRune);
+
+    if (totalDice > 0) {
+      // Add scatter splash to existing splash damage
+      const existingSplash =
+        typeof splashDamage === "number" ? splashDamage : parseInt(splashDamage, 10) || 0;
+      splashDamage = existingSplash + totalDice;
+      if (!splashDamageType) {
+        splashDamageType = damageType;
+      }
+    }
+  }
+
+  // Create a list of all traits as tags that we'll add to the roll message
   const damageCategories = [];
 
   // Check if weapon has any runes, add "non-magical" trait if it does not or does not have a magic trait
