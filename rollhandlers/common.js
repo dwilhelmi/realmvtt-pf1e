@@ -5753,6 +5753,11 @@ function onAddEditFeature(
   const activeEffects = getEffectsAndModifiersForToken(record, [
     "activeEffect",
   ]);
+
+  // Get the set of already processed active effects to avoid re-applying one-time effects
+  const processedActiveEffects = record.data?.processedActiveEffects || {};
+  const newProcessedEffects = { ...processedActiveEffects };
+
   activeEffects.forEach((effect) => {
     if (!effect.active) return; // Skip inactive effects
 
@@ -5767,6 +5772,24 @@ function onAddEditFeature(
       ? effectField
       : `data.${effectField}`;
 
+    // Create a unique key for this effect using slug (or name) + field + value
+    const effectKey = `${
+      effect.slug || effect.name || "effect"
+    }_${effectField}_${effectValue}`;
+
+    // For modes that modify values (not override), check if already processed
+    const isOneTimeMode = [
+      "add",
+      "multiply",
+      "append",
+      "remove",
+      "upgrade",
+    ].includes(effectMode);
+    if (isOneTimeMode && processedActiveEffects[effectKey]) {
+      // Already processed, skip
+      return;
+    }
+
     // Get current value at the path
     const currentValue = api.getValueOnRecord(record, dataPath);
 
@@ -5775,16 +5798,30 @@ function onAddEditFeature(
       case "override":
         valuesToSet[dataPath] = effectValue;
         break;
+      case "upgrade":
+        // Take the higher of current vs new value (useful for skill proficiencies)
+        const upgradeCurrent = parseInt(currentValue, 10) || 0;
+        const upgradeNew = parseInt(effectValue, 10) || 0;
+        if (upgradeNew > upgradeCurrent) {
+          valuesToSet[dataPath] = upgradeNew;
+        }
+        // Mark as processed
+        newProcessedEffects[effectKey] = true;
+        break;
       case "add":
         // Sum numerical values
         const numericCurrent = parseFloat(currentValue) || 0;
         const numericNew = parseFloat(effectValue) || 0;
         valuesToSet[dataPath] = numericCurrent + numericNew;
+        // Mark as processed
+        newProcessedEffects[effectKey] = true;
         break;
       case "multiply":
         const multCurrent = parseFloat(currentValue) || 0;
         const multNew = parseFloat(effectValue) || 1;
         valuesToSet[dataPath] = multCurrent * multNew;
+        // Mark as processed
+        newProcessedEffects[effectKey] = true;
         break;
       case "append":
         // Add to array
@@ -5795,6 +5832,8 @@ function onAddEditFeature(
           currentArray.push(effectValue);
         }
         valuesToSet[dataPath] = currentArray;
+        // Mark as processed
+        newProcessedEffects[effectKey] = true;
         break;
       case "remove":
         // Remove from array
@@ -5803,11 +5842,21 @@ function onAddEditFeature(
             (item) => item !== effectValue
           );
         }
+        // Mark as processed
+        newProcessedEffects[effectKey] = true;
         break;
       default:
         valuesToSet[dataPath] = effectValue;
     }
   });
+
+  // Save the updated processed effects set
+  if (
+    Object.keys(newProcessedEffects).length >
+    Object.keys(processedActiveEffects).length
+  ) {
+    valuesToSet["data.processedActiveEffects"] = newProcessedEffects;
+  }
 
   // Set provided items (feats, actions, items, features) from providesItems
   const setItemsCallback = () => {
