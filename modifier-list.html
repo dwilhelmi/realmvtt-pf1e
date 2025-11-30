@@ -78,6 +78,10 @@
       showFieldField = false;
       showValueField = false;
       showActiveEffectField = true;
+    } else if (typeValue === "weaponProficiency") {
+      // Weapon proficiency uses predicate to match weapons, value is the rank (1=trained, 2=expert, etc.)
+      showFieldField = false;
+      showValueField = true;
     }
 
     if (modifier.fields?.value?.hidden !== !showValueField) {
@@ -197,7 +201,8 @@
       {"label": "Off-Guard Prevention", "value": "offGuardPrevention"},
       {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
       {"label": "Armor Specialization Effect", "value": "armorSpecialization"},
-      {"label": "Active Effect", "value": "activeEffect"}
+      {"label": "Active Effect", "value": "activeEffect"},
+      {"label": "Weapon Proficiency", "value": "weaponProficiency"}
       ]'
   >
   </dropdown>

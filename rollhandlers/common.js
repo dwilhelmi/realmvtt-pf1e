@@ -996,6 +996,16 @@ function collectTraitsAndProperties(token, context = {}) {
     const itemCategory = (item.data?.itemCategory || "").toLowerCase();
     const itemGroup = (item.data?.group || "").toLowerCase();
 
+    // Add item:category:X trait (e.g., item:category:martial, item:category:simple)
+    if (itemCategory) {
+      traits.add(`item:category:${itemCategory}`);
+    }
+
+    // Add item:group:X trait (e.g., item:group:firearm, item:group:crossbow)
+    if (itemGroup) {
+      traits.add(`item:group:${itemGroup}`);
+    }
+
     // For weapons, check attack proficiencies
     const isWeapon =
       itemType === "weapon" ||
@@ -4550,6 +4560,17 @@ function updateProficiencies(record, valuesToSet) {
       classObj.data.attacks?.advanced || "0",
       10
     );
+    // Handle "other" attack proficiency (e.g., Alchemical Bombs for Alchemist)
+    if (
+      classObj.data.attacks?.other?.name &&
+      classObj.data.attacks?.other?.rank
+    ) {
+      proficiencies.otherName = classObj.data.attacks.other.name;
+      proficiencies.otherRank = parseInt(
+        classObj.data.attacks.other.rank || "0",
+        10
+      );
+    }
   }
   if (classObj?.data?.spellcasting) {
     proficiencies.spellcasting = parseInt(
@@ -4946,6 +4967,23 @@ function updateProficiencies(record, valuesToSet) {
     proficiencies.advanced === 0
   ) {
     valuesToSet["data.attackProficiencies.advanced"] = proficiencies.advanced;
+  }
+
+  // Set "other" attack proficiency if defined (e.g., Alchemical Bombs for Alchemist)
+  if (proficiencies.otherName) {
+    const currentOtherRank = parseInt(
+      record.data?.attackProficiencies?.other?.rank || "0",
+      10
+    );
+    if (
+      currentOtherRank < proficiencies.otherRank ||
+      proficiencies.otherRank === 0
+    ) {
+      valuesToSet["data.attackProficiencies.other.name"] =
+        proficiencies.otherName;
+      valuesToSet["data.attackProficiencies.other.rank"] =
+        proficiencies.otherRank;
+    }
   }
 
   // Set spellcasting proficiency
@@ -7834,12 +7872,73 @@ function getProfiencyForArmor(record, armorCategory, armorGroup) {
   return armorProf;
 }
 
-function getProfiencyForWeapon(record, weaponCategory, weaponGroup) {
+function getProfiencyForWeapon(
+  record,
+  weaponCategory,
+  weaponGroup,
+  weapon = null
+) {
   // First check proficiency for the weapon category
   let weaponProficiency = parseInt(
     record.data?.attackProficiencies?.[weaponCategory] || "0",
     10
   );
+
+  // Check if "other" attack proficiency applies to this weapon
+  const otherProf = record.data?.attackProficiencies?.other;
+  if (otherProf?.name && otherProf?.rank) {
+    const otherRank = parseInt(otherProf.rank || "0", 10);
+
+    // Get weapon name from weapon parameter or fall back to checking by group
+    const weaponName = (weapon?.data?.name || weapon?.name || "").toLowerCase();
+    const weaponGroupLower = (weaponGroup || "").toLowerCase();
+    const weaponCategoryLower = (weaponCategory || "").toLowerCase();
+
+    // Split by comma to handle multiple proficiencies like "Simple Firearms, Martial Firearms"
+    const otherNames = otherProf.name
+      .split(",")
+      .map((n) => n.trim().toLowerCase());
+
+    let otherMatches = false;
+
+    for (const otherName of otherNames) {
+      // Special case: "Alchemical Bombs" matches weapons with group "Bomb"
+      if (otherName === "alchemical bombs") {
+        if (weaponGroupLower === "bomb") {
+          otherMatches = true;
+          break;
+        }
+      }
+      // Check for category + group patterns like "Simple Firearms" or "Martial Firearms"
+      // This matches if the proficiency name starts with the weapon category and
+      // the weapon group matches the rest (e.g., "simple firearms" matches simple category + firearm group)
+      else if (otherName.startsWith(weaponCategoryLower + " ")) {
+        const expectedGroup = otherName.substring(
+          weaponCategoryLower.length + 1
+        );
+        // Handle plurals (e.g., "firearms" -> "firearm")
+        const normalizedExpectedGroup = expectedGroup.endsWith("s")
+          ? expectedGroup.slice(0, -1)
+          : expectedGroup;
+        const normalizedWeaponGroup = weaponGroupLower.endsWith("s")
+          ? weaponGroupLower.slice(0, -1)
+          : weaponGroupLower;
+        if (normalizedWeaponGroup === normalizedExpectedGroup) {
+          otherMatches = true;
+          break;
+        }
+      }
+      // Otherwise check if weapon name contains the proficiency name
+      else if (weaponName.includes(otherName)) {
+        otherMatches = true;
+        break;
+      }
+    }
+
+    if (otherMatches && otherRank > weaponProficiency) {
+      weaponProficiency = otherRank;
+    }
+  }
 
   // Then check if we have any features or class features that provide a proficiency for this weapon group
   const features = collectFeatures(record);
@@ -7862,6 +7961,29 @@ function getProfiencyForWeapon(record, weaponCategory, weaponGroup) {
         weaponProficiency = rank;
       }
     });
+  }
+
+  // Check for weaponProficiency modifiers from effects/features
+  // These use predicates to match specific weapons (e.g., martial firearms, crossbows)
+  if (weapon) {
+    const weaponProfMods = getEffectsAndModifiersForToken(
+      record,
+      ["weaponProficiency"],
+      "",
+      undefined,
+      undefined,
+      { item: weapon }
+    );
+
+    for (const mod of weaponProfMods) {
+      // Skip inactive modifiers (predicate failed)
+      if (mod.active === false) continue;
+
+      const modRank = parseInt(mod.value || "0", 10);
+      if (modRank > weaponProficiency) {
+        weaponProficiency = modRank;
+      }
+    }
   }
 
   return weaponProficiency;
@@ -7915,7 +8037,7 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
       return getProfiencyForArmor(record, itemCategory, itemGroup);
     } else {
       // Default to weapon proficiency
-      return getProfiencyForWeapon(record, itemCategory, itemGroup);
+      return getProfiencyForWeapon(record, itemCategory, itemGroup, item);
     }
   };
 
@@ -7952,6 +8074,34 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
       evaluatedPredicate = evaluatedPredicate.replace(
         match[0],
         hasTrait ? "1" : "0"
+      );
+    }
+
+    // Handle item:category:X patterns (e.g., item:category:martial, item:category:simple)
+    const categoryMatches = Array.from(
+      evaluatedPredicate.matchAll(/item:category:(\w+)/g)
+    );
+    for (const match of categoryMatches) {
+      const categoryName = match[1].toLowerCase();
+      const itemCategory = (item.data?.itemCategory || "").toLowerCase();
+      const hasCategory = itemCategory === categoryName;
+      evaluatedPredicate = evaluatedPredicate.replace(
+        match[0],
+        hasCategory ? "1" : "0"
+      );
+    }
+
+    // Handle item:group:X patterns (e.g., item:group:firearm, item:group:crossbow)
+    const groupMatches = Array.from(
+      evaluatedPredicate.matchAll(/item:group:(\w+)/g)
+    );
+    for (const match of groupMatches) {
+      const groupName = match[1].toLowerCase();
+      const itemGroup = (item.data?.group || "").toLowerCase();
+      const hasGroup = itemGroup === groupName;
+      evaluatedPredicate = evaluatedPredicate.replace(
+        match[0],
+        hasGroup ? "1" : "0"
       );
     }
 
@@ -8662,7 +8812,8 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     const weaponProficiency = getProfiencyForWeapon(
       record,
       weaponCategory,
-      weaponGroup
+      weaponGroup,
+      weapon
     );
     const proficiencyNames = [
       "Untrained",
