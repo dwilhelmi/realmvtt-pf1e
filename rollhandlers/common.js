@@ -8056,9 +8056,16 @@ function getProfiencyForWeapon(
  * @param {Object} record - The character record
  * @param {Object} item - The item (weapon, armor, etc.) being evaluated
  * @param {Object} targetIsOffGuard - True if the target is off guard (optional)
+ * @param {Set} traits - Optional set of collected traits to check against
  * @returns {boolean} - True if predicate is satisfied
  */
-function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
+function evaluatePredicate(
+  predicate,
+  record,
+  item,
+  targetIsOffGuard = false,
+  traits = null
+) {
   if (!predicate || typeof predicate !== "string") {
     console.warn("evaluatePredicate: invalid predicate", predicate);
     return false;
@@ -8068,6 +8075,12 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
   if (!record || !item) {
     console.warn("evaluatePredicate: missing record or item parameter");
     return false;
+  }
+
+  // If traits set is provided, check if the predicate exists directly in traits
+  // This allows predicates like "feat:raging-thrower" to match collected traits
+  if (traits && traits.has(predicate)) {
+    return true;
   }
 
   // Helper to check if item has a trait
@@ -8110,8 +8123,11 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
     }
 
     // Handle target:condition:off-guard
+    // Check both the targetIsOffGuard parameter AND if traits set includes it
     if (evaluatedPredicate.includes("target:condition:off-guard")) {
-      const offGuardValue = targetIsOffGuard ? "1" : "0";
+      const offGuardFromTraits =
+        traits && traits.has("target:condition:off-guard");
+      const offGuardValue = targetIsOffGuard || offGuardFromTraits ? "1" : "0";
       evaluatedPredicate = evaluatedPredicate.replace(
         /target:condition:off-guard/g,
         offGuardValue
@@ -8301,6 +8317,9 @@ function hasCriticalSpecializationEffect(
 
         // Check if we have a predicate to evaluate
         if (predicate) {
+          // Collect traits for evaluation
+          const traits = collectTraitsAndProperties(record, context);
+
           // Try to parse as JSON predicate (new format)
           const parsedPredicate = parseModifierPredicate(predicate);
           if (parsedPredicate && parsedPredicate.length > 0) {
@@ -8315,9 +8334,6 @@ function hasCriticalSpecializationEffect(
               };
             }
 
-            // Collect traits for evaluation
-            const traits = collectTraitsAndProperties(record, context);
-
             // Evaluate using the new JSON predicate system
             const predicateResult = evaluateEffectPredicate(
               parsedPredicate,
@@ -8331,14 +8347,31 @@ function hasCriticalSpecializationEffect(
             }
           } else {
             // Fall back to old string-based evaluation
-            if (evaluatePredicate(predicate, record, item, targetIsOffGuard)) {
+            if (
+              evaluatePredicate(
+                predicate,
+                record,
+                item,
+                targetIsOffGuard,
+                traits
+              )
+            ) {
               return true;
             }
           }
         } else if (predicateField) {
+          // Collect traits for evaluation
+          const traits = collectTraitsAndProperties(record, context);
+
           // Try old predicate field evaluation
           if (
-            evaluatePredicate(predicateField, record, item, targetIsOffGuard)
+            evaluatePredicate(
+              predicateField,
+              record,
+              item,
+              targetIsOffGuard,
+              traits
+            )
           ) {
             return true;
           }
@@ -8374,6 +8407,10 @@ function hasArmorSpecializationEffect(record, item) {
     return false;
   }
 
+  // Collect traits for predicate evaluation
+  const context = { item: item, armor: item };
+  const traits = collectTraitsAndProperties(record, context);
+
   // Check all features for criticalSpecialization modifiers
   for (const feature of features) {
     const modifiers = feature.data?.modifiers || [];
@@ -8396,8 +8433,8 @@ function hasArmorSpecializationEffect(record, item) {
         } else if (
           // Otherwise evaluate the predicate
           ((predicate || predicateField) &&
-            evaluatePredicate(predicate, record, item)) ||
-          evaluatePredicate(predicateField, record, item)
+            evaluatePredicate(predicate, record, item, false, traits)) ||
+          evaluatePredicate(predicateField, record, item, false, traits)
         ) {
           return true;
         } else if (!predicate) {
