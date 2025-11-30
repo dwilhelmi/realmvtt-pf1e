@@ -1223,6 +1223,11 @@ function resolvePredicateValue(value, target, context, traits) {
 function evaluateEffectPredicate(predicate, traits, target, context = {}) {
   // Base case: string predicate - check if trait exists
   if (typeof predicate === "string") {
+    // Unsupported predicate types - assume true
+    if (predicate.startsWith("item:tag:")) {
+      return true;
+    }
+
     // If the predicate contains @record.data., replace with actual values
     // Example: "id:@record.data.effects.handOfTheApprentice" becomes "id:abc123"
     if (predicate.includes("@record.data.")) {
@@ -5447,6 +5452,7 @@ function updateTogglesList(record, valuesToSet) {
       if (
         feature.data?.toggleable === true &&
         feature.name &&
+        record.data?.level >= feature.data?.level &&
         !seenNames.has(feature.name)
       ) {
         toggleableItems.push({
@@ -8162,6 +8168,16 @@ function evaluatePredicate(predicate, record, item, targetIsOffGuard = false) {
       evaluatedPredicate.matchAll(/origin:[\w:]+/g)
     );
     for (const match of originMatches) {
+      evaluatedPredicate = evaluatedPredicate.replace(match[0], "1");
+    }
+
+    // Handle item:tag:X patterns
+    // TODO: Implement proper item tag evaluation
+    // For now, we treat item:tag predicates as true (1) since we don't support tags yet
+    const tagMatches = Array.from(
+      evaluatedPredicate.matchAll(/item:tag:[\w-]+/g)
+    );
+    for (const match of tagMatches) {
       evaluatedPredicate = evaluatedPredicate.replace(match[0], "1");
     }
   } catch (error) {
