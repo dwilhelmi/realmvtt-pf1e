@@ -58,13 +58,12 @@
         "data.alternateAncestryBoosts": false,
       },
       (updatedRecord) => {
-        // Recalculate ability scores for bonuses and such
-        onAddEditFeature(updatedRecord, () => {
-          api.setHidden("ancestries", false, () => {
-            api.setHidden("ancestryDetailsLabel", true);
-          });
-          promptForHeritage(updatedRecord, ancestryName);
+        // Show ancestry UI, then prompt for heritage
+        // onAddEditFeature will be called after heritage is selected
+        api.setHidden("ancestries", false, () => {
+          api.setHidden("ancestryDetailsLabel", true);
         });
+        promptForHeritage(updatedRecord, ancestryName);
       }
     );
   }
