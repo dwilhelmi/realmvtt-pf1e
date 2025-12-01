@@ -380,6 +380,14 @@ function checkForReplacements(
     }
   }
 
+  // Replace @weaponDie with the weapon's damage die
+  if (value.includes("@weaponDie") && context?.weapon) {
+    const weaponDie = context.weapon.data?.damage?.die;
+    if (weaponDie) {
+      value = value.replaceAll("@weaponDie", weaponDie);
+    }
+  }
+
   // Case for 'Half Level' or 'Half Character Level'
   const matchHalfLevel =
     value.match(/[Hh]alf [Cc]haracter [Ll]evel/) ||
