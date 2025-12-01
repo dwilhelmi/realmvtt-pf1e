@@ -2015,32 +2015,72 @@ function getEffectsAndModifiersForToken(
         result !== adjMod &&
         result.modifierType !== "adjustModifier"
       ) {
+        // Helper to check if a value is a pure number (not a dice expression like "1d6")
+        const isPureNumber = (val) => {
+          if (typeof val === "number") return true;
+          if (typeof val !== "string") return false;
+          const trimmed = val.trim();
+          return trimmed !== "" && !isNaN(Number(trimmed));
+        };
+
         // Apply adjustment based on mode
         if (adjustMode === "upgrade") {
           // Use the higher value
-          const currentVal =
-            typeof result.value === "number"
-              ? result.value
-              : parseInt(result.value, 10) || 0;
-          const newVal =
-            typeof adjustValue === "number"
-              ? adjustValue
-              : parseInt(adjustValue, 10) || 0;
-          if (newVal > currentVal) {
-            result.value = newVal;
+          // For string values that aren't pure numbers (e.g., "1d6"), use the adjust value
+          if (typeof result.value === "number") {
+            const newVal =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            if (newVal > result.value) {
+              result.value = newVal;
+            }
+          } else if (isPureNumber(result.value)) {
+            const currentVal = parseInt(result.value, 10) || 0;
+            const newVal =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            if (newVal > currentVal) {
+              result.value = newVal;
+              result.valueType = "number";
+            }
+          } else {
+            // String value that isn't a pure number (e.g., "1d6") - use adjust value
+            result.value =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            result.valueType = "number";
           }
         } else if (adjustMode === "downgrade") {
           // Use the lower value
-          const currentVal =
-            typeof result.value === "number"
-              ? result.value
-              : parseInt(result.value, 10) || 0;
-          const newVal =
-            typeof adjustValue === "number"
-              ? adjustValue
-              : parseInt(adjustValue, 10) || 0;
-          if (newVal < currentVal) {
-            result.value = newVal;
+          // For string values that aren't pure numbers, use the adjust value
+          if (typeof result.value === "number") {
+            const newVal =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            if (newVal < result.value) {
+              result.value = newVal;
+            }
+          } else if (isPureNumber(result.value)) {
+            const currentVal = parseInt(result.value, 10) || 0;
+            const newVal =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            if (newVal < currentVal) {
+              result.value = newVal;
+              result.valueType = "number";
+            }
+          } else {
+            // String value that isn't a pure number - use adjust value
+            result.value =
+              typeof adjustValue === "number"
+                ? adjustValue
+                : parseInt(adjustValue, 10) || 0;
+            result.valueType = "number";
           }
         } else if (adjustMode === "add") {
           // Add the values
@@ -2053,6 +2093,7 @@ function getEffectsAndModifiersForToken(
               ? adjustValue
               : parseInt(adjustValue, 10) || 0;
           result.value = currentVal + addVal;
+          result.valueType = "number";
         } else if (adjustMode === "multiply") {
           // Multiply the values
           const currentVal =
@@ -2064,9 +2105,12 @@ function getEffectsAndModifiersForToken(
               ? adjustValue
               : parseFloat(adjustValue) || 0;
           result.value = Math.floor(currentVal * multVal);
+          result.valueType = "number";
         } else if (adjustMode === "override") {
           // Replace the value
           result.value = adjustValue;
+          result.valueType =
+            typeof adjustValue === "number" ? "number" : "string";
         }
       }
     });
@@ -8317,23 +8361,23 @@ function hasCriticalSpecializationEffect(
 
         // Check if we have a predicate to evaluate
         if (predicate) {
+          // Build context for predicate evaluation
+          const context = { weapon: item, item: item };
+
+          // Add target conditions if target is off-guard
+          if (targetIsOffGuard) {
+            // Create a mock target with off-guard effect for trait collection
+            context.target = {
+              effects: [{ name: "Off-Guard" }],
+            };
+          }
+
           // Collect traits for evaluation
           const traits = collectTraitsAndProperties(record, context);
 
           // Try to parse as JSON predicate (new format)
           const parsedPredicate = parseModifierPredicate(predicate);
           if (parsedPredicate && parsedPredicate.length > 0) {
-            // Build context for predicate evaluation
-            const context = { weapon: item, item: item };
-
-            // Add target conditions if target is off-guard
-            if (targetIsOffGuard) {
-              // Create a mock target with off-guard effect for trait collection
-              context.target = {
-                effects: [{ name: "Off-Guard" }],
-              };
-            }
-
             // Evaluate using the new JSON predicate system
             const predicateResult = evaluateEffectPredicate(
               parsedPredicate,
@@ -8360,6 +8404,14 @@ function hasCriticalSpecializationEffect(
             }
           }
         } else if (predicateField) {
+          // Build context for predicate evaluation
+          const context = { weapon: item, item: item };
+          if (targetIsOffGuard) {
+            context.target = {
+              effects: [{ name: "Off-Guard" }],
+            };
+          }
+
           // Collect traits for evaluation
           const traits = collectTraitsAndProperties(record, context);
 
@@ -9188,6 +9240,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         mod.value.trim().toLowerCase().includes("resistance")
     )
@@ -9197,6 +9250,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         (mod.value.trim().toLowerCase().includes("immunities") ||
           mod.value.trim().toLowerCase().includes("immunity"))
@@ -9207,6 +9261,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         mod.value.trim().toLowerCase().includes("weakness")
     )
@@ -9953,6 +10008,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         mod.value.trim().toLowerCase().includes("resistance")
     )
@@ -9962,6 +10018,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         (mod.value.trim().toLowerCase().includes("immunities") ||
           mod.value.trim().toLowerCase().includes("immunity"))
@@ -9972,6 +10029,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     .filter(
       (mod) =>
         mod.valueType === "string" &&
+        typeof mod.value === "string" &&
         mod.value.trim().toLowerCase().startsWith("ignore") &&
         mod.value.trim().toLowerCase().includes("weakness")
     )
