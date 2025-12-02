@@ -692,9 +692,14 @@ const toSlug = (name) => {
  *
  * @param {Object} token - The token/record to check
  * @param {Object} context - Context object containing additional objects like weapon, spell, etc.
+ * @param {boolean} skipRollOptions - If true, skip adding stored rollOptions (used by updateRollOptions)
  * @returns {Set} Set of all trait strings (e.g., "self:trait:fire", "item:damage:type:slashing")
  */
-function collectTraitsAndProperties(token, context = {}) {
+function collectTraitsAndProperties(
+  token,
+  context = {},
+  skipRollOptions = false
+) {
   const traits = new Set();
 
   // Collect traits from the token itself
@@ -1093,7 +1098,117 @@ function collectTraitsAndProperties(token, context = {}) {
     });
   }
 
+  // Add stored rollOptions from the character record
+  // These are calculated and stored by updateRollOptions() in onAddEditFeature
+  // Skip if skipRollOptions is true (used when recalculating rollOptions)
+  if (!skipRollOptions && token?.data?.rollOptions) {
+    const rollOptions = Array.isArray(token.data.rollOptions)
+      ? token.data.rollOptions
+      : [];
+    rollOptions.forEach((option) => {
+      if (typeof option === "string" && option.trim()) {
+        traits.add(option.trim());
+      }
+    });
+  }
+
   return traits;
+}
+
+/**
+ * Recalculates and stores the active rollOptions for a character.
+ * Call this in onAddEditFeature to keep record.data.rollOptions up to date.
+ *
+ * @param {Object} record - The character record
+ * @param {Object} valuesToSet - Object to add the rollOptions update to
+ */
+function updateRollOptions(record, valuesToSet) {
+  if (!record) return;
+
+  // Get base traits WITHOUT stored rollOptions
+  const baseTraits = collectTraitsAndProperties(record, {}, true);
+
+  // Get all rollOption modifiers
+  const rollOptionModifiers = getEffectsAndModifiersForToken(
+    record,
+    ["rollOption"],
+    undefined,
+    undefined,
+    undefined,
+    {},
+    baseTraits // Pass base traits to evaluate predicates against
+  );
+
+  // Collect active rollOptions (single pass - no cascading)
+  const activeRollOptions = [];
+  rollOptionModifiers.forEach((rollOpt) => {
+    if (rollOpt.active && rollOpt.option) {
+      activeRollOptions.push(rollOpt.option);
+    }
+  });
+
+  // Also collect rollOptions from choices that have been made
+  // Helper to extract selectedRollOption from choices in features
+  const collectChoiceRollOptions = (features) => {
+    if (!Array.isArray(features)) return;
+    features.forEach((feature) => {
+      const choices = feature.data?.choices || [];
+      choices.forEach((choice) => {
+        // The selected choice data is stored as JSON string in choice.data.choices[0]
+        const selectedChoices = choice.data?.choices || [];
+        if (selectedChoices.length > 0) {
+          try {
+            const selectedData =
+              typeof selectedChoices[0] === "string"
+                ? JSON.parse(selectedChoices[0])
+                : selectedChoices[0];
+            if (selectedData?.selectedRollOption) {
+              activeRollOptions.push(selectedData.selectedRollOption);
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      });
+    });
+  };
+
+  // Collect from all feature sources
+  collectChoiceRollOptions(record.data?.feats);
+  collectChoiceRollOptions(record.data?.bonusFeats);
+  collectChoiceRollOptions(record.data?.features);
+
+  // Collect from ancestry features
+  if (record.data?.ancestries) {
+    record.data.ancestries.forEach((ancestry) => {
+      collectChoiceRollOptions(ancestry.data?.features);
+    });
+  }
+
+  // Collect from heritage features
+  if (record.data?.heritages) {
+    record.data.heritages.forEach((heritage) => {
+      collectChoiceRollOptions(heritage.data?.features);
+    });
+  }
+
+  // Collect from class features
+  if (record.data?.classes) {
+    record.data.classes.forEach((classObj) => {
+      collectChoiceRollOptions(classObj.data?.features);
+    });
+  }
+
+  // Only update if rollOptions actually changed
+  const currentRollOptions = record.data?.rollOptions || [];
+  const hasChanged =
+    activeRollOptions.length !== currentRollOptions.length ||
+    activeRollOptions.some((opt) => !currentRollOptions.includes(opt)) ||
+    currentRollOptions.some((opt) => !activeRollOptions.includes(opt));
+
+  if (hasChanged) {
+    valuesToSet["data.rollOptions"] = activeRollOptions;
+  }
 }
 
 /**
@@ -1542,7 +1657,8 @@ function getEffectsAndModifiersForToken(
   field = "",
   itemId = undefined,
   appliedById = undefined,
-  context = {}
+  context = {},
+  prebuiltTraitsSet = null
 ) {
   if (!target) {
     return [];
@@ -1550,7 +1666,9 @@ function getEffectsAndModifiersForToken(
   let results = [];
 
   // Collect traits and properties for predicate evaluation
-  const traitsSet = collectTraitsAndProperties(target, context);
+  // If a prebuilt traitsSet is provided, use it (to avoid circular dependency with collectTraitsAndProperties)
+  const traitsSet =
+    prebuiltTraitsSet || collectTraitsAndProperties(target, context);
 
   // For effects we also need to check those that include -circumstance, -item, -status,
   // so make a new array to include those
@@ -1941,8 +2059,17 @@ function getEffectsAndModifiersForToken(
         value = modifier.data?.effectValue || "";
       }
 
-      // Only relevant if it has a value (activeEffect can have empty string values, so allow those)
-      if (value !== 0 || ruleType === "activeEffect") {
+      // If this is rollOption, the value is the option string to add as a trait
+      if (ruleType === "rollOption") {
+        value = modifier.data?.option || "";
+      }
+
+      // Only relevant if it has a value (activeEffect and rollOption can have empty string values, so allow those)
+      if (
+        value !== 0 ||
+        ruleType === "activeEffect" ||
+        ruleType === "rollOption"
+      ) {
         // Check if this only applies to equipped item and mark it with ID if so
         const itemOnly = modifier.data?.itemOnly || false;
         const resultObj = {
@@ -1967,6 +2094,11 @@ function getEffectsAndModifiersForToken(
         if (ruleType === "activeEffect") {
           resultObj.effectField = modifier.data?.effectField || "";
           resultObj.effectMode = modifier.data?.effectMode || "override";
+        }
+
+        // Add rollOption-specific fields
+        if (ruleType === "rollOption") {
+          resultObj.option = modifier.data?.option || "";
         }
 
         results.push(resultObj);
@@ -3475,6 +3607,9 @@ function processChoices(record, depth = 0) {
     },
   ];
 
+  // Collect traits for predicate evaluation
+  const traitsSet = collectTraitsAndProperties(record, {});
+
   // Now check for choices that are not yet provided
   const choicesToMake = [];
 
@@ -3487,6 +3622,22 @@ function processChoices(record, depth = 0) {
 
         // Check each choice object to see if a selection has been made
         for (const choiceObj of choiceObjects) {
+          // Check if this choice object has a predicate that needs to pass
+          if (choiceObj.data?.predicate) {
+            const parsedPredicate = parseModifierPredicate(
+              choiceObj.data.predicate
+            );
+            const predicatePassed = evaluateEffectPredicate(
+              parsedPredicate,
+              traitsSet,
+              record,
+              {}
+            );
+            if (!predicatePassed) {
+              continue; // Skip this choice if predicate fails
+            }
+          }
+
           const selectedChoices = choiceObj.data?.choices || [];
           const options = choiceObj.data?.options || [];
           const hasQuery =
@@ -3629,6 +3780,9 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     let itemsToAdd = [];
     let selectedChoiceData = {};
 
+    // Check if this choice has a rollOption prefix
+    const rollOptionPrefix = choiceObj.data?.rollOption;
+
     if (useQuery) {
       // When using query, the selected item is the full record
       const selectedRecord = selectedOptions[0];
@@ -3642,6 +3796,13 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         _id: selectedRecord._id,
         name: selectedRecord.name,
       };
+
+      // If rollOption prefix is set, construct the full rollOption
+      if (rollOptionPrefix) {
+        selectedChoiceData.selectedRollOption = `${rollOptionPrefix}:${toSlug(
+          selectedRecord.name
+        )}`;
+      }
 
       // Add the selected record to items
       itemsToAdd = [selectedRecord];
@@ -3671,12 +3832,35 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         name: selectedOption.name,
       };
 
+      // If rollOption prefix is set, construct the full rollOption
+      if (rollOptionPrefix) {
+        selectedChoiceData.selectedRollOption = `${rollOptionPrefix}:${toSlug(
+          selectedOption.name
+        )}`;
+      }
+
       // Get items from the selected option's data.value array
       itemsToAdd = selectedOption.data?.value || [];
     }
 
     // Prepare values to set
     const valuesToSet = {};
+
+    // Handle flag storage if flag is set
+    const flagName = choiceObj.data?.flag;
+    if (flagName) {
+      const selectedName = selectedChoiceData.name;
+      const sluggedName = toSlug(selectedName);
+
+      // Initialize flags structure if it doesn't exist
+      const currentFlags = record.data?.flags || {};
+      const flagGroup = currentFlags[flagName] || {};
+
+      // Add the slugged choice to the flag group
+      flagGroup[sluggedName] = true;
+
+      valuesToSet[`data.flags.${flagName}`] = flagGroup;
+    }
 
     // We'll need to update the feature with the choice selection
     // IMPORTANT: Re-fetch the current feature from `record` instead of using the stale
@@ -3983,6 +4167,21 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       // Prepare values to set
       const valuesToSet = {};
 
+      // Handle flag storage if flag is set
+      const flagName = choiceObj.data?.flag;
+      if (flagName) {
+        const sluggedName = toSlug(value);
+
+        // Initialize flags structure if it doesn't exist
+        const currentFlags = record.data?.flags || {};
+        const flagGroup = currentFlags[flagName] || {};
+
+        // Add the slugged choice to the flag group
+        flagGroup[sluggedName] = true;
+
+        valuesToSet[`data.flags.${flagName}`] = flagGroup;
+      }
+
       // IMPORTANT: Re-fetch the current feature from `record` instead of using the stale
       // `feature` from choicesToMake, since previous choices may have updated it
       let currentFeature = feature; // default fallback
@@ -4171,7 +4370,26 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
   } else {
     // Use options list
     const options = choiceObj.data?.options || [];
-    const promptOptions = options.map((option) => ({
+
+    // Collect traits for predicate evaluation
+    const traitsSet = collectTraitsAndProperties(record, {});
+
+    // Filter options by predicate if set
+    const filteredOptions = options.filter((option) => {
+      if (option.data?.predicate) {
+        const parsedPredicate = parseModifierPredicate(option.data.predicate);
+        const predicatePassed = evaluateEffectPredicate(
+          parsedPredicate,
+          traitsSet,
+          record,
+          {}
+        );
+        return predicatePassed;
+      }
+      return true; // Include option if no predicate
+    });
+
+    const promptOptions = filteredOptions.map((option) => ({
       label: option.name || "Option",
       value: option._id,
     }));
@@ -5223,12 +5441,30 @@ function setProvidedItems(record, callback = undefined) {
     }
   }
 
+  // Collect traits for predicate evaluation
+  const traitsSet = collectTraitsAndProperties(record, {});
+
   // Second pass: Collect all provided items from valid sources
   const providedItems = [];
   for (const source of validSources) {
     // Add items from providesItems
     if (source.data?.providesItems && source.data.providesItems.length > 0) {
-      providedItems.push(...source.data.providesItems);
+      // Filter items by predicate if set
+      for (const item of source.data.providesItems) {
+        if (item.data?.predicate) {
+          const parsedPredicate = parseModifierPredicate(item.data.predicate);
+          const predicatePassed = evaluateEffectPredicate(
+            parsedPredicate,
+            traitsSet,
+            record,
+            {}
+          );
+          if (!predicatePassed) {
+            continue; // Skip this item if predicate fails
+          }
+        }
+        providedItems.push(item);
+      }
     }
 
     // Add items from conditionalGrants based on flag values
@@ -5638,6 +5874,9 @@ function onAddEditFeature(
   ]);
 
   const valuesToSet = {};
+
+  // Update rollOptions first (these affect predicate evaluation for other modifiers)
+  updateRollOptions(record, valuesToSet);
 
   // Initialize total modifier values for each ability
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];

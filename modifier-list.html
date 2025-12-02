@@ -29,6 +29,7 @@
     let showAdjustDegreeOfSuccessField = false;
     let showAdjustModifierField = false;
     let showActiveEffectField = false;
+    let showRollOptionField = false;
 
     if (typeValue === "attributeBonus") {
       showAttributeField = true;
@@ -82,6 +83,11 @@
       // Weapon proficiency uses predicate to match weapons, value is the rank (1=trained, 2=expert, etc.)
       showFieldField = false;
       showValueField = true;
+    } else if (typeValue === "rollOption") {
+      // Roll option adds a trait to the character if predicate passes
+      showFieldField = false;
+      showValueField = false;
+      showRollOptionField = true;
     }
 
     if (modifier.fields?.value?.hidden !== !showValueField) {
@@ -127,6 +133,10 @@
     if (modifier.fields?.activeEffectBox?.hidden !== !showActiveEffectField) {
       valuesToSet[`${modPath}.fields.activeEffectBox.hidden`] =
         !showActiveEffectField;
+    }
+    if (modifier.fields?.rollOptionBox?.hidden !== !showRollOptionField) {
+      valuesToSet[`${modPath}.fields.rollOptionBox.hidden`] =
+        !showRollOptionField;
     }
 
     if (Object.keys(valuesToSet).length > 0) {
@@ -202,7 +212,8 @@
       {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
       {"label": "Armor Specialization Effect", "value": "armorSpecialization"},
       {"label": "Active Effect", "value": "activeEffect"},
-      {"label": "Weapon Proficiency", "value": "weaponProficiency"}
+      {"label": "Weapon Proficiency", "value": "weaponProficiency"},
+      {"label": "Roll Option", "value": "rollOption"}
       ]'
   >
   </dropdown>
@@ -501,6 +512,16 @@
       {"label": "Append (add to array)", "value": "append"},
       {"label": "Remove (remove from array)", "value": "remove"}]'
   ></dropdown>
+</box>
+
+<box field="rollOptionBox" hidden="true">
+  <stringfield
+    width="100%"
+    size="xs"
+    field="option"
+    label="Option (Trait to Add)"
+    placeholder="Enter trait to add when predicate passes (e.g., junction:air:impulse)"
+  ></stringfield>
 </box>
 
 <stringfield

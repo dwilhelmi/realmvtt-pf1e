@@ -14,6 +14,28 @@
     placeholder="Enter Prompt Description..."
     width="100%"
   ></stringfield>
+  <stringfield
+    size="xs"
+    label="Predicate"
+    placeholder="Enter predicate..."
+    description="If this predicate is true, the choice will be shown to the player."
+    multiline="true"
+    field="predicate"
+  ></stringfield>
+  <stringfield
+    size="xs"
+    label="Roll Option Prefix"
+    placeholder="e.g., kinetic-gate:first-element"
+    description="If set, adds {prefix}:{selected-slug} as a roll option when choice is made."
+    field="rollOption"
+  ></stringfield>
+  <stringfield
+    size="xs"
+    label="Flag"
+    placeholder="e.g., weaponLegend"
+    description="If set, stores selection in record.data.flags.{flag}.{selected-slug}"
+    field="flag"
+  ></stringfield>
   <div style="margin-top: 4px">
     <checkbox
       field="isTextInput"
