@@ -3827,16 +3827,18 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         return;
       }
 
+      // Use custom slug if set, otherwise convert name to slug
+      const slug = selectedOption.data?.slug || toSlug(selectedOption.name);
+
       selectedChoiceData = {
         _id: selectedOption._id,
         name: selectedOption.name,
+        slug: slug, // Store the slug for later use
       };
 
       // If rollOption prefix is set, construct the full rollOption
       if (rollOptionPrefix) {
-        selectedChoiceData.selectedRollOption = `${rollOptionPrefix}:${toSlug(
-          selectedOption.name
-        )}`;
+        selectedChoiceData.selectedRollOption = `${rollOptionPrefix}:${slug}`;
       }
 
       // Get items from the selected option's data.value array
@@ -3849,8 +3851,9 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     // Handle flag storage if flag is set
     const flagName = choiceObj.data?.flag;
     if (flagName) {
-      const selectedName = selectedChoiceData.name;
-      const sluggedName = toSlug(selectedName);
+      // Use the stored slug if available (from options), otherwise convert name to slug
+      const sluggedName =
+        selectedChoiceData.slug || toSlug(selectedChoiceData.name);
 
       // Store the slugged choice as a string in the flag
       valuesToSet[`data.flags.${flagName}`] = sluggedName;
@@ -12346,4 +12349,291 @@ function treatWounds() {
     "Cancel",
     1
   );
+}
+
+// Elemental Blast - Kineticist impulse attack
+function elementalBlast() {
+  const record = api.getToken();
+  if (!record) {
+    api.showNotification("No character selected", "red", "Error");
+    return;
+  }
+
+  // Element configuration: damage die, damage types available, and range
+  const elementData = {
+    air: {
+      die: "d6",
+      types: ["electricity", "slashing"],
+      range: 60,
+    },
+    earth: {
+      die: "d8",
+      types: ["bludgeoning", "piercing"],
+      range: 30,
+    },
+    fire: {
+      die: "d6",
+      types: ["fire"],
+      range: 60,
+    },
+    metal: {
+      die: "d8",
+      types: ["piercing", "slashing"],
+      range: 30,
+    },
+    water: {
+      die: "d8",
+      types: ["bludgeoning", "cold"],
+      range: 30,
+    },
+    wood: {
+      die: "d8",
+      types: ["bludgeoning", "vitality"],
+      range: 30,
+    },
+  };
+
+  // Check which elements the character has access to via flags
+  const availableElements = new Set();
+  const flags = record.data?.flags || {};
+
+  // Iterate through all flags and check for any that start with "element"
+  Object.keys(flags).forEach((flagKey) => {
+    if (flagKey.toLowerCase().startsWith("element")) {
+      const element = flags[flagKey];
+      if (element && elementData[element.toLowerCase().replace("-gate", "")]) {
+        availableElements.add(element.toLowerCase().replace("-gate", ""));
+      }
+    }
+  });
+
+  // Helper function to continue with a selected element
+  const continueWithElement = (element) => {
+    const elementKey = element.toLowerCase();
+    if (!elementData[elementKey]) {
+      api.showNotification(
+        `Invalid element: ${element}. Valid options: air, earth, fire, metal, water, wood`,
+        "red",
+        "Error"
+      );
+      return;
+    }
+
+    const chosenElement = elementData[elementKey];
+    const level = record.data?.level || 1;
+
+    // Calculate number of damage dice (base + 1 per 4 levels)
+    const damageDice = 1 + Math.floor(level / 4);
+
+    // Helper function to continue with the selected damage type
+    const continueWithDamageType = (selectedDamageType) => {
+      // Extract from array if needed (api.showPrompt returns arrays)
+      selectedDamageType = Array.isArray(selectedDamageType)
+        ? selectedDamageType[0]
+        : selectedDamageType;
+      if (!selectedDamageType) return;
+
+      // Step 2: Prompt for melee or ranged
+      const attackTypeOptions = [
+        { label: "Melee", value: "melee" },
+        { label: `Ranged (${chosenElement.range} feet)`, value: "ranged" },
+      ];
+
+      api.showPrompt(
+        "Elemental Blast - Attack Type",
+        "Choose melee or ranged attack:",
+        "Select Type...",
+        attackTypeOptions,
+        null,
+        (selectedAttackType) => {
+          // Extract from array if needed (api.showPrompt returns arrays)
+          selectedAttackType = Array.isArray(selectedAttackType)
+            ? selectedAttackType[0]
+            : selectedAttackType;
+          if (!selectedAttackType) return;
+
+          // Step 3: Prompt for action count
+          const actionOptions = [
+            { label: "1 Action", value: "1" },
+            { label: "2 Actions (add Constitution to damage)", value: "2" },
+          ];
+
+          api.showPrompt(
+            "Elemental Blast - Actions",
+            "How many actions are you using?",
+            "Select Actions...",
+            actionOptions,
+            null,
+            (selectedActions) => {
+              // Extract from array if needed (api.showPrompt returns arrays)
+              selectedActions = Array.isArray(selectedActions)
+                ? selectedActions[0]
+                : selectedActions;
+              if (!selectedActions) return;
+
+              const isMelee = selectedAttackType === "melee";
+              const isTwoAction = selectedActions === "2";
+
+              // Build traits array
+              const traits = [
+                "attack",
+                "impulse",
+                "kineticist",
+                "primal",
+                elementKey,
+              ];
+
+              // Add damage type as trait if it's not a physical damage type
+              const physicalTypes = ["bludgeoning", "piercing", "slashing"];
+              if (!physicalTypes.includes(selectedDamageType.toLowerCase())) {
+                traits.push(selectedDamageType.toLowerCase());
+              }
+
+              // Add range trait if ranged
+              if (!isMelee) {
+                traits.push(`range ${chosenElement.range}`);
+              }
+
+              // Build damage formula
+              const damageFormula = `${damageDice}${chosenElement.die}`;
+
+              // If 2-action version, add Constitution modifier directly to damage
+              const conMod = isTwoAction ? record.data?.con || 0 : 0;
+
+              // Build damageRolls array
+              const damageRolls = [
+                {
+                  _id: generateUuid(),
+                  data: {
+                    formula: damageFormula,
+                    type: selectedDamageType,
+                    category: "standard",
+                    modifier: conMod,
+                  },
+                },
+              ];
+
+              // Calculate impulse attack bonus (Class DC - 10)
+              const classDC = record.data?.classDC || 10;
+              const impulseAttackBonus = classDC - 10;
+
+              // For melee impulse attacks, add Strength modifier
+              let meleeMod = 0;
+              if (isMelee) {
+                meleeMod = record.data?.str || 0;
+              }
+
+              // Create synthetic weapon object for the impulse attack
+              const syntheticWeapon = {
+                _id: generateUuid(),
+                name: `Elemental Blast (${
+                  elementKey.charAt(0).toUpperCase() + elementKey.slice(1)
+                })`,
+                recordType: "npc_attacks",
+                data: {
+                  weaponType: isMelee ? "melee" : "ranged",
+                  range: isMelee ? 0 : chosenElement.range,
+                  traits: traits,
+                  damageRolls: damageRolls,
+                  bonus: impulseAttackBonus + meleeMod, // Impulse attack bonus + Strength for melee
+                },
+              };
+
+              // Perform the attack roll using the existing function
+              performAttackRoll(record, syntheticWeapon, null, 1);
+            },
+            "Roll Attack",
+            "Cancel",
+            1
+          );
+        },
+        "Continue",
+        "Cancel",
+        1
+      );
+    };
+
+    // Step 1: Prompt for damage type (if element has multiple options)
+    const damageTypeOptions = chosenElement.types.map((type) => ({
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      value: type,
+    }));
+
+    if (damageTypeOptions.length === 1) {
+      // Only one option, use it directly
+      continueWithDamageType(damageTypeOptions[0].value);
+    } else {
+      api.showPrompt(
+        "Elemental Blast - Damage Type",
+        `Choose the damage type for your ${elementKey} blast:`,
+        "Select Type...",
+        damageTypeOptions,
+        null,
+        (selectedDamageType) => {
+          continueWithDamageType(selectedDamageType);
+        },
+        "Continue",
+        "Cancel",
+        1
+      );
+    }
+  }; // End of continueWithElement
+
+  // Determine which elements to offer based on character flags
+  const elementArray = Array.from(availableElements);
+
+  if (elementArray.length === 0) {
+    // No elements in flags, prompt for all elements
+    const allElementOptions = Object.keys(elementData).map((key) => ({
+      label: key.charAt(0).toUpperCase() + key.slice(1),
+      value: key,
+    }));
+
+    api.showPrompt(
+      "Elemental Blast - Choose Element",
+      "Choose your element:",
+      "Select Element...",
+      allElementOptions,
+      null,
+      (selectedElement) => {
+        selectedElement = Array.isArray(selectedElement)
+          ? selectedElement[0]
+          : selectedElement;
+        if (selectedElement) {
+          continueWithElement(selectedElement);
+        }
+      },
+      "Continue",
+      "Cancel",
+      1
+    );
+  } else if (elementArray.length === 1) {
+    // Only one element available, use it directly
+    continueWithElement(elementArray[0]);
+  } else {
+    // Multiple elements available, prompt for selection
+    const elementOptions = elementArray.map((key) => ({
+      label: key.charAt(0).toUpperCase() + key.slice(1),
+      value: key,
+    }));
+
+    api.showPrompt(
+      "Elemental Blast - Choose Element",
+      "Choose your element:",
+      "Select Element...",
+      elementOptions,
+      null,
+      (selectedElement) => {
+        selectedElement = Array.isArray(selectedElement)
+          ? selectedElement[0]
+          : selectedElement;
+        if (selectedElement) {
+          continueWithElement(selectedElement);
+        }
+      },
+      "Continue",
+      "Cancel",
+      1
+    );
+  }
 }

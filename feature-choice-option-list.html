@@ -7,6 +7,14 @@
     placeholder="Enter Prompt Name..."
     width="100%"
   ></namefield>
+  <stringfield
+    field="slug"
+    label="Slug (optional)"
+    size="xs"
+    placeholder="custom-slug (leave empty to auto-generate)"
+    width="100%"
+    description="If set, uses this slug for flags/roll options. Otherwise, auto-generates from name."
+  ></stringfield>
   <label label="Option Value" size="xs" textalign="left" variant="bold"></label>
   <list field="value" variant="outline" listtype="provides_item_list"></list>
 </div>
