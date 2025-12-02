@@ -3852,14 +3852,8 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       const selectedName = selectedChoiceData.name;
       const sluggedName = toSlug(selectedName);
 
-      // Initialize flags structure if it doesn't exist
-      const currentFlags = record.data?.flags || {};
-      const flagGroup = currentFlags[flagName] || {};
-
-      // Add the slugged choice to the flag group
-      flagGroup[sluggedName] = true;
-
-      valuesToSet[`data.flags.${flagName}`] = flagGroup;
+      // Store the slugged choice as a string in the flag
+      valuesToSet[`data.flags.${flagName}`] = sluggedName;
     }
 
     // We'll need to update the feature with the choice selection
@@ -4172,14 +4166,8 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       if (flagName) {
         const sluggedName = toSlug(value);
 
-        // Initialize flags structure if it doesn't exist
-        const currentFlags = record.data?.flags || {};
-        const flagGroup = currentFlags[flagName] || {};
-
-        // Add the slugged choice to the flag group
-        flagGroup[sluggedName] = true;
-
-        valuesToSet[`data.flags.${flagName}`] = flagGroup;
+        // Store the slugged choice as a string in the flag
+        valuesToSet[`data.flags.${flagName}`] = sluggedName;
       }
 
       // IMPORTANT: Re-fetch the current feature from `record` instead of using the stale
