@@ -3776,6 +3776,73 @@ function addFeatsToCharacter(record, feats, callback = undefined) {
   collectFeats(feats);
 }
 
+// Helper function to process query strings with actor template patterns like {actor|system.details.class.trait}
+// If the actor has a class, replaces the pattern with the class trait (e.g., "fighter")
+// If the actor has no class, removes the entire query filter containing the pattern
+function processQueryActorTemplates(queryString, record) {
+  const actorClassPattern = /\{actor\|system\.details\.class\.trait\}/g;
+
+  // Check if the pattern exists in the query
+  if (!actorClassPattern.test(queryString)) {
+    return queryString; // No pattern found, return as-is
+  }
+
+  // Get the class trait from the record
+  const classes = Array.isArray(record?.data?.classes)
+    ? record.data.classes
+    : [];
+  const className = classes[0]?.name || "";
+  const classTrait = className
+    ? className.toLowerCase().replace(/\s+/g, "-")
+    : "";
+
+  if (classTrait) {
+    // Has a class - simple string replacement
+    return queryString.replace(actorClassPattern, classTrait);
+  } else {
+    // No class - need to remove the filter containing this pattern
+    // Parse the JSON, find and remove properties that contain the pattern, then stringify
+    try {
+      const queryObj = JSON.parse(queryString);
+
+      // Recursively remove properties that contain the actor class pattern
+      const removeActorClassFilters = (obj) => {
+        if (typeof obj !== "object" || obj === null) {
+          return obj;
+        }
+
+        if (Array.isArray(obj)) {
+          return obj
+            .map((item) => removeActorClassFilters(item))
+            .filter((item) => item !== null);
+        }
+
+        const result = {};
+        for (const key of Object.keys(obj)) {
+          const value = obj[key];
+
+          // Check if this key-value pair contains the actor class pattern
+          const valueStr = JSON.stringify(value);
+          if (valueStr.includes("{actor|system.details.class.trait}")) {
+            // Skip this property entirely
+            continue;
+          }
+
+          // Recursively process nested objects
+          result[key] = removeActorClassFilters(value);
+        }
+        return result;
+      };
+
+      const cleanedQuery = removeActorClassFilters(queryObj);
+      return JSON.stringify(cleanedQuery);
+    } catch (e) {
+      console.error("Failed to process actor template in query:", e);
+      return queryString; // Return original on error
+    }
+  }
+}
+
 function promptForChoices(record, choicesToMake, index, depth = 0) {
   const MAX_CHOICE_DEPTH = 3;
 
@@ -3817,7 +3884,12 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
 
   if (queryString && queryString.trim() !== "") {
     try {
-      optionsQuery = JSON.parse(queryString);
+      // Process any actor template patterns (e.g., {actor|system.details.class.trait})
+      const processedQueryString = processQueryActorTemplates(
+        queryString,
+        record
+      );
+      optionsQuery = JSON.parse(processedQueryString);
       useQuery = true;
     } catch (e) {
       console.error("Failed to parse choice query:", e);
