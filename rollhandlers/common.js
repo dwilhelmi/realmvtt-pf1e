@@ -1098,6 +1098,48 @@ function collectTraitsAndProperties(
     }
   }
 
+  // Check for tokenMark rules on the TARGET's effects that were applied by this token
+  // This allows abilities like Hunt Prey to mark a target, and when attacking that target,
+  // the attacker gets the target:mark:{value} trait for predicate evaluation
+  if (
+    context.targets &&
+    Array.isArray(context.targets) &&
+    context.targets.length > 0
+  ) {
+    const ourToken = api.getToken();
+    const tokenId = ourToken?._id;
+    const recordId = token?.record?._id;
+    for (const target of context.targets) {
+      const targetRecord = target?.token;
+      const targetEffects = targetRecord?.effects || [];
+
+      targetEffects.forEach((effect) => {
+        const rules = effect.rules || [];
+        rules.forEach((rule) => {
+          if (rule.type === "tokenMark" && rule.value) {
+            // Check if this effect was applied by the current token (attacker)
+            const effectValue = targetRecord?.effectValues?.[effect?._id];
+            const appliedById = effectValue?.tokenId;
+
+            if (
+              (appliedById &&
+                (appliedById === tokenId || appliedById === recordId)) ||
+              appliedById === undefined ||
+              appliedById === null
+            ) {
+              // This target has a mark effect applied by us - add the trait
+              const markValue =
+                typeof rule.value === "string"
+                  ? rule.value.toLowerCase().replace(/\s+/g, "-")
+                  : rule.value;
+              traits.add(`target:mark:${markValue}`);
+            }
+          }
+        });
+      });
+    }
+  }
+
   // Collect predicateValues from active toggles
   if (token?.data?.toggles) {
     const toggles = Array.isArray(token.data.toggles) ? token.data.toggles : [];
@@ -9103,6 +9145,9 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     damageMod.value = 0; // Don't add damage if conditions not met
   }
 
+  // Get targets early so we can pass them to modifier collection for target:mark predicates
+  const targets = api.getTargets();
+
   // Check for damageCalculation modifier
   // Don't filter by field - collect all and filter manually
   const attackType = isMelee && !isThrown ? "melee" : "ranged";
@@ -9113,7 +9158,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     undefined, // Don't filter by field here
     weapon._id,
     undefined,
-    { weapon }
+    { weapon, targets }
   );
 
   if (damageCalculationMod.length) {
@@ -9181,7 +9226,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     undefined,
     weapon._id,
     undefined,
-    { weapon }
+    { weapon, targets }
   );
   attackCalculationMod.forEach((mod) => {
     const attackCalculation = mod.field;
@@ -9266,7 +9311,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     isMelee ? "melee" : "ranged",
     weapon._id,
     undefined,
-    { weapon }
+    { weapon, targets }
   );
   otherBonusesAndPenalties.forEach((mod) => {
     const modString = modToString(mod);
@@ -9284,7 +9329,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       "unarmed",
       weapon._id,
       undefined,
-      { weapon }
+      { weapon, targets }
     );
     unarmedBonusesAndPenalties.forEach((mod) => {
       const modString = modToString(mod);
@@ -9302,7 +9347,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     abilityScore,
     weapon._id,
     undefined,
-    { weapon }
+    { weapon, targets }
   );
   statBonusesAndPenalties.forEach((mod) => {
     const modString = modToString(mod);
@@ -9369,7 +9414,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       isSpell ? "spell" : "attack",
       weapon._id,
       undefined,
-      { weapon }
+      { weapon, targets }
     );
 
     if (mapReductionMod.length) {
@@ -9406,7 +9451,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     isMelee ? "melee" : "ranged",
     weapon._id,
     undefined,
-    { weapon }
+    { weapon, targets }
   );
 
   // Damage stat modifiers
@@ -9417,7 +9462,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageScore,
       weapon._id,
       undefined,
-      { weapon }
+      { weapon, targets }
     );
     // Create a Set from existing damage modifiers to avoid duplicates
     const seenDamageModifiers = new Set(
@@ -9551,7 +9596,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   );
 
   // Roll for each target or just once
-  const targets = api.getTargets();
   const ourToken = api.getToken();
   const otherTokens = api.getOtherTokens();
   if (targets.length > 0) {
@@ -9579,7 +9623,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           undefined,
           weapon._id,
           undefined,
-          { weapon }
+          { weapon, targets: [target] }
         );
         let ignoreRangePenalty = 0;
         for (const mod of ignoreRangePenaltyMod) {
@@ -9716,7 +9760,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         [attackField, abilityScore],
         weapon._id,
         undefined,
-        { weapon }
+        { weapon, targets: [target] }
       );
 
       const metadata = {
