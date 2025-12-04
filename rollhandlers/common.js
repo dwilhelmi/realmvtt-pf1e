@@ -372,18 +372,33 @@ function checkForReplacements(
     return api.getValueOnRecord(thisRecord, fullPath) || "";
   });
 
-  // Replace @dieSize with the spell's main damage die size
-  if (value.includes("@dieSize") && context?.spell) {
-    const dieSize = getSpellDieSize(context.spell);
+  // Replace @dieSize with the spell's or weapon's main damage die size
+  if (value.includes("@dieSize")) {
+    let dieSize = "";
+    if (context?.spell) {
+      dieSize = getSpellDieSize(context.spell);
+    } else if (context?.weapon) {
+      dieSize = context.weapon.data?.damage?.die || "";
+    }
     if (dieSize) {
+      // Strip leading 'd' if present to avoid duplication (e.g., 1d@dieSize -> 1d6 not 1dd6)
+      dieSize = dieSize.replace(/^d/i, "");
+      // Replace d@dieSize pattern first to avoid dd duplication
+      value = value.replaceAll("d@dieSize", "d" + dieSize);
+      // Then replace any remaining @dieSize
       value = value.replaceAll("@dieSize", dieSize);
     }
   }
 
   // Replace @weaponDie with the weapon's damage die
   if (value.includes("@weaponDie") && context?.weapon) {
-    const weaponDie = context.weapon.data?.damage?.die;
+    let weaponDie = context.weapon.data?.damage?.die;
     if (weaponDie) {
+      // Strip leading 'd' if present to avoid duplication (e.g., 1d@weaponDie -> 1d6 not 1dd6)
+      weaponDie = weaponDie.replace(/^d/i, "");
+      // Replace d@weaponDie pattern first to avoid dd duplication
+      value = value.replaceAll("d@weaponDie", "d" + weaponDie);
+      // Then replace any remaining @weaponDie
       value = value.replaceAll("@weaponDie", weaponDie);
     }
   }
@@ -12548,7 +12563,24 @@ function elementalBlast() {
                 meleeMod = record.data?.str || 0;
               }
 
-              // Get attack modifiers for elemental-blast
+              // Create synthetic weapon object for the impulse attack
+              const syntheticWeapon = {
+                _id: generateUuid(),
+                name: `Elemental Blast (${
+                  elementKey.charAt(0).toUpperCase() + elementKey.slice(1)
+                })`,
+                recordType: "npc_attacks",
+                data: {
+                  weaponType: isMelee ? "melee" : "ranged",
+                  range: isMelee ? 0 : chosenElement.range,
+                  traits: traits,
+                  damageRolls: damageRolls,
+                  damage: { die: chosenElement.die }, // For @dieSize replacement
+                  bonus: impulseAttackBonus + meleeMod, // Impulse attack bonus + Strength for melee
+                },
+              };
+
+              // Get attack modifiers for elemental-blast (now that weapon exists for context)
               const seenAttackMods = new Set();
               const extraAttackModifiers = [];
 
@@ -12556,7 +12588,10 @@ function elementalBlast() {
               const blastAttackMods = getEffectsAndModifiersForToken(
                 record,
                 ["attackBonus", "attackPenalty"],
-                "elemental-blast"
+                "elemental-blast",
+                undefined,
+                undefined,
+                { weapon: syntheticWeapon }
               );
               blastAttackMods.forEach((mod) => {
                 const modString = modToString(mod);
@@ -12570,7 +12605,10 @@ function elementalBlast() {
               const allAttackMods = getEffectsAndModifiersForToken(
                 record,
                 ["allBonus", "allPenalty"],
-                "elemental-blast"
+                "elemental-blast",
+                undefined,
+                undefined,
+                { weapon: syntheticWeapon }
               );
               allAttackMods.forEach((mod) => {
                 const modString = modToString(mod);
@@ -12588,7 +12626,10 @@ function elementalBlast() {
               const blastDamageMods = getEffectsAndModifiersForToken(
                 record,
                 ["damageBonus", "damagePenalty"],
-                "elemental-blast"
+                "elemental-blast",
+                undefined,
+                undefined,
+                { weapon: syntheticWeapon }
               );
               blastDamageMods.forEach((mod) => {
                 const modString = modToString(mod);
@@ -12598,23 +12639,9 @@ function elementalBlast() {
                 }
               });
 
-              // Create synthetic weapon object for the impulse attack
-              const syntheticWeapon = {
-                _id: generateUuid(),
-                name: `Elemental Blast (${
-                  elementKey.charAt(0).toUpperCase() + elementKey.slice(1)
-                })`,
-                recordType: "npc_attacks",
-                data: {
-                  weaponType: isMelee ? "melee" : "ranged",
-                  range: isMelee ? 0 : chosenElement.range,
-                  traits: traits,
-                  damageRolls: damageRolls,
-                  bonus: impulseAttackBonus + meleeMod, // Impulse attack bonus + Strength for melee
-                  extraAttackModifiers: extraAttackModifiers,
-                  extraDamageModifiers: extraDamageModifiers,
-                },
-              };
+              // Add the collected modifiers to the weapon
+              syntheticWeapon.data.extraAttackModifiers = extraAttackModifiers;
+              syntheticWeapon.data.extraDamageModifiers = extraDamageModifiers;
 
               // Perform the attack roll using the existing function
               performAttackRoll(record, syntheticWeapon, null, 1);
