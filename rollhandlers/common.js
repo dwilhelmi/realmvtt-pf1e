@@ -9297,6 +9297,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   });
 
+  // Add extra attack modifiers passed via weapon (e.g., from elemental blast)
+  if (weapon.data?.extraAttackModifiers) {
+    weapon.data.extraAttackModifiers.forEach((mod) => {
+      const modString = modToString(mod);
+      if (!seenAttackModifiers.has(modString)) {
+        seenAttackModifiers.add(modString);
+        modifiers.push(mod);
+      }
+    });
+  }
+
   // Check if weapon has nonlethal trait and add option to make it lethal
   const hasNonlethalTrait = traits.some(
     (trait) =>
@@ -9398,6 +9409,20 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       damageModifiers.map((mod) => modToString(mod))
     );
     damageStatModifiers.forEach((mod) => {
+      const modString = modToString(mod);
+      if (!seenDamageModifiers.has(modString)) {
+        seenDamageModifiers.add(modString);
+        damageModifiers.push(mod);
+      }
+    });
+  }
+
+  // Add extra damage modifiers passed via weapon (e.g., from elemental blast)
+  if (weapon.data?.extraDamageModifiers) {
+    const seenDamageModifiers = new Set(
+      damageModifiers.map((mod) => modToString(mod))
+    );
+    weapon.data.extraDamageModifiers.forEach((mod) => {
       const modString = modToString(mod);
       if (!seenDamageModifiers.has(modString)) {
         seenDamageModifiers.add(modString);
@@ -12523,6 +12548,56 @@ function elementalBlast() {
                 meleeMod = record.data?.str || 0;
               }
 
+              // Get attack modifiers for elemental-blast
+              const seenAttackMods = new Set();
+              const extraAttackModifiers = [];
+
+              // Get elemental-blast specific attack modifiers
+              const blastAttackMods = getEffectsAndModifiersForToken(
+                record,
+                ["attackBonus", "attackPenalty"],
+                "elemental-blast"
+              );
+              blastAttackMods.forEach((mod) => {
+                const modString = modToString(mod);
+                if (!seenAttackMods.has(modString)) {
+                  seenAttackMods.add(modString);
+                  extraAttackModifiers.push(mod);
+                }
+              });
+
+              // Also get general all bonuses/penalties for elemental-blast
+              const allAttackMods = getEffectsAndModifiersForToken(
+                record,
+                ["allBonus", "allPenalty"],
+                "elemental-blast"
+              );
+              allAttackMods.forEach((mod) => {
+                const modString = modToString(mod);
+                if (!seenAttackMods.has(modString)) {
+                  seenAttackMods.add(modString);
+                  extraAttackModifiers.push(mod);
+                }
+              });
+
+              // Get damage modifiers for elemental-blast
+              const seenDamageMods = new Set();
+              const extraDamageModifiers = [];
+
+              // Get elemental-blast specific damage modifiers
+              const blastDamageMods = getEffectsAndModifiersForToken(
+                record,
+                ["damageBonus", "damagePenalty"],
+                "elemental-blast"
+              );
+              blastDamageMods.forEach((mod) => {
+                const modString = modToString(mod);
+                if (!seenDamageMods.has(modString)) {
+                  seenDamageMods.add(modString);
+                  extraDamageModifiers.push(mod);
+                }
+              });
+
               // Create synthetic weapon object for the impulse attack
               const syntheticWeapon = {
                 _id: generateUuid(),
@@ -12536,6 +12611,8 @@ function elementalBlast() {
                   traits: traits,
                   damageRolls: damageRolls,
                   bonus: impulseAttackBonus + meleeMod, // Impulse attack bonus + Strength for melee
+                  extraAttackModifiers: extraAttackModifiers,
+                  extraDamageModifiers: extraDamageModifiers,
                 },
               };
 
