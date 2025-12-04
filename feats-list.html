@@ -5,88 +5,99 @@
     const feat = recordLink?.value;
 
     if (value === "feats") {
-      // If this is a feat slot, we set it
-      const valuesToSet = {};
+      // Requery the record to get the latest record
+      api.getRecord(record.recordType, record._id, (updatedRecord) => {
+        onDropFeat(updatedRecord, value, recordLink);
+      });
+    }
+  }
 
-      // Make sure it matches the LEVEL of the slots and the featSlotType else
-      // notify error
-      const featLevel = parseInt(feat?.data?.level || "0", 10);
-      const slotLevel = parseInt(featSlot?.data?.level || "0", 10);
-      const featSlotType = featSlot?.data?.featSlotType;
-      const featType = feat?.data?.type;
+  function onDropFeat(updatedRecord, value, recordLink) {
+    const dataPathToFeat = getNearestParentDataPath(dataPath);
+    const featSlot = api.getValueOnRecord(updatedRecord, dataPathToFeat);
+    const feat = recordLink?.value;
 
-      // Check if feat level is too high for the slot
-      if (featLevel > slotLevel) {
-        api.showNotification(
-          `This slot requires a level of ${slotLevel} or lower.`,
-          "red",
-          "Feat Level Mismatch"
-        );
-        return;
-      }
+    // If this is a feat slot, we set it
+    const valuesToSet = {};
 
-      // Check if feat type matches slot type
-      if (featSlotType === "ancestry" && featType !== "ancestry") {
-        api.showNotification(
-          `This slot only accepts Ancestry feats.`,
-          "red",
-          "Feat Type Mismatch"
-        );
-        return;
-      }
+    // Make sure it matches the LEVEL of the slots and the featSlotType else
+    // notify error
+    const featLevel = parseInt(feat?.data?.level || "0", 10);
+    const slotLevel = parseInt(featSlot?.data?.level || "0", 10);
+    const featSlotType = featSlot?.data?.featSlotType;
+    const featType = feat?.data?.type;
 
-      if (featSlotType === "class" && featType !== "class") {
-        api.showNotification(
-          `This slot only accepts Class feats.`,
-          "red",
-          "Feat Type Mismatch"
-        );
-        return;
-      }
+    // Check if feat level is too high for the slot
+    if (featLevel > slotLevel) {
+      api.showNotification(
+        `This slot requires a level of ${slotLevel} or lower.`,
+        "red",
+        "Feat Level Mismatch"
+      );
+      return;
+    }
 
-      if (
-        featSlotType === "general" &&
-        featType !== "general" &&
-        featType !== "skill"
-      ) {
-        api.showNotification(
-          `This slot only accepts General or Skill feats.`,
-          "red",
-          "Feat Type Mismatch"
-        );
-        return;
-      }
+    // Check if feat type matches slot type
+    if (featSlotType === "ancestry" && featType !== "ancestry") {
+      api.showNotification(
+        `This slot only accepts Ancestry feats.`,
+        "red",
+        "Feat Type Mismatch"
+      );
+      return;
+    }
 
-      if (featSlotType === "skill" && featType !== "skill") {
-        api.showNotification(
-          `This slot only accepts Skill feats.`,
-          "red",
-          "Feat Type Mismatch"
-        );
-        return;
-      }
+    if (featSlotType === "class" && featType !== "class") {
+      api.showNotification(
+        `This slot only accepts Class feats.`,
+        "red",
+        "Feat Type Mismatch"
+      );
+      return;
+    }
 
-      if (featSlot.data?.type === "slot") {
-        valuesToSet[`${dataPathToFeat}`] = {
-          ...feat,
-          _id: featSlot?._id,
-          data: {
-            ...feat?.data,
-            level: featSlot?.data?.level,
-            featSlotType: featSlot?.data?.featSlotType,
-            slotOrder: featSlot?.data?.slotOrder,
-          },
-          fields: {
-            ...(feat?.fields || {}),
-            featDetails: { hidden: false },
-            featSlot: { hidden: true },
-          },
-        };
+    if (
+      featSlotType === "general" &&
+      featType !== "general" &&
+      featType !== "skill"
+    ) {
+      api.showNotification(
+        `This slot only accepts General or Skill feats.`,
+        "red",
+        "Feat Type Mismatch"
+      );
+      return;
+    }
 
-        api.setValues(valuesToSet, (updatedRecord) => {
-          onAddEditFeature(updatedRecord);
-        });
-      }
+    if (featSlotType === "skill" && featType !== "skill") {
+      api.showNotification(
+        `This slot only accepts Skill feats.`,
+        "red",
+        "Feat Type Mismatch"
+      );
+      return;
+    }
+
+    if (featSlot.data?.type === "slot") {
+      valuesToSet[`${dataPathToFeat}`] = {
+        ...feat,
+        _id: featSlot?._id,
+        data: {
+          ...feat?.data,
+          level: featSlot?.data?.level,
+          featSlotType: featSlot?.data?.featSlotType,
+          slotOrder: featSlot?.data?.slotOrder,
+        },
+        fields: {
+          ...(feat?.fields || {}),
+          featDetails: { hidden: false },
+          featSlot: { hidden: true },
+        },
+      };
+
+      api.setValuesOnRecord(updatedRecord, valuesToSet, (updatedRecord2) => {
+        onAddEditFeature(updatedRecord2);
+      });
     }
   }
 
