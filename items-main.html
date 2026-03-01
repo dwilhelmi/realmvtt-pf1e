@@ -117,7 +117,7 @@
       item.data?.traits &&
       Array.isArray(item.data.traits) &&
       item.data.traits.some(
-        (trait) => trait && trait.toString().toLowerCase() === "consumable"
+        (trait) => trait && trait.toString().toLowerCase() === "consumable",
       );
     const isWeapon = item.data?.type === "weapon";
 
@@ -314,7 +314,7 @@
       label="Traits"
       optionsfunction="return getTraitOptions();"
       hidewhenidentified="false"
-      onchange="onTraitsChange(value);"
+      onchange="onTraitsChange(value)"
     >
     </dropdown>
   </box>
@@ -331,7 +331,7 @@
           <numberfield
             field="level"
             label="Level"
-            onchange="showHideFields();"
+            onchange="showHideFields()"
             width="100%"
             minvalue="0"
             placeholder="0"
@@ -341,7 +341,7 @@
           multiselect="1"
           width="100%"
           placeholder="Select Type"
-          onchange="showHideFields();"
+          onchange="showHideFields()"
           field="type"
           label="Type"
           options='[{"label": "Armor", "value": "armor"}, {
