@@ -97,7 +97,7 @@
     // Bombs and thrown weapons don't use ammo select
     const isBomb = weapon?.data?.group?.toLowerCase() === "bomb";
     const isThrown = weapon?.data?.traits?.some((trait) =>
-      trait.toLowerCase().startsWith("thrown")
+      trait.toLowerCase().startsWith("thrown"),
     );
 
     // If we need ammo select, and we don't have it, return
@@ -130,7 +130,7 @@
     // Get all ammo items in the inventory
     const inventory = record.data?.inventory || [];
     const ammoOptions = inventory.filter(
-      (item) => item.data?.itemCategory?.toLowerCase() === "ammo"
+      (item) => item.data?.itemCategory?.toLowerCase() === "ammo",
     );
 
     return [
@@ -155,7 +155,7 @@
       undefined,
       [],
       [],
-      ourToken
+      ourToken,
     );
   }
 
@@ -173,7 +173,7 @@
       undefined,
       [],
       [],
-      ourToken
+      ourToken,
     );
   }
 </script>
@@ -232,7 +232,7 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-1", "label": "Roll 1st Attack", "value": "roll"}]'
-      onclick="handleRoll(1);"
+      onclick="handleRoll(1)"
     >
     </iconbutton>
     <iconbutton
@@ -240,7 +240,7 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-2", "label": "Roll 2nd Attack", "value": "roll"}]'
-      onclick="handleRoll(2);"
+      onclick="handleRoll(2)"
     >
     </iconbutton>
     <iconbutton
@@ -248,30 +248,26 @@
       field="rollBtn"
       variant="outline"
       options='[{"icon": "D20-3", "label": "Roll 3nd Attack", "value": "roll"}]'
-      onclick="handleRoll(3);"
+      onclick="handleRoll(3)"
     >
     </iconbutton>
     <div>
       <!-- Roll Damage -->
       <button
-        size="xs"
-        radius="xs"
+        size="xxs"
         field="damageBtn"
         label="Damage"
-        variant="light"
-        onclick="rollDamage(false);"
+        onclick="rollDamage(false)"
       ></button>
     </div>
     <!-- Roll Crit -->
     <div>
       <button
-        size="xs"
-        radius="xs"
+        size="xxs"
         field="critBtn"
         label="Critical"
-        variant="light"
         color="red"
-        onclick="rollDamage(true);"
+        onclick="rollDamage(true)"
       ></button>
     </div>
   </div>
@@ -292,7 +288,7 @@
       radius="lg"
       size="sm"
       hidden="true"
-      onchange="untoggleOtherDamage('bludgeoning');"
+      onchange="untoggleOtherDamage('bludgeoning')"
     ></checkbox>
     <checkbox
       field="versatilePiercing"
@@ -301,7 +297,7 @@
       size="sm"
       radius="lg"
       hidden="true"
-      onchange="untoggleOtherDamage('piercing');"
+      onchange="untoggleOtherDamage('piercing')"
     ></checkbox>
     <checkbox
       field="versatileSlashing"
@@ -310,7 +306,7 @@
       size="sm"
       radius="lg"
       hidden="true"
-      onchange="untoggleOtherDamage('slashing');"
+      onchange="untoggleOtherDamage('slashing')"
     ></checkbox>
     <button
       size="xs"
@@ -318,7 +314,7 @@
       label="Stow"
       icon="one-action"
       variant="default"
-      onclick="handleStow();"
+      onclick="handleStow()"
     ></button>
     <button
       size="xs"
@@ -326,7 +322,7 @@
       label="Drop"
       icon="free-action"
       variant="default"
-      onclick="handleDrop();"
+      onclick="handleDrop()"
     ></button>
   </div>
   <!-- Ammo Field for Ranged Weapons -->
@@ -348,7 +344,7 @@
         hidden="true"
         placeholder="Select Ammo..."
         optionsFunction="return ammoOptions();"
-        onchange="onAmmoSelectChange(value);"
+        onchange="onAmmoSelectChange(value)"
       ></dropdown>
       <button
         size="xs"
@@ -357,7 +353,7 @@
         hidden="true"
         variant="light"
         color="secondary"
-        onclick="loadAmmo();"
+        onclick="loadAmmo()"
       ></button>
       <checkbox field="loadedAmmo" label="Loaded:" size="xs" hidden="true">
       </checkbox>
@@ -370,7 +366,7 @@
         textalign="center"
         color="cyan"
         editable="true"
-        onchange="onUsesChange();"
+        onchange="onUsesChange()"
       ></counter>
       <label size="xs" variant="bold" label="Ammo: "></label>
       <numberfield
@@ -382,7 +378,7 @@
         minvalue="0"
         label="Ammo"
         size="xs"
-        onchange="onAmmoChange();"
+        onchange="onAmmoChange()"
       >
       </numberfield>
     </div>
