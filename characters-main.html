@@ -1,9 +1,7 @@
 <script>
   function onDrop(type, recordLink) {
-    if (type === "ancestry") {
-      onDropAncestry(recordLink);
-    } else if (type === "heritage") {
-      onDropHeritage(record, recordLink);
+    if (type === "races") {
+      onDropRace(recordLink);
     } else if (type === "class") {
       onDropClass(recordLink);
     } else if (type === "backgrounds") {
@@ -11,16 +9,14 @@
     }
   }
 
-  function onDropAncestry(recordLink) {
-    // Check if already on Character
-    const ancestries = record?.data?.ancestries || [];
-    const ancestryName = recordLink.tooltip;
-    const ancestryObj = { ...recordLink.value };
+  function onDropRace(recordLink) {
+    const raceName = recordLink.tooltip;
+    const raceObj = { ...recordLink.value };
 
     // Add all non-rarity traits to the character
-    const traits = ancestryObj.data?.traits || [];
+    const traits = raceObj.data?.traits || [];
     const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
-    ancestryObj.data.traits = nonRarityTraits;
+    raceObj.data.traits = nonRarityTraits;
 
     // Set traits list
     const traitsObjects = [];
@@ -34,11 +30,9 @@
     }
 
     const curTraits = record.data?.traits || [];
-    // Ensure uniqueness by using a Set for better deduplication
     const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
 
     const curTraitsList = record.data?.traitsList || [];
-    // Ensure uniqueness by name, keeping the first occurrence of each trait name
     const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
       (trait, index, self) =>
         self.findIndex((t) => t.name === trait.name) === index
@@ -46,24 +40,20 @@
 
     api.setValues(
       {
-        "data.ancestries": [ancestryObj],
-        "data.ancestryName": ancestryName,
-        "data.size": ancestryObj.data?.size,
-        "data.senses": ancestryObj.data?.vision,
-        "data.speed": ancestryObj.data?.speed,
+        "data.races": [raceObj],
+        "data.raceName": raceName,
+        "data.size": raceObj.data?.size,
+        "data.senses": raceObj.data?.vision,
+        "data.speed": raceObj.data?.speed,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
-        "data.reach": ancestryObj.data?.reach,
-        // Default to false on add of ancestry
-        "data.alternateAncestryBoosts": false,
+        "data.reach": raceObj.data?.reach,
       },
       (updatedRecord) => {
-        // Show ancestry UI, then prompt for heritage
-        // onAddEditFeature will be called after heritage is selected
-        api.setHidden("ancestries", false, () => {
-          api.setHidden("ancestryDetailsLabel", true);
+        api.setHidden("races", false, () => {
+          api.setHidden("raceDetailsLabel", true);
         });
-        promptForHeritage(updatedRecord, ancestryName);
+        onAddEditFeature(updatedRecord);
       }
     );
   }
@@ -72,86 +62,6 @@
     setLanguages(value);
   }
 
-  function promptForHeritage(record, ancestryName) {
-    const optionsPrompt = {
-      type: "heritage",
-      query: {
-        $or: [{ "data.ancestry": ancestryName }, { "data.versatile": "yes" }],
-      },
-    };
-
-    const onSelect = (choices) => {
-      const choice = choices && choices.length > 0 ? choices[0] : null;
-      if (choice) {
-        // Add the heritage to the character, then call the callback
-        onDropHeritage(record, {
-          tooltip: choice.name,
-          value: choice,
-        });
-      }
-    };
-
-    api.showPrompt(
-      "Heritage",
-      "Select a Heritage",
-      "Select Heritage...",
-      [],
-      optionsPrompt,
-      onSelect
-    );
-  }
-
-  function onDropHeritage(record, recordLink) {
-    // Check if already on Character
-    const heritages = record?.data?.heritages || [];
-    const heritageName = recordLink.tooltip;
-    const heritageObj = { ...recordLink.value };
-
-    // Add all non-rarity traits to the character
-    const traits = heritageObj.data?.traits || [];
-    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
-    heritageObj.data.traits = nonRarityTraits;
-
-    // Set traits list
-    const traitsObjects = [];
-    for (const trait of nonRarityTraits) {
-      traitsObjects.push({
-        _id: generateUuid(),
-        name: trait,
-        identified: true,
-        data: {},
-      });
-    }
-
-    const curTraits = record.data?.traits || [];
-    // Ensure uniqueness by using a Set for better deduplication
-    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
-
-    const curTraitsList = record.data?.traitsList || [];
-    // Ensure uniqueness by name, keeping the first occurrence of each trait name
-    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
-      (trait, index, self) =>
-        self.findIndex((t) => t.name === trait.name) === index
-    );
-
-    api.setValuesOnRecord(
-      record,
-      {
-        "data.heritages": [heritageObj],
-        "data.heritageName": heritageName,
-        "data.traitsList": newTraitsList,
-        "data.traits": newTraits,
-      },
-      (updatedRecord2) => {
-        // Recalculate ability scores for bonuses and such
-        onAddEditFeature(updatedRecord2, () => {
-          api.setHidden("heritages", false, () => {
-            api.setHidden("heritageDetailsLabel", true);
-          });
-        });
-      }
-    );
-  }
 
   function onDropClass(recordLink) {
     // Check if already on Character
@@ -193,10 +103,6 @@
         "data.className": className,
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
-        "data.keyAbility":
-          classObj.data?.keyAbility?.length > 0
-            ? classObj.data?.keyAbility[0]
-            : "none",
       },
       (updatedRecord) => {
         // Recalculate ability scores for bonuses and such
@@ -260,30 +166,14 @@
     );
   }
 
-  function onDeleteAncestry() {
-    // Recalculate ability scores for bonuses and such
+  function onDeleteRace() {
     onAddEditFeature(
       record,
       () => {
-        api.setHidden("ancestries", true, () => {
-          api.setHidden("ancestryDetailsLabel", false);
+        api.setHidden("races", true, () => {
+          api.setHidden("raceDetailsLabel", false);
         });
       },
-      // Skip choice processing
-      true
-    );
-  }
-
-  function onDeleteHeritage() {
-    // Recalculate ability scores for bonuses and such
-    onAddEditFeature(
-      record,
-      () => {
-        api.setHidden("heritages", true, () => {
-          api.setHidden("heritageDetailsLabel", false);
-        });
-      },
-      // Skip choice processing
       true
     );
   }
@@ -328,7 +218,7 @@
 
   function onLoadCharacter() {
     // Check if we need to show/hide the level up button
-    // If we're not doing a change to boost fields, check if we need to show/hide the level up button
+    // Check if we need to show/hide the level up button
     if (
       record.data?.xp >= 1000 &&
       record.data?.level < 20 &&
@@ -452,39 +342,7 @@
   }
 
   function onLevelChange(value) {
-    const valuesToSet = {
-      "fields.freeBoostsLevel5.hidden": true,
-      "fields.freeBoostsLevel10.hidden": true,
-      "fields.freeBoostsLevel15.hidden": true,
-      "fields.freeBoostsLevel20.hidden": true,
-    };
-
-    if (value >= 5) {
-      valuesToSet["fields.freeBoostsLevel5.hidden"] = false;
-    } else {
-      valuesToSet["data.freeBoostsLevel5"] = [];
-    }
-    if (value >= 10) {
-      valuesToSet["fields.freeBoostsLevel10.hidden"] = false;
-    } else {
-      valuesToSet["data.freeBoostsLevel10"] = [];
-    }
-    if (value >= 15) {
-      valuesToSet["fields.freeBoostsLevel15.hidden"] = false;
-    } else {
-      valuesToSet["data.freeBoostsLevel15"] = [];
-    }
-    if (value >= 20) {
-      valuesToSet["fields.freeBoostsLevel20.hidden"] = false;
-    } else {
-      valuesToSet["data.freeBoostsLevel20"] = [];
-    }
-
-    api.setValues(valuesToSet, (updatedRecord) => {
-      // Update everything using the new level, prompting for choices if
-      // needed
-      onAddEditFeature(updatedRecord);
-    });
+    onAddEditFeature(record);
   }
 
   function onXPChange(value) {
@@ -515,50 +373,6 @@
     );
   }
 
-  function updateAbilityBoosts(value, field) {
-    const boosts = {
-      ancestryBoost1: record.data?.ancestryBoost1,
-      ancestryBoost2: record.data?.ancestryBoost2,
-      backgroundBoost1: record.data?.backgroundBoost1,
-      backgroundBoost2: record.data?.backgroundBoost2,
-      classBoost: record.data?.keyAbility,
-      freeBoosts: record.data?.freeBoosts || [],
-      freeBoostsLevel5: record.data?.freeBoostsLevel5 || [],
-      freeBoostsLevel10: record.data?.freeBoostsLevel10 || [],
-      freeBoostsLevel15: record.data?.freeBoostsLevel15 || [],
-      freeBoostsLevel20: record.data?.freeBoostsLevel20 || [],
-    };
-
-    if (boosts[field]) {
-      boosts[field] = value;
-    }
-
-    const valuesToSet = {
-      "fields.ancestryBoostError.hidden": true,
-      "fields.backgroundBoostError.hidden": true,
-    };
-
-    // Check for invalid ancestry/background boosts
-    if (
-      boosts.ancestryBoost1 &&
-      boosts.ancestryBoost2 &&
-      boosts.ancestryBoost1 === boosts.ancestryBoost2
-    ) {
-      valuesToSet["fields.ancestryBoostError.hidden"] = false;
-    }
-
-    if (
-      boosts.backgroundBoost1 &&
-      boosts.backgroundBoost2 &&
-      boosts.backgroundBoost1 === boosts.backgroundBoost2
-    ) {
-      valuesToSet["fields.backgroundBoostError.hidden"] = false;
-    }
-
-    api.setValues(valuesToSet, () => {
-      onAddEditFeature(record, undefined, true);
-    });
-  }
 
   function updateSaveProficiency(value, save) {
     const valuesToSet = {};
@@ -570,6 +384,26 @@
     const valuesToSet = {};
     updateProficiencies(record, valuesToSet);
     api.setValues(valuesToSet);
+  }
+
+  function rollAbilityCheck(ability) {
+    const abilityLabels = {
+      str: "Strength",
+      dex: "Dexterity",
+      con: "Constitution",
+      int: "Intelligence",
+      wis: "Wisdom",
+      cha: "Charisma",
+    };
+    const label = abilityLabels[ability] || ability.toUpperCase();
+    const mod = record.data?.[ability + "Mod"] || 0;
+    api.promptRoll(
+      `${label} Check`,
+      "1d20",
+      [{ name: `${label} Mod`, type: "", value: String(mod), active: true }],
+      {},
+      "ability"
+    );
   }
 
   function performSaveRoll(save) {
@@ -969,227 +803,6 @@
     });
   }
 
-  function onAlternateAncestryBoostsChange(value) {
-    setAncestryBoostFields(value, true);
-  }
-
-  function setAncestryBoostFields(
-    overrideAlternateAncestryBoosts,
-    updateStats = false
-  ) {
-    // If alternateAncestryBoosts is true, or if we're human, we show ancestryBoost2
-    let alternateAncestryBoosts =
-      overrideAlternateAncestryBoosts || record.data?.alternateAncestryBoosts;
-
-    const ancestry = record.data?.ancestries || [];
-    const ancestryName = ancestry[0]?.data?.name || record.data?.ancestryName;
-    let showAlternateAncestryBoostOptions = true;
-    if (ancestryName && ancestryName.toLowerCase().startsWith("human")) {
-      showAlternateAncestryBoostOptions = false;
-    }
-    // We can also check if they have two free ability boosts already
-    if (Object.keys(ancestry[0]?.data?.boosts || {}).length >= 2) {
-      const boosts = Object.values(ancestry[0]?.data?.boosts || {});
-      const freeBoosts = boosts.filter((boost) => boost.length === 6);
-      if (freeBoosts.length >= 2) {
-        showAlternateAncestryBoostOptions = false;
-      }
-    }
-
-    const valuesToSet = {};
-
-    if (!showAlternateAncestryBoostOptions) {
-      alternateAncestryBoosts = false;
-    }
-
-    if (!overrideAlternateAncestryBoosts && record.data?.ancestryBoost2) {
-      valuesToSet["data.ancestryBoost2"] = "";
-    }
-
-    if (
-      showAlternateAncestryBoostOptions &&
-      record.fields?.alternateAncestryBoosts?.hidden !== false
-    ) {
-      valuesToSet["fields.alternateAncestryBoosts.hidden"] = false;
-    } else if (
-      !showAlternateAncestryBoostOptions &&
-      record.fields?.alternateAncestryBoosts?.hidden !== true
-    ) {
-      valuesToSet["fields.alternateAncestryBoosts.hidden"] = true;
-    }
-
-    // Check if we need to show ancestryBoost2
-    if (
-      (alternateAncestryBoosts || !showAlternateAncestryBoostOptions) &&
-      record.fields?.ancestryBoost2?.hidden !== false
-    ) {
-      valuesToSet["fields.ancestryBoost2.hidden"] = false;
-    } else if (
-      !alternateAncestryBoosts &&
-      showAlternateAncestryBoostOptions &&
-      record.fields?.ancestryBoost2?.hidden !== true
-    ) {
-      valuesToSet["fields.ancestryBoost2.hidden"] = true;
-    }
-
-    // Get the provided boosts flaws from ancestry which we show unless using alternate boosts
-    let ancestryBoosts = "";
-    let ancestryFlaws = "";
-    if (!alternateAncestryBoosts && showAlternateAncestryBoostOptions) {
-      // Get the boosts/flaws from ancestry
-      let allBoosts = [];
-      let allFlaws = [];
-      const boosts = ancestry[0]?.data?.boosts || {};
-      const flaws = ancestry[0]?.data?.flaws || {};
-      // Assume that arrays of 1 are boosts that are provided to us
-      for (const boost of Object.values(boosts)) {
-        if (boost.length === 1) {
-          allBoosts.push(getLabelForAbility(boost[0]));
-        }
-      }
-      for (const flaw of Object.values(flaws)) {
-        if (flaw.length === 1) {
-          allFlaws.push(getLabelForAbility(flaw[0]));
-        }
-      }
-
-      ancestryBoosts = `Boosts: ${allBoosts.join(", ")}`;
-      ancestryFlaws = `Flaws: ${allFlaws.join(", ")}`;
-
-      if (record.fields?.ancestryBoostLabel?.hidden !== false) {
-        valuesToSet["fields.ancestryBoostLabel.hidden"] = false;
-      }
-      if (record.fields?.ancestryFlawLabel?.hidden !== false) {
-        valuesToSet["fields.ancestryFlawLabel.hidden"] = false;
-      }
-
-      if (record.data?.ancestryBoostLabel !== ancestryBoosts) {
-        valuesToSet["data.ancestryBoostLabel"] = ancestryBoosts;
-      }
-      if (record.data?.ancestryFlawLabel !== ancestryFlaws) {
-        valuesToSet["data.ancestryFlawLabel"] = ancestryFlaws;
-      }
-    } else {
-      if (record.fields?.ancestryBoostLabel?.hidden !== true) {
-        valuesToSet["fields.ancestryBoostLabel.hidden"] = true;
-      }
-      if (record.fields?.ancestryFlawLabel?.hidden !== true) {
-        valuesToSet["fields.ancestryFlawLabel.hidden"] = true;
-      }
-    }
-
-    if (Object.keys(valuesToSet).length > 0) {
-      const callback = updateStats
-        ? () => {
-            onAddEditFeature(record, undefined, true);
-          }
-        : undefined;
-
-      api.setValues(valuesToSet, callback);
-    }
-  }
-
-  function getAncestryBoostOptions(field) {
-    // For ancestries we will assume they always have at least 1 free ability boost
-    // and that the second if, using alternate boosts, is free as well
-    return [
-      { label: "Strength", value: "str" },
-      { label: "Dexterity", value: "dex" },
-      { label: "Constitution", value: "con" },
-      { label: "Intelligence", value: "int" },
-      { label: "Wisdom", value: "wis" },
-      { label: "Charisma", value: "cha" },
-    ];
-  }
-
-  function getClassBoostOptions() {
-    const results = [];
-
-    // Look at class
-    const classes = record.data?.classes || [];
-    for (const classObj of classes) {
-      const keyAbility = classObj.data?.keyAbility || [];
-      for (const ability of keyAbility) {
-        results.push({
-          label: getLabelForAbility(ability),
-          value: ability,
-        });
-      }
-      // Look for class features
-      const features = classObj.data?.features || [];
-      for (const feature of features) {
-        const keyAbility = feature.data?.keyOptions || [];
-        for (const ability of keyAbility) {
-          results.push({
-            label: getLabelForAbility(ability),
-            value: ability,
-          });
-        }
-      }
-    }
-
-    if (results.length === 0) {
-      // Just return the default boosts
-      return [
-        { label: "Strength", value: "str" },
-        { label: "Dexterity", value: "dex" },
-        { label: "Constitution", value: "con" },
-        { label: "Intelligence", value: "int" },
-        { label: "Wisdom", value: "wis" },
-        { label: "Charisma", value: "cha" },
-      ];
-    }
-
-    // Filter duplicates
-    const filteredResults = results.filter(
-      (result, index, self) =>
-        index === self.findIndex((t) => t.value === result.value)
-    );
-
-    return filteredResults;
-  }
-
-  function getBackgroundBoostOptions(field) {
-    // Get the boosts already provided by the background and return the default less those
-    // Or if none, return the default
-    let boosts = [
-      { label: "Strength", value: "str" },
-      { label: "Dexterity", value: "dex" },
-      { label: "Constitution", value: "con" },
-      { label: "Intelligence", value: "int" },
-      { label: "Wisdom", value: "wis" },
-      { label: "Charisma", value: "cha" },
-    ];
-
-    const background = record.data?.backgrounds?.[0]?.data;
-    const backgroundBoosts = background?.boosts || {};
-
-    if (field === "backgroundBoost1") {
-      // Took at boosts.0 from background
-      if (backgroundBoosts?.["0"] && backgroundBoosts["0"].length > 0) {
-        boosts = backgroundBoosts?.["0"].map((boost) => ({
-          label: getLabelForAbility(boost),
-          value: boost,
-        }));
-      }
-    } else if (field === "backgroundBoost2") {
-      // Took at boosts.1 from background
-      if (backgroundBoosts?.["1"] && backgroundBoosts["1"].length > 0) {
-        boosts = backgroundBoosts?.["1"].map((boost) => ({
-          label: getLabelForAbility(boost),
-          value: boost,
-        }));
-      }
-    }
-
-    // Filter duplicates
-    boosts = boosts.filter(
-      (boost, index, self) =>
-        index === self.findIndex((t) => t.value === boost.value)
-    );
-
-    return boosts;
-  }
 
   function onChangeShieldHp(value) {
     // If shield HP is <= BT, set broken true
@@ -1327,43 +940,15 @@
       >
         <numberfield
           placeholder="0"
-          width="60px"
+          width="80px"
           size="xs"
-          field="classDC"
-          label="Class DC"
+          field="xp"
+          label="XP"
           minvalue="0"
           defaultvalue="0"
         >
         </numberfield>
-
-        <div>
-          <label
-            size="xs"
-            variant="bold"
-            field="heroPtsLabel"
-            textalign="center"
-            label="Hero Points"
-          ></label>
-          <counter
-            field="heroPoints"
-            size="md"
-            icon="IconCrown"
-            maxvalue="3"
-            minvalue="0"
-          ></counter>
-        </div>
       </div>
-    </div>
-
-    <div style="width: 100%">
-      <progressbar
-        field="nextLevelProgress"
-        label=""
-        width="100%"
-        maxvalue="1000"
-        currentvaluefield="xp"
-        color="primary"
-      ></progressbar>
     </div>
 
     <div style="width: 100%; display: flex; gap: 4px">
@@ -1392,6 +977,15 @@
         field="tempHp"
         label="Temp HP"
         color="blue"
+      >
+      </numberfield>
+      <numberfield
+        width="50%"
+        placeholder="0"
+        field="favoredClassHp"
+        label="FC HP"
+        minvalue="0"
+        onchange="onAddEditFeature(record)"
       >
       </numberfield>
     </div>
@@ -1430,19 +1024,18 @@
         onclick="rollPerception()"
       ></iconbutton>
     </div>
-    <dropdown
+    <numberfield
+      placeholder="0"
       size="xs"
-      field="perception"
-      width="100px"
-      textalign="center"
-      placeholder="Trained"
-      defaultvalue="1"
-      onchange="updatePerceptionProficiency(value)"
-      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
-    ></dropdown>
+      width="60px"
+      field="perceptionRanks"
+      label="Ranks"
+      minvalue="0"
+      onchange="onAddEditFeature(record)"
+    ></numberfield>
   </div>
 
-  <!-- Armor, Shield, Dying / Wounded / Recovery Check and Rest -->
+  <!-- AC, Touch AC, Flat-Footed AC, BAB, CMB, CMD -->
   <div style="display: flex; flex-direction: column; gap: 4px; width: 100%">
     <div
       style="
@@ -1455,8 +1048,8 @@
       "
     >
       <numberfield
-        placeholder="0"
-        width="70px"
+        placeholder="10"
+        width="60px"
         icon="IconShirt"
         size="xs"
         field="ac"
@@ -1464,133 +1057,96 @@
       ></numberfield>
 
       <numberfield
-        placeholder="0"
-        width="70px"
-        icon="IconShield"
+        placeholder="10"
+        width="60px"
         size="xs"
-        field="shieldHp"
-        minvalue="0"
-        label="Shield HP"
-        onchange="onChangeShieldHp(value)"
+        field="touchAC"
+        label="Touch"
+      ></numberfield>
+
+      <numberfield
+        placeholder="10"
+        width="60px"
+        size="xs"
+        field="flatFootedAC"
+        label="Flat-Ft"
       ></numberfield>
 
       <numberfield
         placeholder="0"
-        width="70px"
+        width="50px"
         size="xs"
-        field="shieldMaxHp"
-        label="Max Sh. HP"
-        onchange="onChangeShieldMaxHp(value)"
+        field="bab"
+        label="BAB"
+        showsign="true"
       ></numberfield>
 
-      <iconbutton
-        size="md"
-        variant="default"
-        options='[{"icon": "IconShield", "label": "Raise Shield", "value": "false"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "true"}]'
-        field="shieldRaised"
-        onchange="raiseShield(value)"
-      ></iconbutton>
+      <numberfield
+        placeholder="0"
+        width="50px"
+        size="xs"
+        field="cmb"
+        label="CMB"
+        showsign="true"
+      ></numberfield>
 
       <numberfield
-        placeholder="0"
-        width="30px"
-        hidecontrols="true"
+        placeholder="10"
+        width="50px"
         size="xs"
-        field="shieldAC"
-        onchange="onChangeShieldValue(value, 'acBonus')"
-        label="AC"
+        field="cmd"
+        label="CMD"
       ></numberfield>
-      <numberfield
-        placeholder="0"
-        width="30px"
-        hidecontrols="true"
-        size="xs"
-        field="shieldHardness"
-        onchange="onChangeShieldValue(value, 'hardness')"
-        label="H"
-      ></numberfield>
-      <numberfield
-        placeholder="0"
-        width="40px"
-        hidecontrols="true"
-        size="xs"
-        field="shieldBt"
-        label="BT"
-      ></numberfield>
-      <div
-        style="
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          justify-content: center;
-          align-items: center;
-          align-self: center;
-        "
-      >
-        <label size="xs" variant="bold" label="Broken"></label>
-        <checkbox field="shieldBroken" size="xs" color="secondary"></checkbox>
-      </div>
     </div>
 
     <div
       style="
         display: flex;
         flex-direction: row;
-        gap: 8px;
-        justify-content: flex-end;
+        gap: 4px;
         align-items: flex-end;
-        margin-bottom: 4px;
+        justify-content: flex-end;
       "
     >
-      <div
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 4px;
-          align-items: center;
-        "
-        ;
-      >
-        <label size="xs" variant="bold" label="Recovery Check"></label>
-        <iconbutton
-          size="md"
-          variant="light"
-          color="red"
-          options='[{"icon": "D20", "label": "Roll Recovery Check", "value": "roll"}]'
-          field="Roll Recovery Check"
-          onclick="rollRecoveryCheck()"
-        ></iconbutton>
-      </div>
-
-      <counter
-        field="dying"
+      <numberfield
+        placeholder="0"
+        width="50px"
+        hidecontrols="true"
         size="xs"
-        label="Dying"
-        color="red"
-        icon="IconSkull"
-        maxvalue="4"
-        textalign="center"
-        minvalue="0"
-      ></counter>
+        field="naturalArmor"
+        label="Nat Armor"
+        onchange="onAddEditFeature(record)"
+      ></numberfield>
 
-      <counter
-        field="wounded"
+      <numberfield
+        placeholder="0"
+        width="50px"
+        hidecontrols="true"
         size="xs"
-        label="Wounded"
-        color="red"
-        icon="IconDroplet"
-        maxvalue="3"
-        textalign="center"
-        minvalue="0"
-      ></counter>
+        field="deflectionBonus"
+        label="Deflect"
+        onchange="onAddEditFeature(record)"
+      ></numberfield>
 
-      <iconbutton
-        size="md"
-        variant="default"
-        options='[{"icon": "IconCampfire", "label": "Refocus", "value": "refocus"}]'
-        field="Refocus"
-        onclick="shortRest()"
-      ></iconbutton>
+      <numberfield
+        placeholder="0"
+        width="50px"
+        hidecontrols="true"
+        size="xs"
+        field="dodgeBonus"
+        label="Dodge"
+        onchange="onAddEditFeature(record)"
+      ></numberfield>
+
+      <numberfield
+        placeholder="0"
+        width="50px"
+        hidecontrols="true"
+        size="xs"
+        field="miscACBonus"
+        label="Misc AC"
+        onchange="onAddEditFeature(record)"
+      ></numberfield>
 
       <iconbutton
         size="md"
@@ -1606,10 +1162,10 @@
 <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
   <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
     <stringfield
-      placeholder="Drag and drop an Ancestry"
-      field="ancestryName"
+      placeholder="Drag and drop a Race"
+      field="raceName"
       width="100%"
-      label="Ancestry"
+      label="Race"
       size="sm"
     ></stringfield>
     <list
@@ -1617,26 +1173,8 @@
       height="32px"
       hidden="true"
       listtype="record_link_list"
-      field="ancestries"
-      onchange="onDeleteAncestry();"
-    >
-    </list>
-  </div>
-  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
-    <stringfield
-      placeholder="Drag and drop a Heritage"
-      field="heritageName"
-      width="100%"
-      label="Heritage"
-      size="sm"
-    ></stringfield>
-    <list
-      width="fit-content"
-      height="32px"
-      hidden="true"
-      listtype="record_link_list"
-      field="heritages"
-      onchange="onDeleteHeritage();"
+      field="races"
+      onchange="onDeleteRace();"
     >
     </list>
   </div>
@@ -1683,12 +1221,12 @@
 
 <divider
   field="attributesDivider"
-  label="Attribute Modifiers"
+  label="Ability Scores"
   size="sm"
   color="primary"
 ></divider>
 
-<!-- STATS -->
+<!-- ABILITY SCORES -->
 <div
   style="
     display: flex;
@@ -1701,230 +1239,35 @@
     margin-bottom: 4px;
   "
 >
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="str"
-    showsign="true"
-    label="STR"
-    hidecontrols="true"
-    editable="false"
-    textalign="center"
-  ></numberfield>
+  <attribute field="abilityScores.str" modifierfield="strMod" label="STR"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('str')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="dex"
-    label="DEX"
-    showsign="true"
-    hidecontrols="true"
-    editable="false"
-    textalign="center"
-  ></numberfield>
+  <attribute field="abilityScores.dex" modifierfield="dexMod" label="DEX"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('dex')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="con"
-    label="CON"
-    showsign="true"
-    hidecontrols="true"
-    editable="false"
-    textalign="center"
-  ></numberfield>
+  <attribute field="abilityScores.con" modifierfield="conMod" label="CON"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('con')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="int"
-    label="INT"
-    hidecontrols="true"
-    editable="false"
-    showsign="true"
-    textalign="center"
-  ></numberfield>
+  <attribute field="abilityScores.int" modifierfield="intMod" label="INT"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('int')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="wis"
-    label="WIS"
-    hidecontrols="true"
-    editable="false"
-    showsign="true"
-    textalign="center"
-  ></numberfield>
+  <attribute field="abilityScores.wis" modifierfield="wisMod" label="WIS"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('wis')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 
-  <numberfield
-    placeholder="0"
-    size="md"
-    width="70px"
-    field="cha"
-    label="CHA"
-    hidecontrols="true"
-    editable="false"
-    showsign="true"
-    textalign="center"
-  ></numberfield>
-
-  <popover position="bottom" offset="4" witharrow="true">
-    <popover.target>
-      <iconbutton
-        size="md"
-        variant="light"
-        hideonlocked="true"
-        options='[{"icon": "IconEdit", "label": "Edit Ability Boosts", "value": "abilityBonus"}]'
-        field="Edit Ability Boosts"
-      ></iconbutton>
-    </popover.target>
-    <popover.dropdown>
-      <div style="display: flex; flex-direction: column; gap: 4px">
-        <label size="xs" variant="bold" label="Ancestry Boosts"></label>
-        <label size="xs" field="ancestryBoostLabel" hidden="true"></label>
-        <label size="xs" field="ancestryFlawLabel" hidden="true"></label>
-        <label
-          size="xs"
-          field="ancestryBoostError"
-          hidden="true"
-          color="red"
-          label="Cannot Have Duplicate Ancestry Boosts!"
-        ></label>
-        <!-- Checkbox for non-human ancestries to use alternate ability selection -->
-        <checkbox
-          field="alternateAncestryBoosts"
-          label="Use Alternate Ability Selection"
-          size="xs"
-          hidden="true"
-          color="primary"
-          onchange="onAlternateAncestryBoostsChange(value)"
-        ></checkbox>
-        <div style="display: flex; flex-direction: row; gap: 4px">
-          <dropdown
-            size="xs"
-            field="ancestryBoost1"
-            placeholder="Choose Ability"
-            icon="IconCirclePlus"
-            optionsfunction="return getAncestryBoostOptions('ancestryBoost1');"
-            onchange="updateAbilityBoosts(value, 'ancestryBoost1')"
-          ></dropdown>
-          <dropdown
-            size="xs"
-            field="ancestryBoost2"
-            placeholder="Choose Ability"
-            hidden="true"
-            icon="IconCirclePlus"
-            onload="setAncestryBoostFields()"
-            optionsfunction="return getAncestryBoostOptions('ancestryBoost2');"
-            onchange="updateAbilityBoosts(value, 'ancestryBoost2')"
-          ></dropdown>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; margin-top: 4px">
-        <label size="xs" variant="bold" label="Background Boosts"></label>
-        <label
-          size="xs"
-          field="backgroundBoostError"
-          hidden="true"
-          color="red"
-          label="Cannot Have Duplicate Background Boosts!"
-        ></label>
-        <div style="display: flex; flex-direction: row; gap: 4px">
-          <dropdown
-            size="xs"
-            field="backgroundBoost1"
-            placeholder="Choose Ability"
-            icon="IconCirclePlus"
-            optionsfunction="return getBackgroundBoostOptions('backgroundBoost1');"
-            onchange="updateAbilityBoosts(value, 'backgroundBoost1')"
-          ></dropdown>
-          <dropdown
-            size="xs"
-            field="backgroundBoost2"
-            placeholder="Choose Ability"
-            icon="IconCirclePlus"
-            optionsfunction="return getBackgroundBoostOptions('backgroundBoost2');"
-            onchange="updateAbilityBoosts(value, 'backgroundBoost2')"
-          ></dropdown>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; margin-top: 4px">
-        <label size="xs" variant="bold" label="Class Boosts"></label>
-        <div style="display: flex; flex-direction: row; gap: 4px">
-          <dropdown
-            size="xs"
-            field="keyAbility"
-            placeholder="Choose Ability"
-            icon="IconCirclePlus"
-            optionsfunction="return getClassBoostOptions();"
-            onchange="updateAbilityBoosts(value, 'classBoost')"
-          ></dropdown>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; margin-top: 4px">
-        <label size="xs" variant="bold" label="Free Boosts"></label>
-        <dropdown
-          size="xs"
-          field="freeBoosts"
-          label="Level 1"
-          placeholder="Choose 4 Abilities"
-          icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-          multiselect="4"
-          onchange="updateAbilityBoosts(value, 'freeBoosts')"
-        ></dropdown>
-        <dropdown
-          size="xs"
-          field="freeBoostsLevel5"
-          label="Level 5"
-          hidden="true"
-          placeholder="Choose 4 Abilities"
-          icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-          multiselect="4"
-          onchange="updateAbilityBoosts(value, 'freeBoostsLevel5')"
-        ></dropdown>
-        <dropdown
-          size="xs"
-          field="freeBoostsLevel10"
-          label="Level 10"
-          hidden="true"
-          placeholder="Choose 4 Abilities"
-          icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-          multiselect="4"
-          onchange="updateAbilityBoosts(value, 'freeBoostsLevel10')"
-        ></dropdown>
-        <dropdown
-          size="xs"
-          field="freeBoostsLevel15"
-          label="Level 15"
-          hidden="true"
-          placeholder="Choose 4 Abilities"
-          icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-          multiselect="4"
-          onchange="updateAbilityBoosts(value, 'freeBoostsLevel15')"
-        ></dropdown>
-        <dropdown
-          size="xs"
-          field="freeBoostsLevel20"
-          label="Level 20"
-          hidden="true"
-          placeholder="Choose 4 Abilities"
-          icon="IconCirclePlus"
-          options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-          multiselect="4"
-          onchange="updateAbilityBoosts(value, 'freeBoostsLevel20')"
-        ></dropdown>
-      </div>
-    </popover.dropdown>
-  </popover>
+  <attribute field="abilityScores.cha" modifierfield="chaMod" label="CHA"
+    showbutton buttonicon="d20" onclick="rollAbilityCheck('cha')"
+    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
+    updateonblur="true"></attribute>
 </div>
 
 <!-- SAVING THROWS -->
@@ -1949,7 +1292,7 @@
   <div
     style="display: flex; flex-direction: column; gap: 2px; text-align: center"
   >
-    <label field="fortLabel" size="xs" variant="bold" label="Fortitude"></label>
+    <label field="fortLabel" size="xs" variant="bold" label="Fort"></label>
     <div
       style="
         display: flex;
@@ -1961,7 +1304,7 @@
       <numberfield
         placeholder="0"
         size="xs"
-        width="68px"
+        width="60px"
         field="fortitudeMod"
         showsign="true"
         textalign="center"
@@ -1974,22 +1317,20 @@
         onclick="performSaveRoll('fortitude')"
       ></iconbutton>
     </div>
-    <dropdown
+    <numberfield
+      placeholder="0"
       size="xs"
-      field="fortitude"
-      width="100px"
-      textalign="center"
-      placeholder="None"
-      defaultvalue="none"
-      onchange="updateSaveProficiency(value, 'fortitude')"
-      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
-    ></dropdown>
+      width="50px"
+      field="fortitudeMisc"
+      label="Misc"
+      onchange="onAddEditFeature(record)"
+    ></numberfield>
   </div>
 
   <div
     style="display: flex; flex-direction: column; gap: 2px; text-align: center"
   >
-    <label field="reflexLabel" size="xs" variant="bold" label="Reflex"></label>
+    <label field="reflexLabel" size="xs" variant="bold" label="Ref"></label>
     <div
       style="
         display: flex;
@@ -2001,7 +1342,7 @@
       <numberfield
         placeholder="0"
         size="xs"
-        width="68px"
+        width="60px"
         field="reflexMod"
         showsign="true"
         textalign="center"
@@ -2014,16 +1355,14 @@
         onclick="performSaveRoll('reflex')"
       ></iconbutton>
     </div>
-    <dropdown
+    <numberfield
+      placeholder="0"
       size="xs"
-      field="reflex"
-      width="100px"
-      textalign="center"
-      placeholder="None"
-      defaultvalue="none"
-      onchange="updateSaveProficiency(value, 'reflex')"
-      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
-    ></dropdown>
+      width="50px"
+      field="reflexMisc"
+      label="Misc"
+      onchange="onAddEditFeature(record)"
+    ></numberfield>
   </div>
 
   <div
@@ -2041,7 +1380,7 @@
       <numberfield
         placeholder="0"
         size="xs"
-        width="68px"
+        width="60px"
         field="willMod"
         showsign="true"
         textalign="center"
@@ -2054,16 +1393,14 @@
         onclick="performSaveRoll('will')"
       ></iconbutton>
     </div>
-    <dropdown
+    <numberfield
+      placeholder="0"
       size="xs"
-      field="will"
-      width="100px"
-      placeholder="None"
-      textalign="center"
-      defaultvalue="none"
-      onchange="updateSaveProficiency(value, 'will')"
-      options='[{"label": "None", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
-    ></dropdown>
+      width="50px"
+      field="willMisc"
+      label="Misc"
+      onchange="onAddEditFeature(record)"
+    ></numberfield>
   </div>
 </div>
 
@@ -2086,7 +1423,7 @@
       label="Size"
       placeholder="Medium"
       defaultvalue="medium"
-      options='[{"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}]'
+      options='[{"label": "Fine", "value": "fine"}, {"label": "Diminutive", "value": "diminutive"}, {"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}, {"label": "Colossal", "value": "colossal"}]'
     ></dropdown>
     <stringfield
       width="100%"

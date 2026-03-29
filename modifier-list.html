@@ -26,7 +26,6 @@
     let showSaveField = false;
     let showAllChecksField = false;
     let showValueField = true;
-    let showAdjustDegreeOfSuccessField = false;
     let showAdjustModifierField = false;
     let showActiveEffectField = false;
     let showRollOptionField = false;
@@ -67,10 +66,6 @@
     } else if (typeValue === "allPenalty") {
       showAllChecksField = true;
       showFieldField = false;
-    } else if (typeValue === "adjustDegreeOfSuccess") {
-      showFieldField = false;
-      showAdjustDegreeOfSuccessField = true;
-      showValueField = false;
     } else if (typeValue === "adjustModifier") {
       showFieldField = false;
       showAdjustModifierField = true;
@@ -79,10 +74,6 @@
       showFieldField = false;
       showValueField = false;
       showActiveEffectField = true;
-    } else if (typeValue === "weaponProficiency") {
-      // Weapon proficiency uses predicate to match weapons, value is the rank (1=trained, 2=expert, etc.)
-      showFieldField = false;
-      showValueField = true;
     } else if (typeValue === "rollOption") {
       // Roll option adds a trait to the character if predicate passes
       showFieldField = false;
@@ -116,13 +107,6 @@
     }
     if (modifier.fields?.value?.hidden !== !showValueField) {
       valuesToSet[`${modPath}.fields.value.hidden`] = !showValueField;
-    }
-    if (
-      modifier.fields?.adjustDegreeOfSuccessBox?.hidden !==
-      !showAdjustDegreeOfSuccessField
-    ) {
-      valuesToSet[`${modPath}.fields.adjustDegreeOfSuccessBox.hidden`] =
-        !showAdjustDegreeOfSuccessField;
     }
     if (
       modifier.fields?.adjustModifierBox?.hidden !== !showAdjustModifierField
@@ -170,49 +154,49 @@
       {"label": "All Checks and DCs Penalty", "value": "allPenalty"},
       {"label": "Attribute Bonus", "value": "attributeBonus"},
       {"label": "Attribute Penalty", "value": "attributePenalty"},
-      {"label": "Attack Bonus", "value": "attackBonus"}, 
+      {"label": "Attack Bonus", "value": "attackBonus"},
       {"label": "Attack Penalty", "value": "attackPenalty"},
-      {"label": "MAP Reduction", "value": "mapReduction"},
-      {"label": "Ignore Range Penalty", "value": "ignoreRangePenalty"},
       {"label": "Damage Bonus", "value": "damageBonus"},
       {"label": "Damage Penalty", "value": "damagePenalty"},
-      {"label": "Attack Calculation", "value": "attackCalculation"},
-      {"label": "Damage Calculation", "value": "damageCalculation"},
       {"label": "Healing Bonus", "value": "healingBonus"},
       {"label": "Healing Penalty", "value": "healingPenalty"},
-      {"label": "Cantrip Damage Bonus", "value": "cantripDamageBonus"},
-      {"label": "Cantrip Damage Penalty", "value": "cantripDamagePenalty"},
       {"label": "Spell Damage Bonus", "value": "spellDamageBonus"},
       {"label": "Spell Damage Penalty", "value": "spellDamagePenalty"},
-      {"label": "Spell Attack Bonus", "value": "spellAttackBonus"},
-      {"label": "Spell Attack Penalty", "value": "spellAttackPenalty"},
       {"label": "Spell DC Bonus", "value": "spellDCBonus"},
       {"label": "Spell DC Penalty", "value": "spellDCPenalty"},
+      {"label": "Concentration Bonus", "value": "concentrationBonus"},
+      {"label": "Concentration Penalty", "value": "concentrationPenalty"},
+      {"label": "Caster Level Bonus", "value": "casterLevelBonus"},
+      {"label": "Caster Level Penalty", "value": "casterLevelPenalty"},
       {"label": "Saving Throw Bonus", "value": "saveBonus"},
       {"label": "Saving Throw Penalty", "value": "savePenalty"},
       {"label": "Skill Check Bonus", "value": "skillBonus"},
       {"label": "Skill Check Penalty", "value": "skillPenalty"},
-      {"label": "Armor Class Calculation", "value": "armorClassCalculation"},
       {"label": "Armor Class Bonus", "value": "armorClassBonus"},
       {"label": "Armor Class Penalty", "value": "armorClassPenalty"},
+      {"label": "Natural Armor Bonus", "value": "naturalArmorBonus"},
+      {"label": "Deflection Bonus", "value": "deflectionBonus"},
+      {"label": "Shield Bonus", "value": "shieldBonus"},
+      {"label": "BAB Bonus", "value": "babBonus"},
+      {"label": "CMB Bonus", "value": "cmbBonus"},
+      {"label": "CMB Penalty", "value": "cmbPenalty"},
+      {"label": "CMD Bonus", "value": "cmdBonus"},
+      {"label": "CMD Penalty", "value": "cmdPenalty"},
       {"label": "Hit Point Maximum", "value": "hitpoints"},
-      {"label": "Add Resistance", "value": "resistance"},
-      {"label": "Add Weakness", "value": "weakness"},
+      {"label": "Speed Bonus", "value": "speedBonus"},
+      {"label": "Speed Penalty", "value": "speedPenalty"},
+      {"label": "Damage Reduction", "value": "damageReduction"},
+      {"label": "Spell Resistance", "value": "spellResistance"},
+      {"label": "Energy Resistance", "value": "energyResistance"},
       {"label": "Add Immunity", "value": "immunity"},
       {"label": "Add Sense", "value": "sense"},
-      {"label": "Add Low-Light or Darkvision", "value": "lowLightDarkvision"},
       {"label": "Add Trait", "value": "trait"},
       {"label": "Initiative Bonus", "value": "initiativeBonus"},
       {"label": "Initiative Penalty", "value": "initiativePenalty"},
       {"label": "Perception Bonus", "value": "perceptionBonus"},
       {"label": "Perception Penalty", "value": "perceptionPenalty"},
-      {"label": "Adjust Degree of Success", "value": "adjustDegreeOfSuccess"},
       {"label": "Adjust Modifier", "value": "adjustModifier"},
-      {"label": "Off-Guard Prevention", "value": "offGuardPrevention"},
-      {"label": "Critical Specialization Effect", "value": "criticalSpecialization"},
-      {"label": "Armor Specialization Effect", "value": "armorSpecialization"},
       {"label": "Active Effect", "value": "activeEffect"},
-      {"label": "Weapon Proficiency", "value": "weaponProficiency"},
       {"label": "Roll Option", "value": "rollOption"}
       ]'
   >
@@ -225,7 +209,25 @@
     hidden="true"
     label="Type"
     placeholder="Select Type"
-    options='[{"label": "Circumstance", "value": "circumstance"}, {"label": "Item", "value": "item"}, {"label": "Status", "value": "status"}, {"label": "None", "value": "none"}]'
+    options='[{"label": "Enhancement", "value": "enhancement"},
+      {"label": "Morale", "value": "morale"},
+      {"label": "Luck", "value": "luck"},
+      {"label": "Sacred", "value": "sacred"},
+      {"label": "Profane", "value": "profane"},
+      {"label": "Dodge", "value": "dodge"},
+      {"label": "Competence", "value": "competence"},
+      {"label": "Insight", "value": "insight"},
+      {"label": "Resistance", "value": "resistance"},
+      {"label": "Size", "value": "size"},
+      {"label": "Racial", "value": "racial"},
+      {"label": "Alchemical", "value": "alchemical"},
+      {"label": "Armor", "value": "armor"},
+      {"label": "Shield", "value": "shield"},
+      {"label": "Natural Armor", "value": "naturalArmor"},
+      {"label": "Deflection", "value": "deflection"},
+      {"label": "Circumstance", "value": "circumstance"},
+      {"label": "Untyped", "value": "untyped"},
+      {"label": "None", "value": "none"}]'
   ></dropdown>
 
   <stringfield
@@ -272,7 +274,7 @@
     hidden="true"
     placeholder="Select Skill"
     onchange="setField(value)"
-    options='[{"label": "All", "value": "all"}, 
+    options='[{"label": "All", "value": "all"},
     {"label": "Strength-based", "value": "str"},
     {"label": "Dexterity-based", "value": "dex"},
     {"label": "Constitution-based", "value": "con"},
@@ -280,21 +282,40 @@
     {"label": "Wisdom-based", "value": "wis"},
     {"label": "Charisma-based", "value": "cha"},
     {"label": "Acrobatics", "value": "acrobatics"},
-    {"label": "Arcana", "value": "arcana"},
-    {"label": "Athletics", "value": "athletics"},
-    {"label": "Crafting", "value": "crafting"},
-    {"label": "Deception", "value": "deception"},
+    {"label": "Appraise", "value": "appraise"},
+    {"label": "Bluff", "value": "bluff"},
+    {"label": "Climb", "value": "climb"},
+    {"label": "Craft", "value": "craft"},
     {"label": "Diplomacy", "value": "diplomacy"},
-    {"label": "Intimidation", "value": "intimidation"},
-    {"label": "Medicine", "value": "medicine"},
-    {"label": "Nature", "value": "nature"},
-    {"label": "Occultism", "value": "occultism"},
-    {"label": "Performance", "value": "performance"},
-    {"label": "Religion", "value": "religion"},
-    {"label": "Society", "value": "society"},
+    {"label": "Disable Device", "value": "disableDevice"},
+    {"label": "Disguise", "value": "disguise"},
+    {"label": "Escape Artist", "value": "escapeArtist"},
+    {"label": "Fly", "value": "fly"},
+    {"label": "Handle Animal", "value": "handleAnimal"},
+    {"label": "Heal", "value": "heal"},
+    {"label": "Intimidate", "value": "intimidate"},
+    {"label": "Knowledge (Arcana)", "value": "knowledgeArcana"},
+    {"label": "Knowledge (Dungeoneering)", "value": "knowledgeDungeoneering"},
+    {"label": "Knowledge (Engineering)", "value": "knowledgeEngineering"},
+    {"label": "Knowledge (Geography)", "value": "knowledgeGeography"},
+    {"label": "Knowledge (History)", "value": "knowledgeHistory"},
+    {"label": "Knowledge (Local)", "value": "knowledgeLocal"},
+    {"label": "Knowledge (Nature)", "value": "knowledgeNature"},
+    {"label": "Knowledge (Nobility)", "value": "knowledgeNobility"},
+    {"label": "Knowledge (Planes)", "value": "knowledgePlanes"},
+    {"label": "Knowledge (Religion)", "value": "knowledgeReligion"},
+    {"label": "Linguistics", "value": "linguistics"},
+    {"label": "Perception", "value": "perception"},
+    {"label": "Perform", "value": "perform"},
+    {"label": "Profession", "value": "profession"},
+    {"label": "Ride", "value": "ride"},
+    {"label": "Sense Motive", "value": "senseMotive"},
+    {"label": "Sleight of Hand", "value": "sleightOfHand"},
+    {"label": "Spellcraft", "value": "spellcraft"},
     {"label": "Stealth", "value": "stealth"},
     {"label": "Survival", "value": "survival"},
-    {"label": "Thievery", "value": "thievery"}]'
+    {"label": "Swim", "value": "swim"},
+    {"label": "Use Magic Device", "value": "useMagicDevice"}]'
   ></dropdown>
 
   <dropdown
@@ -360,103 +381,6 @@
   </div>
 </div>
 
-<box field="adjustDegreeOfSuccessBox" hidden="true">
-  <dropdown
-    width="100%"
-    size="xs"
-    field="fieldAdjust"
-    label="Check to Adjust"
-    placeholder="Select Checks to Adjust"
-    onchange="setField(value)"
-    options='[{"label": "All", "value": "all"}, 
-    {"label": "Reflex Save", "value": "reflex"},
-    {"label": "Fortitude Save", "value": "fortitude"},
-    {"label": "Will Save", "value": "will"},
-    {"label": "Strength-based", "value": "str"},
-    {"label": "Dexterity-based", "value": "dex"},
-    {"label": "Constitution-based", "value": "con"},
-    {"label": "Intelligence-based", "value": "int"},
-    {"label": "Wisdom-based", "value": "wis"},
-    {"label": "Charisma-based", "value": "cha"},
-    {"label": "Acrobatics", "value": "acrobatics"},
-    {"label": "Arcana", "value": "arcana"},
-    {"label": "Athletics", "value": "athletics"},
-    {"label": "Crafting", "value": "crafting"},
-    {"label": "Deception", "value": "deception"},
-    {"label": "Diplomacy", "value": "diplomacy"},
-    {"label": "Intimidation", "value": "intimidation"},
-    {"label": "Medicine", "value": "medicine"},
-    {"label": "Nature", "value": "nature"},
-    {"label": "Occultism", "value": "occultism"},
-    {"label": "Performance", "value": "performance"},
-    {"label": "Religion", "value": "religion"},
-    {"label": "Society", "value": "society"},
-    {"label": "Stealth", "value": "stealth"},
-    {"label": "Survival", "value": "survival"},
-    {"label": "Thievery", "value": "thievery"}]'
-  ></dropdown>
-
-  <div style="display: flex; flex-direction: row; gap: 4px">
-    <dropdown
-      width="100%"
-      size="xs"
-      field="adjustment.all"
-      label="Adjust All"
-      placeholder="Select Success Adjustment"
-      defaultvalue="none"
-      options='[{"label": "None", "value": "none"},
-{"label": "One Degree Better", "value": "one-degree-better"},
-{"label": "Two Degrees Better", "value": "two-degrees-better"},
-{"label": "One Degree Worse", "value": "one-degree-worse"},
-{"label": "To Success", "value": "to-success"},
-{"label": "To Failure", "value": "to-failure"},
-{"label": "Two Degrees Worse", "value": "two-degrees-worse"}]'
-    ></dropdown>
-    <dropdown
-      width="100%"
-      size="xs"
-      field="adjustment.success"
-      label="Adjust Success"
-      placeholder="Select Success Adjustment"
-      defaultvalue="none"
-      options='[{"label": "None", "value": "none"}, 
-      {"label": "One Degree Better", "value": "one-degree-better"}, 
-      {"label": "One Degree Worse", "value": "one-degree-worse"},
-      {"label": "Two Degrees Worse", "value": "two-degrees-worse"},
-      {"label": "To Failure", "value": "to-failure"},
-      {"label": "To Critical Success", "value": "to-critical-success"}]'
-    ></dropdown>
-  </div>
-  <div style="display: flex; flex-direction: row; gap: 4px">
-    <dropdown
-      width="100%"
-      size="xs"
-      field="adjustment.failure"
-      label="Adjust Failure"
-      placeholder="Select Success Adjustment"
-      defaultvalue="none"
-      options='[{"label": "None", "value": "none"},
-{"label": "One Degree Better", "value": "one-degree-better"},
-{"label": "Two Degrees Better", "value": "two-degrees-better"},
-{"label": "To Success", "value": "to-success"},
-{"label": "One Degree Worse", "value": "one-degree-worse"}]'
-    ></dropdown>
-    <dropdown
-      width="100%"
-      size="xs"
-      field="adjustment.criticalFailure"
-      label="Adjust Critical Failure"
-      placeholder="Select Success Adjustment"
-      defaultvalue="none"
-      options='[{"label": "None", "value": "none"},
-{"label": "One Degree Better", "value": "one-degree-better"},
-{"label": "Two Degrees Better", "value": "two-degrees-better"},
-{"label": "To Success", "value": "to-success"},
-{"label": "To Failure", "value": "to-failure"}]'
-    ></dropdown>
-  </div>
-</box>
-
 <box field="adjustModifierBox" hidden="true">
   <stringfield
     width="100%"
@@ -487,7 +411,7 @@
     size="xs"
     field="effectField"
     label="Field Path"
-    placeholder="Enter field path (e.g., flags.pf2e.inventor.explode)"
+    placeholder="Enter field path (e.g., flags.pf1e.rage.active)"
   ></stringfield>
 
   <stringfield

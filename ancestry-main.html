@@ -1,40 +1,3 @@
-<script>
-  // Show or hide relevant values on load or change of type
-  function showHideFields() {
-    const ancestryDataPath = getNearestParentDataPath(dataPath);
-    const ancestry = ancestryDataPath ? api.getValue(ancestryDataPath) : record;
-    const dataPrefix = ancestryDataPath ? `${ancestryDataPath}.data` : "data";
-    const fieldsPath = ancestryDataPath
-      ? `${ancestryDataPath}.fields`
-      : "fields";
-
-    const valuesToSet = {};
-
-    // Check if traits is set
-    if (
-      ancestry.data?.traits &&
-      ancestry.data?.traits.length > 0 &&
-      !ancestry.data?.traitsList
-    ) {
-      const traitsObjects = [];
-      for (const trait of ancestry.data.traits) {
-        traitsObjects.push({
-          _id: generateUuid(),
-          name: trait,
-          identified: true,
-          data: {},
-        });
-      }
-
-      valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
-    }
-
-    if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet);
-    }
-  }
-</script>
-
 <div
   style="
     display: flex;
@@ -51,7 +14,7 @@
 >
   <label
     field="namefield"
-    placeholder="New Ancestry"
+    placeholder="New Race"
     size="lg"
     variant="bold"
   ></label>
@@ -66,29 +29,7 @@
     margin-bottom: 4px;
   "
 >
-  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
-    <list
-      width="100%"
-      hidewhenidentified="false"
-      listtype="traits_list"
-      field="traitsList"
-    ></list>
-  </div>
-
-  <box field="traitsEditor" hideonlocked="true" onload="showHideFields()">
-    <dropdown
-      multiselect="100"
-      placeholder="Enter Traits..."
-      field="traits"
-      combo="true"
-      label="Traits"
-      optionsfunction="return getTraitOptions();"
-      hidewhenidentified="false"
-      onchange="setTraits(value);"
-    >
-    </dropdown>
-  </box>
-
+  <!-- Portrait + Basic Info -->
   <div style="display: flex; gap: 4px">
     <div
       style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
@@ -101,115 +42,98 @@
         gap: 4px;
         flex-direction: column;
         width: 100%;
-        margin-bottom: 4px;
       "
     >
       <div style="width: 100%; display: flex; gap: 4px">
-        <numberfield
-          width="100%"
-          field="hp"
-          label="Hit Points"
-          placeholder="Enter Hit Points..."
-        >
-        </numberfield>
         <dropdown
-          size="sm"
+          width="100%"
+          field="type"
+          label="Type"
+          placeholder="Select Type..."
+          options='[{"label": "Aberration", "value": "aberration"}, {"label": "Animal", "value": "animal"}, {"label": "Construct", "value": "construct"}, {"label": "Dragon", "value": "dragon"}, {"label": "Fey", "value": "fey"}, {"label": "Humanoid", "value": "humanoid"}, {"label": "Magical Beast", "value": "magical_beast"}, {"label": "Monstrous Humanoid", "value": "monstrous_humanoid"}, {"label": "Outsider (Native)", "value": "outsider_native"}, {"label": "Plant", "value": "plant"}, {"label": "Undead", "value": "undead"}]'
+        >
+        </dropdown>
+        <dropdown
           width="100%"
           field="size"
-          placeholder="Select Size"
           label="Size"
-          options='[{"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}]'
+          placeholder="Select Size..."
+          options='[{"label": "Fine", "value": "fine"}, {"label": "Diminutive", "value": "diminutive"}, {"label": "Tiny", "value": "tiny"}, {"label": "Small", "value": "small"}, {"label": "Medium", "value": "medium"}, {"label": "Large", "value": "large"}, {"label": "Huge", "value": "huge"}, {"label": "Gargantuan", "value": "gargantuan"}, {"label": "Colossal", "value": "colossal"}]'
         >
         </dropdown>
       </div>
       <div style="width: 100%; display: flex; gap: 4px">
         <stringfield
           width="100%"
-          field="speed"
-          label="Speed"
-          placeholder="Enter Speed..."
+          field="subtypes"
+          label="Subtypes"
+          placeholder="e.g. Dwarf, Elf..."
         >
         </stringfield>
-        <numberfield field="reach" label="Reach" placeholder="5"> </numberfield>
+        <numberfield
+          width="100%"
+          field="speed"
+          label="Speed (ft.)"
+          placeholder="30"
+        >
+        </numberfield>
       </div>
+      <stringfield
+        width="100%"
+        field="senses"
+        label="Senses"
+        placeholder="e.g. Darkvision 60 ft., Low-Light Vision..."
+      >
+      </stringfield>
     </div>
   </div>
 
-  <dropdown
-    field="boosts.0"
-    label="Boost 1"
-    placeholder="Select Boosts..."
-    multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
+  <!-- Ability Modifiers -->
+  <divider label="Ability Modifiers"></divider>
+  <div style="width: 100%; display: flex; gap: 4px">
+    <numberfield width="100%" field="strMod" label="STR" placeholder="0">
+    </numberfield>
+    <numberfield width="100%" field="dexMod" label="DEX" placeholder="0">
+    </numberfield>
+    <numberfield width="100%" field="conMod" label="CON" placeholder="0">
+    </numberfield>
+    <numberfield width="100%" field="intMod" label="INT" placeholder="0">
+    </numberfield>
+    <numberfield width="100%" field="wisMod" label="WIS" placeholder="0">
+    </numberfield>
+    <numberfield width="100%" field="chaMod" label="CHA" placeholder="0">
+    </numberfield>
+  </div>
 
-  <dropdown
-    field="boosts.1"
-    label="Boost 2"
-    placeholder="Select Boosts..."
-    multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
-
-  <dropdown
-    field="boosts.2"
-    label="Boost 3"
-    placeholder="Select Boosts..."
-    multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
-
-  <dropdown
-    field="flaws.0"
-    label="Flaws"
-    placeholder="Select Flaws..."
-    multiselect="7"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
-
+  <!-- Languages -->
+  <divider label="Languages"></divider>
   <stringfield
     width="100%"
-    field="vision"
-    label="Vision"
-    placeholder="Enter Vision..."
+    field="languages"
+    label="Starting Languages"
+    placeholder="e.g. Common, Dwarven..."
+  >
+  </stringfield>
+  <stringfield
+    width="100%"
+    field="bonusLanguages"
+    label="Bonus Languages"
+    placeholder="e.g. Giant, Gnome, Goblin, Orc, Terran, Undercommon..."
   >
   </stringfield>
 
-  <dropdown
-    field="langauges"
-    label="Languages"
-    placeholder="Select Languages..."
-    multiselect="50"
-    combo="true"
-    optionsfunction="return getLanguageOptions();"
-  >
-  </dropdown>
-
-  <dropdown
-    field="additionalLanguages.value"
-    label="Additional Language Options"
-    placeholder="Select Additional Languages..."
-    multiselect="50"
-    combo="true"
-    optionsfunction="return getLanguageOptions();"
-  >
-  </dropdown>
-
-  <numberfield
-    field="additionalLanguages.count"
-    hidden="true"
-    label="Additional Language Count"
-    placeholder="0"
-  >
-  </numberfield>
+  <!-- Racial Traits -->
+  <divider label="Racial Traits"></divider>
+  <list
+    width="100%"
+    field="racialTraits"
+    listtype="racial_trait"
+  ></list>
 </div>
 
+<!-- Description -->
 <richtextfield
-  placeholder="Enter Ancestry description..."
+  placeholder="Enter race description..."
   field="description"
   label="Description"
 ></richtextfield>
