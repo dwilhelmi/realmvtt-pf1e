@@ -3,27 +3,42 @@
     onAddEditFeature(record);
   }
 
-  function onProficiencyChange(value) {
+  function onRanksChange(value) {
+    onAddEditFeature(record);
+  }
+
+  function onMiscChange(value) {
+    onAddEditFeature(record);
+  }
+
+  function onClassSkillChange(value) {
     onAddEditFeature(record);
   }
 
   function rollCheck() {
     const skillPath = getNearestParentDataPath(dataPath);
-    const loreSkill = api.getValue(skillPath);
-    const name = loreSkill.name;
-    const mod = parseInt(loreSkill.data?.mod || "0", 10);
-    const rank = parseInt(loreSkill.data?.rank || "0", 10);
-    const ability = loreSkill.data?.ability || "int";
-    rollSkill(record, name, null, true, mod, rank, ability);
+    const skill = api.getValue(skillPath);
+    const name = skill.name;
+    const mod = parseInt(skill.data?.mod || "0", 10);
+    const ranks = parseInt(skill.data?.ranks || "0", 10);
+    const ability = skill.data?.ability || "int";
+    rollSkill(record, name, null, true, mod, ranks, ability);
   }
 </script>
 
-<div style="display: flex; flex-direction: row; gap: 4px">
-  <div style="min-width: 100px; flex: 1">
+<div style="display: flex; flex-direction: row; gap: 4px; align-items: center">
+  <iconbutton
+    size="xs"
+    variant="light"
+    options='[{"icon": "D20", "label": "Roll Check", "value": "roll"}]'
+    onclick="rollCheck();"
+  ></iconbutton>
+
+  <div style="min-width: 80px; flex: 1">
     <namefield
       width="100%"
       size="xs"
-      placeholder="Enter Skill Name..."
+      placeholder="Skill Name..."
       field="namefield"
     ></namefield>
   </div>
@@ -33,39 +48,44 @@
     placeholder="Intelligence"
     defaultvalue="int"
     size="xs"
-    width="110px"
+    width="90px"
     onchange="onAbilityChange(value);"
-    options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-  >
-  </dropdown>
-
-  <dropdown
-    size="xs"
-    field="rank"
-    width="110px"
-    textalign="center"
-    placeholder="Untrained"
-    defaultvalue="0"
-    onchange="onProficiencyChange()"
-    options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
+    options='[{"label": "STR", "value": "str"}, {"label": "DEX", "value": "dex"}, {"label": "CON", "value": "con"}, {"label": "INT", "value": "int"}, {"label": "WIS", "value": "wis"}, {"label": "CHA", "value": "cha"}]'
   ></dropdown>
+
+  <checkbox
+    field="classSkill"
+    size="xs"
+    onchange="onClassSkillChange(value);"
+  ></checkbox>
 
   <numberfield
     size="xs"
-    width="60px"
+    width="45px"
     textalign="center"
-    placeholder="+0"
+    placeholder="0"
+    field="ranks"
+    defaultvalue="0"
+    onchange="onRanksChange(value);"
+  ></numberfield>
+
+  <numberfield
+    size="xs"
+    width="45px"
+    textalign="center"
+    placeholder="0"
+    field="misc"
+    defaultvalue="0"
+    showsign="true"
+    onchange="onMiscChange(value);"
+  ></numberfield>
+
+  <numberfield
+    size="xs"
+    width="45px"
+    textalign="center"
     field="mod"
     showsign="true"
     variant="tooltip"
   ></numberfield>
-
-  <iconbutton
-    field="skillCheck"
-    size="md"
-    variant="light"
-    options='[{"icon": "d20", "label": "Roll Check", "value": "roll"}]'
-    onclick="rollCheck();"
-  >
-  </iconbutton>
 </div>

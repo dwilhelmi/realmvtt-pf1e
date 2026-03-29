@@ -4,12 +4,8 @@ const minRoll = data?.roll?.metadata?.minRoll;
 const itemDataPath = data?.roll?.metadata?.itemDataPath;
 const successMessage = data?.roll?.metadata?.successMessage;
 const failureMessage = data?.roll?.metadata?.failureMessage;
-const criticalSuccessMessage = data?.roll?.metadata?.criticalSuccessMessage;
-const criticalFailureMessage = data?.roll?.metadata?.criticalFailureMessage;
-const degreeOfSuccessAdjustments =
-  data?.roll?.metadata?.degreeOfSuccessAdjustments;
 
-// Find the unddropped d20, and if minroll is set
+// Find the undropped d20, and if minroll is set
 // alter the actual roll to be the minroll if it's lower
 const roll = {
   ...data.roll,
@@ -53,167 +49,30 @@ if (dc > 0) {
     }
   }
 
-  // Calculate the degree of success or failure
-  // PF2e Critical Success/Failure rules:
-  // - Critical Success: Beat DC by 10+ OR natural 20 (upgrades success to crit success)
-  // - Success: Meet or beat DC
-  // - Failure: Miss DC
-  // - Critical Failure: Miss DC by 10+ OR natural 1 (downgrades failure to crit failure)
-
-  let degreeOfSuccess = 0; // 0 = failure, 1 = success, 2 = critical success, -1 = critical failure
-
-  // First, determine base degree of success
-  if (total >= dc + 10) {
-    degreeOfSuccess = 2; // Critical Success
-  } else if (total >= dc) {
-    degreeOfSuccess = 1; // Success
-  } else if (total <= dc - 10) {
-    degreeOfSuccess = -1; // Critical Failure
-  } else {
-    degreeOfSuccess = 0; // Failure
-  }
-
-  // Apply natural 20/1 adjustments
-  if (naturalRoll === 20 && degreeOfSuccess < 2) {
-    degreeOfSuccess += 1; // Natural 20 improves degree by one step (max critical success)
-  } else if (naturalRoll === 1 && degreeOfSuccess > -1) {
-    degreeOfSuccess -= 1; // Natural 1 worsens degree by one step (min critical failure)
-  }
-
-  // Apply degree of success adjustments from effects/modifiers
-  const adjustmentResult = applyDegreeOfSuccessAdjustment(
-    degreeOfSuccess,
-    degreeOfSuccessAdjustments
-  );
-  degreeOfSuccess = adjustmentResult.degree;
-  const adjustmentModifierName = adjustmentResult.modifierName;
-
-  // Calculate margin of success/failure
+  // PF1e: pass/fail — meet or beat DC to succeed
+  // Nat 20 on ability/skill checks is not RAW auto-success, but we treat it as notable
+  const passed = total >= dc;
   const margin = total - dc;
   const marginText = margin >= 0 ? `+${margin}` : `${margin}`;
 
-  // Generate appropriate message based on final degree of success
-  let outcomeMessage = "";
-  const degreeNames = {
-    2: "CRITICAL SUCCESS",
-    1: "SUCCESS",
-    0: "FAILURE",
-    "-1": "CRITICAL FAILURE",
-  };
-  const degreeColors = {
-    2: "green",
-    1: "lime",
-    0: "pink",
-    "-1": "red",
-  };
-
-  const degreeName = degreeNames[degreeOfSuccess];
-  const degreeColor = degreeColors[degreeOfSuccess];
-  const modifierText = adjustmentModifierName
-    ? ` [${adjustmentModifierName}]`
-    : "";
-
-  switch (degreeOfSuccess) {
-    case 2:
-      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
-      outcomeMessage = criticalSuccessMessage || "";
-      break;
-    case 1:
-      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
-      outcomeMessage = successMessage || "";
-      break;
-    case 0:
-      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
-      outcomeMessage = failureMessage || "";
-      break;
-    case -1:
-      message = `**[center][color=${degreeColor}]${degreeName}${modifierText}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
-      outcomeMessage = criticalFailureMessage || "";
-      break;
-  }
-
-  // Append outcome message if it exists
-  if (outcomeMessage) {
-    message += `\n\n${outcomeMessage}`;
-  }
-
-  // Handle Treat Wounds results
-  const treatWoundsData = data?.roll?.metadata?.treatWounds;
-  if (
-    treatWoundsData &&
-    (degreeOfSuccess === 1 || degreeOfSuccess === 2 || degreeOfSuccess === -1)
-  ) {
-    let healingFormula = "";
-    let damageFormula = "";
-
-    if (degreeOfSuccess === 2) {
-      // Critical Success: 4d8 HP (+ bonus) and remove wounded condition
-      healingFormula = treatWoundsData.critSuccessHealing;
-      message += `\n\n**The target regains ${healingFormula} Hit Points and loses the wounded condition.**`;
-    } else if (degreeOfSuccess === 1) {
-      // Success: 2d8 HP (+ bonus) and remove wounded condition
-      healingFormula = treatWoundsData.successHealing;
-      message += `\n\n**The target regains ${healingFormula} Hit Points and loses the wounded condition.**`;
-    } else if (degreeOfSuccess === -1) {
-      // Critical Failure: 1d8 damage
-      damageFormula = "1d8";
-      message += `\n\n**The target takes ${damageFormula} damage.**`;
+  if (passed) {
+    const color = naturalRoll === 20 ? "green" : "lime";
+    const label = naturalRoll === 20 ? "NAT 20 — SUCCESS" : "SUCCESS";
+    message = `**[center][color=${color}]${label}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+    if (successMessage) {
+      message += `\n\n${successMessage}`;
     }
-
-    // Create healing or damage macro
-    if (healingFormula) {
-      const healingMacro = `\`\`\`Roll_Treat_Wounds_Healing
-let targets = api.getSelectedOrDroppedToken();
-
-// If record is not null, check if we're the GM or owner and use it
-if (record) {
-  if (isGM || record?.record?.ownerId === userId) {
-    targets = [record];
-  }
-}
-
-// If we're a player and we did not drop on a record, get our owned tokens
-if (!isGM && targets.length === 0) {
-  targets = api.getSelectedOwnedTokens().map(target => target.token);
-}
-
-if (targets.length === 0) {
-  api.showNotification("No targets selected for healing", "error");
-} else {
-  // Roll healing for the first target
-  api.roll("${healingFormula}", { rollName: "Treat Wounds Healing", targets: targets }, "healing");
-}
-\`\`\``;
-      message += `\n\n${healingMacro}`;
-    } else if (damageFormula) {
-      const damageMacro = `\`\`\`Roll_Treat_Wounds_Damage
-let targets = api.getSelectedOrDroppedToken();
-
-// If record is not null, check if we're the GM or owner and use it
-if (record) {
-  if (isGM || record?.record?.ownerId === userId) {
-    targets = [record];
-  }
-}
-
-// If we're a player and we did not drop on a record, get our owned tokens
-if (!isGM && targets.length === 0) {
-  targets = api.getSelectedOwnedTokens().map(target => target.token);
-}
-
-if (targets.length === 0) {
-  api.showNotification("No targets selected for damage", "error");
-} else {
-  // Roll damage for the first target
-  api.roll("${damageFormula}", { rollName: "Treat Wounds Critical Failure", targets: targets }, "damage");
-}
-\`\`\``;
-      message += `\n\n${damageMacro}`;
+  } else {
+    const color = naturalRoll === 1 ? "red" : "pink";
+    const label = naturalRoll === 1 ? "NAT 1 — FAILURE" : "FAILURE";
+    message = `**[center][color=${color}]${label}[/color] [gm]vs DC ${dc} (${marginText})[/gm][/center]**`;
+    if (failureMessage) {
+      message += `\n\n${failureMessage}`;
     }
   }
 
-  // Handle item crafting - copy to inventory on success or critical success
-  if (itemDataPath && (degreeOfSuccess === 1 || degreeOfSuccess === 2)) {
+  // Handle item crafting — copy to inventory on success
+  if (itemDataPath && passed) {
     const craftedItem = api.getValueOnRecord(record, itemDataPath);
     const traits = craftedItem.data?.traits || [];
     const hasConsumableTrait = traits
