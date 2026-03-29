@@ -220,19 +220,19 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 
 ### common.js
 - [x] Replace `setFeatSlots()`: PF1e gets general feats at levels 1, 3, 5, 7, 9, 11, 13, 15, 17, 19
-- [ ] Support class bonus feats (fighter gets combat feats at even levels, etc.)
+- [x] Support class bonus feats (fighter gets combat feats at even levels, etc.)
 
 ### feats-main.html / feats-rules.html
-- [ ] Remove: PF2e traits array, action cost, PF2e prerequisites format
-- [ ] Add: PF1e prerequisites (BAB requirement, ability score req, feat prerequisites), feat type (General, Combat, Metamagic, Item Creation, etc.), benefit/special text
+- [x] Remove: PF2e traits array, action cost, PF2e prerequisites format
+- [x] Add: PF1e prerequisites (BAB requirement, ability score req, feat prerequisites), feat type (General, Combat, Metamagic, Item Creation, etc.), benefit/special text
 
 ### characters-features.html
-- [ ] Remove ancestry feat / class feat / skill feat / general feat categorization
-- [ ] Organize by: Class Features, Feats, Racial Traits
+- [x] Remove ancestry feat / class feat / skill feat / general feat categorization
+- [x] Organize by: Class Features, Feats, Racial Traits
 
 ### backgrounds-main.html
-- [ ] Remove or stub out — no direct PF1e equivalent
-- [ ] Could repurpose for campaign traits later
+- [x] Remove or stub out — no direct PF1e equivalent
+- [x] Could repurpose for campaign traits later
 
 ---
 
