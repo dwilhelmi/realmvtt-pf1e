@@ -766,30 +766,16 @@ function collectTraitsAndProperties(
     });
   }
 
-  // Collect ancestry names (e.g., "Human" becomes "ancestry:human")
-  if (token?.data?.ancestries) {
-    const ancestries = Array.isArray(token.data.ancestries)
-      ? token.data.ancestries
+  // Collect race names (e.g., "Dwarf" becomes "race:dwarf")
+  if (token?.data?.races) {
+    const races = Array.isArray(token.data.races)
+      ? token.data.races
       : [];
-    ancestries.forEach((ancestryObj) => {
-      const ancestryName = ancestryObj?.name || "";
-      if (ancestryName) {
-        const ancestrySlug = ancestryName.toLowerCase().replace(/\s+/g, "-");
-        traits.add(`ancestry:${ancestrySlug}`);
-      }
-    });
-  }
-
-  // Collect heritage names (e.g., "Skilled Heritage" becomes "heritage:skilled-heritage")
-  if (token?.data?.heritages) {
-    const heritages = Array.isArray(token.data.heritages)
-      ? token.data.heritages
-      : [];
-    heritages.forEach((heritageObj) => {
-      const heritageName = heritageObj?.name || "";
-      if (heritageName) {
-        const heritageSlug = heritageName.toLowerCase().replace(/\s+/g, "-");
-        traits.add(`heritage:${heritageSlug}`);
+    races.forEach((raceObj) => {
+      const raceName = raceObj?.name || "";
+      if (raceName) {
+        const raceSlug = raceName.toLowerCase().replace(/\s+/g, "-");
+        traits.add(`race:${raceSlug}`);
       }
     });
   }
@@ -850,30 +836,14 @@ function collectTraitsAndProperties(
     });
   }
 
-  // Collect features from ancestry features
-  if (token?.data?.ancestries) {
-    const ancestries = Array.isArray(token.data.ancestries)
-      ? token.data.ancestries
+  // Collect features from race racial traits
+  if (token?.data?.races) {
+    const races = Array.isArray(token.data.races)
+      ? token.data.races
       : [];
-    ancestries.forEach((ancestry) => {
-      const ancestryFeatures = ancestry?.data?.features || [];
-      ancestryFeatures.forEach((feature) => {
-        const featureName = feature?.name || "";
-        if (featureName) {
-          traits.add(`feature:${toSlug(featureName)}`);
-        }
-      });
-    });
-  }
-
-  // Collect features from heritage features
-  if (token?.data?.heritages) {
-    const heritages = Array.isArray(token.data.heritages)
-      ? token.data.heritages
-      : [];
-    heritages.forEach((heritage) => {
-      const heritageFeatures = heritage?.data?.features || [];
-      heritageFeatures.forEach((feature) => {
+    races.forEach((race) => {
+      const raceFeatures = race?.data?.features || [];
+      raceFeatures.forEach((feature) => {
         const featureName = feature?.name || "";
         if (featureName) {
           traits.add(`feature:${toSlug(featureName)}`);
@@ -1235,17 +1205,10 @@ function updateRollOptions(record, valuesToSet) {
   collectChoiceRollOptions(record.data?.bonusFeats);
   collectChoiceRollOptions(record.data?.features);
 
-  // Collect from ancestry features
-  if (record.data?.ancestries) {
-    record.data.ancestries.forEach((ancestry) => {
-      collectChoiceRollOptions(ancestry.data?.features);
-    });
-  }
-
-  // Collect from heritage features
-  if (record.data?.heritages) {
-    record.data.heritages.forEach((heritage) => {
-      collectChoiceRollOptions(heritage.data?.features);
+  // Collect from race features
+  if (record.data?.races) {
+    record.data.races.forEach((race) => {
+      collectChoiceRollOptions(race.data?.features);
     });
   }
 
@@ -1923,14 +1886,10 @@ function getEffectsAndModifiersForToken(
     ? target?.data?.inventory
     : [];
 
-  // Collect all modifiers from ancestry and class features
-  const ancestries = target?.data?.ancestries || [];
-  for (const ancestry of ancestries) {
-    features.push(...(ancestry.data?.features || []));
-  }
-  const heritages = target?.data?.heritages || [];
-  for (const heritage of heritages) {
-    features.push(...(heritage.data?.features || []));
+  // Collect all modifiers from race and class features
+  const races = target?.data?.races || [];
+  for (const race of races) {
+    features.push(...(race.data?.features || []));
   }
   const classes = target?.data?.classes || [];
   for (const classObj of classes) {
@@ -2335,19 +2294,17 @@ function getEffectsAndModifiersForToken(
     (r) => r.itemId === itemId || r.field === itemId || r.itemId === undefined
   );
 
-  // For the roll, we need only count 1 status / item / circumstance bonus or penalty,
-  // and we take the highest of each
+  // PF1e stacking rules:
+  // - Dodge bonuses and untyped bonuses always stack (all count)
+  // - All penalties always stack
+  // - All other bonus types: only the highest of each type applies
   const filteredResults = [];
-  const bonusGroups = { circumstance: [], item: [], status: [] };
-  const penaltyGroups = { circumstance: [], item: [], status: [] };
+  const bonusGroups = {};
+  const penaltyGroups = {};
 
   // Group results by type and bonus/penalty
   results.forEach((result) => {
-    if (result.type === "" || result.type === "none") {
-      // Keep non-typed modifiers as-is
-      filteredResults.push(result);
-      return;
-    }
+    const bonusType = (result.type || "").toLowerCase();
 
     // Check if this is a negative bonus and convert it to a penalty
     let isPenalty = result.modifierType.toLowerCase().includes("penalty");
@@ -2358,7 +2315,6 @@ function getEffectsAndModifiersForToken(
     if (typeof result.value === "number") {
       numericValue = result.value;
     } else if (typeof result.value === "string") {
-      // Try to extract numeric value from string (e.g., "-2" or "1d4")
       const match = String(result.value).match(/^-?\d+/);
       if (match) {
         numericValue = parseInt(match[0], 10);
@@ -2372,27 +2328,32 @@ function getEffectsAndModifiersForToken(
       isPenalty = true;
     }
 
-    const groups = isPenalty ? penaltyGroups : bonusGroups;
-
-    if (groups[result.type]) {
-      groups[result.type].push(result);
+    // Stacking types: dodge, untyped, and unset bonuses always stack
+    if (PF1E_STACKING_BONUS_TYPES.includes(bonusType) || bonusType === "none") {
+      filteredResults.push(result);
+      return;
     }
+
+    // All penalties stack in PF1e
+    if (isPenalty) {
+      filteredResults.push(result);
+      return;
+    }
+
+    // Non-stacking bonus: group by type, keep highest
+    if (!bonusGroups[bonusType]) {
+      bonusGroups[bonusType] = [];
+    }
+    bonusGroups[bonusType].push(result);
   });
 
-  // For each type, keep only the highest value
+  // For each non-stacking bonus type, keep only the highest value
   Object.keys(bonusGroups).forEach((type) => {
     if (bonusGroups[type].length > 0) {
       const highestBonus = bonusGroups[type].reduce((highest, current) =>
         (current.value || 0) > (highest.value || 0) ? current : highest
       );
       filteredResults.push(highestBonus);
-    }
-
-    if (penaltyGroups[type].length > 0) {
-      const highestPenalty = penaltyGroups[type].reduce((highest, current) =>
-        (current.value || 0) < (highest.value || 0) ? current : highest
-      );
-      filteredResults.push(highestPenalty);
     }
   });
 
@@ -2561,42 +2522,80 @@ function getDegreeOfSuccessAdjustments(
 function getPathfinderSkills() {
   return {
     acrobatics: "dex",
-    arcana: "int",
-    athletics: "str",
-    crafting: "int",
-    deception: "cha",
+    appraise: "int",
+    bluff: "cha",
+    climb: "str",
+    craft: "int",
     diplomacy: "cha",
-    intimidation: "cha",
-    medicine: "wis",
-    nature: "wis",
-    occultism: "int",
-    performance: "cha",
-    religion: "wis",
-    society: "int",
+    disableDevice: "dex",
+    disguise: "cha",
+    escapeArtist: "dex",
+    fly: "dex",
+    handleAnimal: "cha",
+    heal: "wis",
+    intimidate: "cha",
+    knowledgeArcana: "int",
+    knowledgeDungeoneering: "int",
+    knowledgeEngineering: "int",
+    knowledgeGeography: "int",
+    knowledgeHistory: "int",
+    knowledgeLocal: "int",
+    knowledgeNature: "int",
+    knowledgeNobility: "int",
+    knowledgePlanes: "int",
+    knowledgeReligion: "int",
+    linguistics: "int",
+    perception: "wis",
+    perform: "cha",
+    profession: "wis",
+    ride: "dex",
+    senseMotive: "wis",
+    sleightOfHand: "dex",
+    spellcraft: "int",
     stealth: "dex",
     survival: "wis",
-    thievery: "dex",
+    swim: "str",
+    useMagicDevice: "cha",
   };
 }
 
 function getAllSkillOptions() {
   return [
     { label: "Acrobatics", value: "acrobatics" },
-    { label: "Arcana", value: "arcana" },
-    { label: "Athletics", value: "athletics" },
-    { label: "Crafting", value: "crafting" },
-    { label: "Deception", value: "deception" },
+    { label: "Appraise", value: "appraise" },
+    { label: "Bluff", value: "bluff" },
+    { label: "Climb", value: "climb" },
+    { label: "Craft", value: "craft" },
     { label: "Diplomacy", value: "diplomacy" },
-    { label: "Intimidation", value: "intimidation" },
-    { label: "Medicine", value: "medicine" },
-    { label: "Nature", value: "nature" },
-    { label: "Occultism", value: "occultism" },
-    { label: "Performance", value: "performance" },
-    { label: "Religion", value: "religion" },
-    { label: "Society", value: "society" },
+    { label: "Disable Device", value: "disableDevice" },
+    { label: "Disguise", value: "disguise" },
+    { label: "Escape Artist", value: "escapeArtist" },
+    { label: "Fly", value: "fly" },
+    { label: "Handle Animal", value: "handleAnimal" },
+    { label: "Heal", value: "heal" },
+    { label: "Intimidate", value: "intimidate" },
+    { label: "Knowledge (Arcana)", value: "knowledgeArcana" },
+    { label: "Knowledge (Dungeoneering)", value: "knowledgeDungeoneering" },
+    { label: "Knowledge (Engineering)", value: "knowledgeEngineering" },
+    { label: "Knowledge (Geography)", value: "knowledgeGeography" },
+    { label: "Knowledge (History)", value: "knowledgeHistory" },
+    { label: "Knowledge (Local)", value: "knowledgeLocal" },
+    { label: "Knowledge (Nature)", value: "knowledgeNature" },
+    { label: "Knowledge (Nobility)", value: "knowledgeNobility" },
+    { label: "Knowledge (Planes)", value: "knowledgePlanes" },
+    { label: "Knowledge (Religion)", value: "knowledgeReligion" },
+    { label: "Linguistics", value: "linguistics" },
+    { label: "Perception", value: "perception" },
+    { label: "Perform", value: "perform" },
+    { label: "Profession", value: "profession" },
+    { label: "Ride", value: "ride" },
+    { label: "Sense Motive", value: "senseMotive" },
+    { label: "Sleight of Hand", value: "sleightOfHand" },
+    { label: "Spellcraft", value: "spellcraft" },
     { label: "Stealth", value: "stealth" },
     { label: "Survival", value: "survival" },
-    { label: "Thievery", value: "thievery" },
+    { label: "Swim", value: "swim" },
+    { label: "Use Magic Device", value: "useMagicDevice" },
   ];
 }
 
@@ -3370,13 +3369,23 @@ function updateAttribute({
 
   // If this was constitution, update hitpoints
   if (attribute === "con") {
-    // hitpoints = CON MOD + hp rolled at each level (min 1)
+    // PF1e HP = sum of HD rolls (or average) per level + Con mod * level + favored class HP + misc
     const conMod = value;
-    // Hit Points in PF2e is Ancestry HP + (Class HP + Con Mod)*Level
-    const ancestryHp = record.data?.ancestries?.[0]?.data?.hp || 0;
-    const classHp = record.data?.classes?.[0]?.data?.hp || 0;
-    const level = record.data?.level || 0;
-    const totalHp = extraHitpoints + ancestryHp + (conMod + classHp) * level;
+    const classObj = record.data?.classes?.[0];
+    const hitDie = parseInt(classObj?.data?.hitDie || "8", 10);
+    const level = parseInt(record.data?.level || "0", 10);
+    // Use average HD per level (rounded up): (hitDie / 2) + 0.5, max at first level
+    // First level gets max HD, subsequent levels get average
+    let baseHp = 0;
+    if (level >= 1) {
+      baseHp = hitDie; // Max at first level
+      if (level > 1) {
+        const avgPerLevel = Math.floor(hitDie / 2) + 1;
+        baseHp += avgPerLevel * (level - 1);
+      }
+    }
+    const favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
+    const totalHp = extraHitpoints + baseHp + (conMod * level) + favoredClassHp;
     valuesToSet[`data.hitpoints`] = totalHp;
     // If curhp is not set, set it to hitpoints
     if (record.data?.curhp === undefined) {
@@ -3384,7 +3393,7 @@ function updateAttribute({
     }
   }
 
-  // You can carry an amount of Bulk equal to 5 plus your Strength modifier without penalty
+  // Carrying capacity: Str score determines light/medium/heavy load thresholds
   let strength = parseInt(
     record.data?.str !== undefined ? record.data?.str : 0,
     10
@@ -3392,9 +3401,11 @@ function updateAttribute({
   if (attribute === "str") {
     strength = value;
   }
+  // Light load threshold ≈ Str score * 10 / 3 (simplified)
   valuesToSet[`data.bulk`] = 5 + strength;
 
-  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC and adds proficency bonus if proficient
+  // --- PF1e AC Calculation ---
+  // AC = 10 + armor + shield + Dex (capped by max Dex) + size + natural armor + deflection + dodge + misc
   let dexValue = parseInt(
     record.data?.dex !== undefined ? record.data?.dex : 0,
     10
@@ -3402,199 +3413,56 @@ function updateAttribute({
   if (attribute === "dex") {
     dexValue = value;
   }
+
   const bestArmor = getBestEquippedArmor(record);
+  const armorBonus = Math.max(0, parseInt(bestArmor?.armor?.acBonus || "0", 10));
+  const shieldBonus = Math.max(0, parseInt(bestArmor?.shield?.acBonus || "0", 10));
 
-  // Get the armor item to pass as context for predicate evaluation
-  let armorItem = null;
-  if (bestArmor?.armor?.armorId) {
-    const inventory = record.data?.inventory || [];
-    armorItem = inventory.find((item) => item._id === bestArmor.armor.armorId);
-  }
-
-  let ac = 10 + Math.max(0, bestArmor.armor.acBonus);
-  let additionalAcAttribute = "dex";
-  // Check for armorClassCalculation mods
-  const acCalculationMods = getEffectsAndModifiersForToken(
-    record,
-    ["armorClassCalculation"],
-    undefined,
-    undefined,
-    undefined,
-    armorItem ? { item: armorItem } : {}
-  );
-  acCalculationMods.forEach((mod) => {
-    if (mod.field !== undefined && mod.field !== "dex") {
-      additionalAcAttribute = mod.field;
-    }
-  });
-  if (additionalAcAttribute !== "dex") {
-    let additionalAcValue = parseInt(
-      record.data?.[additionalAcAttribute] !== undefined
-        ? record.data?.[additionalAcAttribute]
-        : 0,
-      10
-    );
-    if (attribute === additionalAcAttribute) {
-      additionalAcValue = value;
-    }
-    ac += additionalAcValue;
-  }
-  // AC = 10 + your Dexterity modifier. Wearing armor changes your AC.
-  if (bestArmor.armor.dexCap !== undefined && bestArmor.armor.dexCap > 0) {
-    ac += Math.min(dexValue, bestArmor.armor.dexCap);
-  }
-  const shieldBroken = record.data?.shieldBroken === true;
-  // AC bonus is only if shield is equipped AND raised AND not broken
-  if (
-    bestArmor.shield &&
-    record.data?.shieldRaised === "true" &&
-    !shieldBroken
-  ) {
-    ac += bestArmor.shield.acBonus;
-  }
-  // Get proficiency bonus for this armor type
-  const armorProf = getProfiencyForArmor(
-    record,
-    bestArmor?.armor?.armorCategory,
-    bestArmor?.armor?.group
-  );
-  // Prof bonus is prof * 2 + level, if we're proficient, else we don't add level
-  if (armorProf > 0) {
-    ac += armorProf * 2 + (record?.data?.level || 0);
+  // Dex to AC, capped by armor's max Dex bonus
+  let dexToAC = dexValue;
+  if (bestArmor?.armor?.dexCap !== undefined && bestArmor.armor.dexCap >= 0) {
+    dexToAC = Math.min(dexValue, bestArmor.armor.dexCap);
   }
 
-  const acBonus = getEffectsAndModifiersForToken(
+  // Size modifier to AC
+  const size = record.data?.size || "medium";
+  const sizeModAC = getSizeModifier(size, "acAttack");
+
+  // Natural armor, deflection, dodge, misc from stored values
+  const naturalArmor = parseInt(record.data?.naturalArmor || "0", 10);
+  const deflectionBonus = parseInt(record.data?.deflectionBonus || "0", 10);
+  const dodgeBonus = parseInt(record.data?.dodgeBonus || "0", 10);
+  const miscACBonus = parseInt(record.data?.miscACBonus || "0", 10);
+
+  // Get AC bonuses from effects
+  const acBonusMods = getEffectsAndModifiersForToken(
     record,
     ["armorClassBonus", "armorClassPenalty"],
-    "all",
-    undefined,
-    undefined,
-    armorItem ? { item: armorItem } : {}
+    "all"
   );
-  const armorModsSet = new Set();
-  acBonus.forEach((modifier) => {
-    // Only if it was from a feature or item, not effect
-    // And also if it had a predicate, only if it evaluates to true (modifier.active is true)
-    if (
-      !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
-      modifier.active
-    ) {
-      ac += modifier.value;
-      armorModsSet.add(JSON.stringify(modifier));
+  let effectACBonus = 0;
+  acBonusMods.forEach((modifier) => {
+    if (modifier.active) {
+      effectACBonus += parseInt(modifier.value || "0", 10);
     }
   });
-  // Also get the armor type bonuses
-  if (bestArmor.armorType) {
-    const armorTypeBonus = getEffectsAndModifiersForToken(
-      record,
-      ["armorClassBonus", "armorClassPenalty"],
-      bestArmor.armorType,
-      undefined,
-      undefined,
-      armorItem ? { item: armorItem } : {}
-    );
-    armorTypeBonus.forEach((modifier) => {
-      // Only if it was from a feature or item, not effect
-      // And also if it had a predicate, only if it evaluates to true (modifier.active is true)
-      if (
-        !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
-        modifier.active
-      ) {
-        ac += modifier.value;
-        armorModsSet.add(JSON.stringify(modifier));
-      }
-    });
-  }
-  // Also get the shield bonuses
-  if (bestArmor.shieldName) {
-    const shieldBonus = getEffectsAndModifiersForToken(
-      record,
-      ["armorClassBonus", "armorClassPenalty"],
-      "Shield",
-      undefined,
-      undefined,
-      armorItem ? { item: armorItem } : {}
-    );
-    shieldBonus.forEach((modifier) => {
-      // Only if it was from a feature or item, not effect
-      if (
-        !armorModsSet.has(JSON.stringify(modifier) && !modifier.isEffect) &&
-        modifier.active
-      ) {
-        ac += modifier.value;
-        armorModsSet.add(JSON.stringify(modifier));
-      }
-    });
-  }
 
+  const ac = 10 + armorBonus + shieldBonus + dexToAC + sizeModAC + naturalArmor + deflectionBonus + dodgeBonus + miscACBonus + effectACBonus;
   valuesToSet[`data.ac`] = ac;
 
-  // Check for speed penalty
-  let totalSpeedPenalty = 0;
-  const armorStrength =
-    bestArmor?.armor?.strength !== undefined ? bestArmor.armor.strength : 0;
-  if (
-    bestArmor?.armor?.speedPenalty !== undefined &&
-    armorStrength !== undefined
-  ) {
-    totalSpeedPenalty = bestArmor.armor.speedPenalty;
-    // If we meet the strength requirement, reduce speed penalty by 5
-    if (strength >= armorStrength) {
-      totalSpeedPenalty -= 5;
-    }
-  }
-  // If the shield has a speed penalty always add it
-  if (bestArmor?.shield?.speedPenalty !== undefined) {
-    totalSpeedPenalty += bestArmor.shield.speedPenalty;
-  }
+  // Touch AC = 10 + Dex + size + deflection + dodge + misc (no armor, shield, or natural armor)
+  const touchAC = 10 + dexToAC + sizeModAC + deflectionBonus + dodgeBonus + miscACBonus + effectACBonus;
+  valuesToSet[`data.touchAC`] = touchAC;
 
-  const speed = record.data?.speed || "";
-  valuesToSet[`data.speedPenalty`] = totalSpeedPenalty;
+  // Flat-Footed AC = AC - Dex bonus (if positive) - dodge bonus
+  const dexBonusToAC = Math.max(0, dexToAC);
+  const flatFootedAC = ac - dexBonusToAC - dodgeBonus;
+  valuesToSet[`data.flatFootedAC`] = flatFootedAC;
 
-  // Update speed display to show penalty in parentheses
-  let speedDisplay = speed;
-  // Remove any existing parenthetical note first
-  speedDisplay = speedDisplay.replace(/\s*\([^)]*\)\s*$/, "").trim();
-
-  // Add penalty note if there is a penalty
-  if (totalSpeedPenalty > 0 && speedDisplay) {
-    // Extract the numeric value from the base speed
-    const speedMatch = speedDisplay.match(/(\d+)/);
-    if (speedMatch) {
-      const baseSpeed = parseInt(speedMatch[1]);
-      const penalizedSpeed = Math.max(0, baseSpeed - totalSpeedPenalty);
-      // Extract the unit (e.g., "feet")
-      const unitMatch = speedDisplay.match(/\d+\s+(\w+)/);
-      const unit = unitMatch ? unitMatch[1] : "feet";
-      speedDisplay = `${speedDisplay} (${penalizedSpeed} ${unit} due to armor)`;
-    }
-  }
-
-  if (speedDisplay !== speed) {
-    valuesToSet[`data.speed`] = speedDisplay;
-  }
-
-  if (bestArmor?.shield?.hp?.value !== undefined) {
-    valuesToSet[`data.shieldHp`] = bestArmor.shield.hp.value;
-    valuesToSet[`data.shieldMaxHp`] = bestArmor.shield.hp.max;
-    valuesToSet[`data.shieldBt`] = Math.floor(
-      (bestArmor.shield.hp.max || 0) / 2
-    );
-  } else {
-    valuesToSet[`data.shieldHp`] = null;
-    valuesToSet[`data.shieldMaxHp`] = null;
-    valuesToSet[`data.shieldBt`] = null;
-  }
-  if (bestArmor?.shield?.hardness !== undefined) {
-    valuesToSet[`data.shieldHardness`] = bestArmor.shield.hardness;
-  } else {
-    valuesToSet[`data.shieldHardness`] = null;
-  }
-  if (bestArmor?.shield?.acBonus !== undefined) {
-    valuesToSet[`data.shieldAC`] = bestArmor.shield.acBonus;
-  } else {
-    valuesToSet[`data.shieldAC`] = null;
-  }
+  // Armor check penalty from equipped armor
+  const armorCheckPenalty = parseInt(bestArmor?.armor?.checkPenalty || "0", 10) +
+    parseInt(bestArmor?.shield?.checkPenalty || "0", 10);
+  valuesToSet[`data.armorCheckPenalty`] = armorCheckPenalty;
 
   // If moreValuesToSet is provided, add it to the valuesToSet else call API directly
   if (moreValuesToSet) {
@@ -3612,18 +3480,13 @@ function updateAttribute({
 // and then add the feature to the record.
 function processChoices(record, depth = 0) {
   const characterLevel = record.data?.level || 1;
-  const ancestryFeatures = [];
-  const heritageFeatures = [];
+  const raceFeatures = [];
   const classFeatures = [];
-  // Collect all features from ancestries, heritages, and classes
-  const ancestries = record.data?.ancestries || [];
-  const heritages = record.data?.heritages || [];
+  // Collect all features from races and classes
+  const races = record.data?.races || [];
   const classes = record.data?.classes || [];
-  for (const ancestry of ancestries) {
-    ancestryFeatures.push(...(ancestry.data?.features || []));
-  }
-  for (const heritage of heritages) {
-    heritageFeatures.push(...(heritage.data?.features || []));
+  for (const race of races) {
+    raceFeatures.push(...(race.data?.features || []));
   }
   for (const classObj of classes) {
     classFeatures.push(...(classObj.data?.features || []));
@@ -3635,16 +3498,10 @@ function processChoices(record, depth = 0) {
 
   const groups = [
     {
-      name: "Ancestry",
-      // Assume only ever 1 ancestry
-      dataPath: "data.ancestries.0.data.features",
-      features: ancestryFeatures,
-    },
-    {
-      name: "Heritage",
-      // Assume only ever 1 heritage
-      dataPath: "data.heritages.0.data.features",
-      features: heritageFeatures,
+      name: "Race",
+      // Assume only ever 1 race
+      dataPath: "data.races.0.data.features",
+      features: raceFeatures,
     },
     {
       name: "Class",
@@ -3994,19 +3851,12 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     let currentFeature = feature; // default fallback
 
     // Find the current version of this feature in the record
-    if (featureDataPath === "data.ancestries.0.data.features") {
-      const ancestryList = record.data?.ancestries || [];
-      if (ancestryList.length > 0) {
-        const ancestryFeatures = ancestryList[0].data?.features || [];
+    if (featureDataPath === "data.races.0.data.features") {
+      const raceList = record.data?.races || [];
+      if (raceList.length > 0) {
+        const raceFeatures = raceList[0].data?.features || [];
         currentFeature =
-          ancestryFeatures.find((f) => f._id === feature._id) || feature;
-      }
-    } else if (featureDataPath === "data.heritages.0.data.features") {
-      const heritageList = record.data?.heritages || [];
-      if (heritageList.length > 0) {
-        const heritageFeatures = heritageList[0].data?.features || [];
-        currentFeature =
-          heritageFeatures.find((f) => f._id === feature._id) || feature;
+          raceFeatures.find((f) => f._id === feature._id) || feature;
       }
     } else if (featureDataPath === "data.classes.0.data.features") {
       const classList = record.data?.classes || [];
@@ -4059,7 +3909,7 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       bonusFeats: [],
       actions: [],
       classFeatures: [],
-      ancestryFeatures: [],
+      raceFeatures: [],
     };
 
     // Process each item from the selected option's value array
@@ -4086,7 +3936,7 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       } else if (recordType === "features") {
         // Check feature type
         const featureType = (item.data?.type || "classfeature").toLowerCase();
-        const isAncestryFeature = featureType === "ancestryfeature";
+        const isRaceFeature = featureType === "racefeature" || featureType === "racialfeature";
         const newItem = {
           ...item,
           portrait:
@@ -4098,8 +3948,8 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
           },
         };
 
-        if (isAncestryFeature) {
-          itemsByType.ancestryFeatures.push(newItem);
+        if (isRaceFeature) {
+          itemsByType.raceFeatures.push(newItem);
         } else {
           itemsByType.classFeatures.push(newItem);
         }
@@ -4129,50 +3979,35 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
     }
 
     // Handle feature updates based on which group this choice belongs to
-    if (featureDataPath === "data.ancestries.0.data.features") {
-      const ancestryList = record.data?.ancestries || [];
-      if (ancestryList.length > 0) {
-        let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
+    if (featureDataPath === "data.races.0.data.features") {
+      const raceList = record.data?.races || [];
+      if (raceList.length > 0) {
+        let raceFeatures = [...(raceList[0].data?.features || [])];
 
         // Find the feature in the current record by _id
-        featureIndex = ancestryFeatures.findIndex((f) => f._id === feature._id);
+        featureIndex = raceFeatures.findIndex((f) => f._id === feature._id);
 
         // Replace the feature that had the choice with the updated version
         if (featureIndex >= 0) {
-          ancestryFeatures[featureIndex] = updatedFeature;
+          raceFeatures[featureIndex] = updatedFeature;
         }
 
         // Add any new features from the choice (filter out duplicates)
-        if (itemsByType.ancestryFeatures.length > 0) {
-          const newFeatures = itemsByType.ancestryFeatures.filter(
+        if (itemsByType.raceFeatures.length > 0) {
+          const newFeatures = itemsByType.raceFeatures.filter(
             (newFeature) => {
               // Check if a feature with the same name OR _id already exists
-              return !ancestryFeatures.some(
+              return !raceFeatures.some(
                 (existingFeature) =>
                   existingFeature.name === newFeature.name ||
                   existingFeature._id === newFeature._id
               );
             }
           );
-          ancestryFeatures = [...ancestryFeatures, ...newFeatures];
+          raceFeatures = [...raceFeatures, ...newFeatures];
         }
 
-        valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
-      }
-    } else if (featureDataPath === "data.heritages.0.data.features") {
-      const heritageList = record.data?.heritages || [];
-      if (heritageList.length > 0) {
-        let heritageFeatures = [...(heritageList[0].data?.features || [])];
-
-        // Find the feature in the current record by _id
-        featureIndex = heritageFeatures.findIndex((f) => f._id === feature._id);
-
-        // Replace the feature that had the choice with the updated version
-        if (featureIndex >= 0) {
-          heritageFeatures[featureIndex] = updatedFeature;
-        }
-
-        valuesToSet["data.heritages.0.data.features"] = heritageFeatures;
+        valuesToSet["data.races.0.data.features"] = raceFeatures;
       }
     } else if (featureDataPath === "data.classes.0.data.features") {
       const classList = record.data?.classes || [];
@@ -4276,8 +4111,8 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         data: {
           type: isFeat
             ? undefined
-            : group.name === "Ancestry"
-            ? "ancestryfeature"
+            : group.name === "Race"
+            ? "racefeature"
             : "classfeature",
           level: feature.data?.level || 1,
           description: `Choice made for: ${feature.name}`,
@@ -4307,19 +4142,12 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       let currentFeature = feature; // default fallback
 
       // Find the current version of this feature in the record
-      if (featureDataPath === "data.ancestries.0.data.features") {
-        const ancestryList = record.data?.ancestries || [];
-        if (ancestryList.length > 0) {
-          const ancestryFeatures = ancestryList[0].data?.features || [];
+      if (featureDataPath === "data.races.0.data.features") {
+        const raceList = record.data?.races || [];
+        if (raceList.length > 0) {
+          const raceFeatures = raceList[0].data?.features || [];
           currentFeature =
-            ancestryFeatures.find((f) => f._id === feature._id) || feature;
-        }
-      } else if (featureDataPath === "data.heritages.0.data.features") {
-        const heritageList = record.data?.heritages || [];
-        if (heritageList.length > 0) {
-          const heritageFeatures = heritageList[0].data?.features || [];
-          currentFeature =
-            heritageFeatures.find((f) => f._id === feature._id) || feature;
+            raceFeatures.find((f) => f._id === feature._id) || feature;
         }
       } else if (featureDataPath === "data.classes.0.data.features") {
         const classList = record.data?.classes || [];
@@ -4370,45 +4198,25 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
       let featureIndex = -1;
 
       // Add the new feature to the appropriate location
-      if (featureDataPath === "data.ancestries.0.data.features") {
-        const ancestryList = record.data?.ancestries || [];
-        if (ancestryList.length > 0) {
-          let ancestryFeatures = [...(ancestryList[0].data?.features || [])];
+      if (featureDataPath === "data.races.0.data.features") {
+        const raceList = record.data?.races || [];
+        if (raceList.length > 0) {
+          let raceFeatures = [...(raceList[0].data?.features || [])];
 
           // Find the feature in the current record by _id
-          featureIndex = ancestryFeatures.findIndex(
+          featureIndex = raceFeatures.findIndex(
             (f) => f._id === feature._id
           );
 
           // Replace the feature that had the choice with the updated version
           if (featureIndex >= 0) {
-            ancestryFeatures[featureIndex] = updatedFeature;
+            raceFeatures[featureIndex] = updatedFeature;
           }
 
           // Add the new feature
-          ancestryFeatures = [...ancestryFeatures, newFeature];
+          raceFeatures = [...raceFeatures, newFeature];
 
-          valuesToSet["data.ancestries.0.data.features"] = ancestryFeatures;
-        }
-      } else if (featureDataPath === "data.heritages.0.data.features") {
-        const heritageList = record.data?.heritages || [];
-        if (heritageList.length > 0) {
-          let heritageFeatures = [...(heritageList[0].data?.features || [])];
-
-          // Find the feature in the current record by _id
-          featureIndex = heritageFeatures.findIndex(
-            (f) => f._id === feature._id
-          );
-
-          // Replace the feature that had the choice with the updated version
-          if (featureIndex >= 0) {
-            heritageFeatures[featureIndex] = updatedFeature;
-          }
-
-          // Add the new feature
-          heritageFeatures = [...heritageFeatures, newFeature];
-
-          valuesToSet["data.heritages.0.data.features"] = heritageFeatures;
+          valuesToSet["data.races.0.data.features"] = raceFeatures;
         }
       } else if (featureDataPath === "data.classes.0.data.features") {
         const classList = record.data?.classes || [];
@@ -4535,39 +4343,94 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
 }
 
 // Helper function to calculate proficiency bonus
-function calculateProficiencyBonus(record, training) {
-  const characterLevel = parseInt(record.data?.level || "0", 10);
-  switch (parseInt(training, 10)) {
-    case 0:
-      return 0;
-    case 1:
-      return 2 + characterLevel;
-    case 2:
-      return 4 + characterLevel;
-    case 3:
-      return 6 + characterLevel;
-    case 4:
-      return 8 + characterLevel;
+// =============================================================================
+// PF1e Core Constants and Helper Functions
+// =============================================================================
+
+// BAB Progression: returns BAB for a given level
+function calculateBAB(level, progression) {
+  level = parseInt(level, 10) || 0;
+  switch (progression) {
+    case "full":
+      return level;
+    case "threeQuarter":
+      return Math.floor(level * 3 / 4);
+    case "half":
+      return Math.floor(level / 2);
     default:
       return 0;
   }
 }
 
-function calculateProficiencyBonusForLevel(characterLevel, training) {
-  switch (parseInt(training, 10)) {
-    case 0:
-      return 0;
-    case 1:
-      return 2 + characterLevel;
-    case 2:
-      return 4 + characterLevel;
-    case 3:
-      return 6 + characterLevel;
-    case 4:
-      return 8 + characterLevel;
+// Save Progression: returns base save for a given level
+function calculateBaseSave(level, progression) {
+  level = parseInt(level, 10) || 0;
+  switch (progression) {
+    case "good":
+      return 2 + Math.floor(level / 2);
+    case "poor":
+      return Math.floor(level / 3);
     default:
       return 0;
   }
+}
+
+// Ability modifier from raw score: floor((score - 10) / 2)
+function calculateAbilityModifier(score) {
+  score = parseInt(score, 10) || 10;
+  return Math.floor((score - 10) / 2);
+}
+
+// Iterative attacks from BAB: returns array of attack bonuses
+// e.g., BAB 16 → [16, 11, 6, 1]
+function calculateIterativeAttacks(bab) {
+  bab = parseInt(bab, 10) || 0;
+  const attacks = [bab];
+  let iterative = bab - 5;
+  while (iterative >= 1) {
+    attacks.push(iterative);
+    iterative -= 5;
+  }
+  return attacks;
+}
+
+// Size modifier table for AC, attack rolls, CMB, CMD
+const PF1E_SIZE_MODIFIERS = {
+  fine: { acAttack: 8, cmb: -8, cmd: -8, fly: 8, stealth: 16 },
+  diminutive: { acAttack: 4, cmb: -4, cmd: -4, fly: 6, stealth: 12 },
+  tiny: { acAttack: 2, cmb: -2, cmd: -2, fly: 4, stealth: 8 },
+  small: { acAttack: 1, cmb: -1, cmd: -1, fly: 2, stealth: 4 },
+  medium: { acAttack: 0, cmb: 0, cmd: 0, fly: 0, stealth: 0 },
+  large: { acAttack: -1, cmb: 1, cmd: 1, fly: -2, stealth: -4 },
+  huge: { acAttack: -2, cmb: 2, cmd: 2, fly: -4, stealth: -8 },
+  gargantuan: { acAttack: -4, cmb: 4, cmd: 4, fly: -6, stealth: -12 },
+  colossal: { acAttack: -8, cmb: 8, cmd: 8, fly: -8, stealth: -16 },
+};
+
+function getSizeModifier(size, type) {
+  const sizeMods = PF1E_SIZE_MODIFIERS[size?.toLowerCase()] || PF1E_SIZE_MODIFIERS.medium;
+  return sizeMods[type] || 0;
+}
+
+// PF1e bonus types that stack (all instances count, not just highest)
+const PF1E_STACKING_BONUS_TYPES = ["dodge", "untyped", ""];
+
+// PF1e XP progression table (medium advancement)
+const PF1E_XP_TABLE = {
+  1: 0, 2: 2000, 3: 5000, 4: 9000, 5: 15000,
+  6: 23000, 7: 35000, 8: 51000, 9: 75000, 10: 105000,
+  11: 155000, 12: 220000, 13: 315000, 14: 445000, 15: 635000,
+  16: 890000, 17: 1300000, 18: 1800000, 19: 2550000, 20: 3600000,
+};
+
+// Legacy compatibility stubs — these may still be referenced during transition.
+// They return 0 so callers get a neutral value instead of crashing.
+function calculateProficiencyBonus(record, training) {
+  return 0;
+}
+
+function calculateProficiencyBonusForLevel(characterLevel, training) {
+  return 0;
 }
 
 function showAlchemistFields(record, valuesToSet) {
@@ -4661,21 +4524,21 @@ function updateSpellcastingEntries(record, valuesToSet) {
   });
 }
 
-// Called by onAddEditFeature to set the feat slots for the character based on their feats
+// Called by onAddEditFeature to set the feat slots for the character based on their level
+// PF1e: General feats at odd levels (1, 3, 5, 7, ...) + class bonus feat levels from class data
 function setFeatSlots(record, valuesToSet) {
   const classes = record.data?.classes || [];
   const classObj = classes?.[0];
-  const ancestryFeatLevels = (classObj?.data?.ancestryFeatLevels || []).map(
+
+  // PF1e general feat levels: every odd level
+  const generalFeatLevels = [];
+  for (let i = 1; i <= 20; i += 2) {
+    generalFeatLevels.push(i);
+  }
+
+  // Class bonus feat levels (e.g., Fighter gets bonus combat feats at 1, 2, 4, 6, 8, ...)
+  const classBonusFeatLevels = (classObj?.data?.bonusFeatLevels || []).map(
     (level) => parseInt(level, 10)
-  );
-  const classFeatLevels = (classObj?.data?.classFeatLevels || []).map((level) =>
-    parseInt(level, 10)
-  );
-  const generalFeatLevels = (classObj?.data?.generalFeatLevels || []).map(
-    (level) => parseInt(level, 10)
-  );
-  const skillFeatLevels = (classObj?.data?.skillFeatLevels || []).map((level) =>
-    parseInt(level, 10)
   );
 
   // Get current feats to check what slots already exist
@@ -4685,8 +4548,7 @@ function setFeatSlots(record, valuesToSet) {
   // Get character's current level
   const characterLevel = parseInt(record.data?.level || "1", 10);
 
-  // Filter out empty feat slots that we are not high enough to have,
-  // incase we set the level lower
+  // Filter out empty feat slots that we are not high enough to have
   currentFeats = currentFeats.filter((feat) => {
     const featLevel = feat.data?.level || 0;
     const isSlot = feat.data?.type === "slot";
@@ -4698,65 +4560,7 @@ function setFeatSlots(record, valuesToSet) {
   const featSlots = [];
   let slotOrder = 0;
 
-  // Ancestry feat slots - only for levels up to current character level
-  ancestryFeatLevels.forEach((level) => {
-    if (level <= characterLevel) {
-      const existingSlot = currentFeats.find(
-        (feat) =>
-          feat.data?.featSlotType === "ancestry" && feat.data?.level === level
-      );
-
-      if (!existingSlot) {
-        featSlots.push({
-          _id: generateUuid(),
-          name: "Ancestry Feat Slot",
-          recordType: "feats",
-          unidentifiedName: "Ancestry Feat Slot",
-          data: {
-            type: "slot",
-            level: level,
-            featSlotType: "ancestry",
-            slotOrder: slotOrder++,
-          },
-          fields: {
-            featSlot: { hidden: false },
-            featDetails: { hidden: true },
-          },
-        });
-      }
-    }
-  });
-
-  // Class feat slots - only for levels up to current character level
-  classFeatLevels.forEach((level) => {
-    if (level <= characterLevel) {
-      const existingSlot = currentFeats.find(
-        (feat) =>
-          feat.data?.featSlotType === "class" && feat.data?.level === level
-      );
-
-      if (!existingSlot) {
-        featSlots.push({
-          _id: generateUuid(),
-          name: "Class Feat Slot",
-          recordType: "feats",
-          unidentifiedName: "Class Feat Slot",
-          data: {
-            type: "slot",
-            level: level,
-            featSlotType: "class",
-            slotOrder: slotOrder++,
-          },
-          fields: {
-            featSlot: { hidden: false },
-            featDetails: { hidden: true },
-          },
-        });
-      }
-    }
-  });
-
-  // General feat slots - only for levels up to current character level
+  // General feat slots - at odd levels up to current character level
   generalFeatLevels.forEach((level) => {
     if (level <= characterLevel) {
       const existingSlot = currentFeats.find(
@@ -4767,9 +4571,9 @@ function setFeatSlots(record, valuesToSet) {
       if (!existingSlot) {
         featSlots.push({
           _id: generateUuid(),
-          name: "General Feat Slot",
+          name: "Feat Slot",
           recordType: "feats",
-          unidentifiedName: "General Feat Slot",
+          unidentifiedName: "Feat Slot",
           data: {
             type: "slot",
             level: level,
@@ -4785,24 +4589,25 @@ function setFeatSlots(record, valuesToSet) {
     }
   });
 
-  // Skill feat slots - only for levels up to current character level
-  skillFeatLevels.forEach((level) => {
+  // Class bonus feat slots (e.g., Fighter bonus combat feats)
+  classBonusFeatLevels.forEach((level) => {
     if (level <= characterLevel) {
       const existingSlot = currentFeats.find(
         (feat) =>
-          feat.data?.featSlotType === "skill" && feat.data?.level === level
+          feat.data?.featSlotType === "classBonus" && feat.data?.level === level
       );
 
       if (!existingSlot) {
+        const className = classObj?.name || "Class";
         featSlots.push({
           _id: generateUuid(),
-          name: "Skill Feat Slot",
+          name: `${className} Bonus Feat Slot`,
           recordType: "feats",
-          unidentifiedName: "Skill Feat Slot",
+          unidentifiedName: `${className} Bonus Feat Slot`,
           data: {
             type: "slot",
             level: level,
-            featSlotType: "skill",
+            featSlotType: "classBonus",
             slotOrder: slotOrder++,
           },
           fields: {
@@ -4823,684 +4628,187 @@ function setFeatSlots(record, valuesToSet) {
   }
 }
 
-// Called by onAddEditFeature to update the proficiencies for the character based on class and all features
+// Called by onAddEditFeature to compute PF1e class-derived stats:
+// BAB, base saves, save totals, CMB, CMD, perception, and skill modifiers
 function updateProficiencies(record, valuesToSet) {
-  // Helper function to get ability score value, checking valuesToSet first, then record
-  const getAbilityScore = (ability) => {
+  // Helper to get ability modifier, checking valuesToSet first, then record
+  const getAbilityMod = (ability) => {
     const valueFromSet = valuesToSet[`data.${ability}`];
     if (valueFromSet !== undefined) {
       return parseInt(valueFromSet, 10);
     }
     const recordValue = record.data?.[ability];
-    if (
-      recordValue !== undefined &&
-      recordValue !== null &&
-      recordValue !== ""
-    ) {
+    if (recordValue !== undefined && recordValue !== null && recordValue !== "") {
       return parseInt(recordValue, 10);
     }
-    return 0; // Only default to 0 if truly not set
+    return 0;
   };
-  // Collect all features from ancestries, heritages, and classes
-  const ancestries = record.data?.ancestries || [];
-  const heritages = record.data?.heritages || [];
+
   const classes = record.data?.classes || [];
   const classObj = classes?.[0];
-  const backgrounds = record.data?.backgrounds || [];
-  const backgroundObj = backgrounds?.[0];
-  const features = [];
-  for (const ancestry of ancestries) {
-    features.push(...(ancestry.data?.features || []));
-  }
-  for (const heritage of heritages) {
-    features.push(...(heritage.data?.features || []));
-  }
-  for (const classObj of classes) {
-    features.push(...(classObj.data?.features || []));
-  }
+  const characterLevel = parseInt(valuesToSet["data.level"] ?? record.data?.level ?? "1", 10);
+  const size = record.data?.size || "medium";
 
-  // First create a map of all proficiencies, 0=untrained, 1=trained, 2=expert, 3=master, 4=legendary
-  const proficiencies = {
-    // class dc is always trained by default
-    classDC: 1,
-    // saving throws
-    reflex: 0,
-    fortitude: 0,
-    will: 0,
-    // armor
-    unarmored: 0,
-    light: 0,
-    medium: 0,
-    heavy: 0,
-    // weapons
-    unarmed: 0,
-    simple: 0,
-    martial: 0,
-    advanced: 0,
-    // spellcasting
-    spellcasting: 0,
-    // perception
-    perception: 0,
-    // skills
-    acrobatics: 0,
-    arcana: 0,
-    athletics: 0,
-    crafting: 0,
-    deception: 0,
-    diplomacy: 0,
-    intimidation: 0,
-    medicine: 0,
-    nature: 0,
-    occultism: 0,
-    performance: 0,
-    religion: 0,
-    society: 0,
-    stealth: 0,
-    survival: 0,
-    thievery: 0,
-    lore: {},
-  };
+  // --- BAB ---
+  const babProgression = classObj?.data?.babProgression || "full";
+  const bab = calculateBAB(characterLevel, babProgression);
+  valuesToSet["data.bab"] = bab;
 
-  const possibleSkills = [
-    "acrobatics",
-    "arcana",
-    "athletics",
-    "crafting",
-    "deception",
-    "diplomacy",
-    "intimidation",
-    "medicine",
-    "nature",
-    "occultism",
-    "performance",
-    "religion",
-    "society",
-    "stealth",
-    "survival",
-    "thievery",
-  ];
+  // Iterative attacks
+  const iteratives = calculateIterativeAttacks(bab);
+  valuesToSet["data.iterativeAttacks"] = iteratives;
 
-  // First check Class
-  if (classObj?.data?.classDC) {
-    proficiencies.classDC = parseInt(classObj.data.classDC, 10);
-  }
-  if (classObj?.data?.savingThrows) {
-    proficiencies.reflex = parseInt(
-      classObj.data.savingThrows?.reflex || "0",
-      10
-    );
-    proficiencies.fortitude = parseInt(
-      classObj.data.savingThrows?.fortitude || "0",
-      10
-    );
-    proficiencies.will = parseInt(classObj.data.savingThrows?.will || "0", 10);
-  }
-  if (classObj?.data?.perception) {
-    proficiencies.perception = parseInt(classObj.data.perception || "0", 10);
-  }
-  if (classObj?.data?.defenses) {
-    proficiencies.unarmored = parseInt(
-      classObj.data.defenses?.unarmored || "0",
-      10
-    );
-    proficiencies.light = parseInt(classObj.data.defenses?.light || "0", 10);
-    proficiencies.medium = parseInt(classObj.data.defenses?.medium || "0", 10);
-    proficiencies.heavy = parseInt(classObj.data.defenses?.heavy || "0", 10);
-  }
-  if (classObj?.data?.attacks) {
-    proficiencies.unarmed = parseInt(classObj.data.attacks?.unarmed || "0", 10);
-    proficiencies.simple = parseInt(classObj.data.attacks?.simple || "0", 10);
-    proficiencies.martial = parseInt(classObj.data.attacks?.martial || "0", 10);
-    proficiencies.advanced = parseInt(
-      classObj.data.attacks?.advanced || "0",
-      10
-    );
-    // Handle "other" attack proficiency (e.g., Alchemical Bombs for Alchemist)
-    if (
-      classObj.data.attacks?.other?.name &&
-      classObj.data.attacks?.other?.rank
-    ) {
-      proficiencies.otherName = classObj.data.attacks.other.name;
-      proficiencies.otherRank = parseInt(
-        classObj.data.attacks.other.rank || "0",
-        10
-      );
+  // --- Base Saves ---
+  // Class stores save progressions as fortitudeSave/reflexSave/willSave
+  // or nested as savingThrows.fortitude/reflex/will (legacy)
+  const fortProgression = classObj?.data?.fortitudeSave || classObj?.data?.savingThrows?.fortitude || "poor";
+  const refProgression = classObj?.data?.reflexSave || classObj?.data?.savingThrows?.reflex || "poor";
+  const willProgression = classObj?.data?.willSave || classObj?.data?.savingThrows?.will || "poor";
+
+  const fortBase = calculateBaseSave(characterLevel, fortProgression);
+  const refBase = calculateBaseSave(characterLevel, refProgression);
+  const willBase = calculateBaseSave(characterLevel, willProgression);
+
+  valuesToSet["data.fortitudeBase"] = fortBase;
+  valuesToSet["data.reflexBase"] = refBase;
+  valuesToSet["data.willBase"] = willBase;
+
+  // Store progressions for display
+  valuesToSet["data.fortitude"] = fortProgression;
+  valuesToSet["data.reflex"] = refProgression;
+  valuesToSet["data.will"] = willProgression;
+
+  // --- Save Totals = base + ability mod + misc ---
+  const conMod = getAbilityMod("con");
+  const dexMod = getAbilityMod("dex");
+  const wisMod = getAbilityMod("wis");
+  const strMod = getAbilityMod("str");
+
+  const fortMisc = parseInt(record.data?.fortitudeMisc || "0", 10);
+  const refMisc = parseInt(record.data?.reflexMisc || "0", 10);
+  const willMisc = parseInt(record.data?.willMisc || "0", 10);
+
+  valuesToSet["data.fortitudeMod"] = fortBase + conMod + fortMisc;
+  valuesToSet["data.reflexMod"] = refBase + dexMod + refMisc;
+  valuesToSet["data.willMod"] = willBase + wisMod + willMisc;
+
+  // --- CMB = BAB + Str mod + size mod ---
+  const sizeModCMB = getSizeModifier(size, "cmb");
+  const cmb = bab + strMod + sizeModCMB;
+  valuesToSet["data.cmb"] = cmb;
+
+  // --- CMD = 10 + BAB + Str mod + Dex mod + size mod ---
+  const sizeModCMD = getSizeModifier(size, "cmd");
+  const cmd = 10 + bab + strMod + dexMod + sizeModCMD;
+  valuesToSet["data.cmd"] = cmd;
+
+  // --- HP Calculation ---
+  const hitDie = parseInt(classObj?.data?.hitDie || "8", 10);
+  let baseHp = 0;
+  if (characterLevel >= 1) {
+    baseHp = hitDie; // Max at first level
+    if (characterLevel > 1) {
+      const avgPerLevel = Math.floor(hitDie / 2) + 1;
+      baseHp += avgPerLevel * (characterLevel - 1);
     }
   }
-  if (classObj?.data?.spellcasting) {
-    proficiencies.spellcasting = parseInt(
-      classObj.data.spellcasting || "0",
-      10
-    );
-  }
-  // Class and background skills
-  if (classObj?.data?.trainedSkills || backgroundObj?.data?.trainedSkills) {
-    const skills = classObj?.data?.trainedSkills || [];
-    const backgroundSkills = backgroundObj?.data?.trainedSkills || [];
-    const allSkills = [...skills, ...backgroundSkills];
-    for (const skill of allSkills) {
-      const skillName = skill.toLowerCase();
-      // Check if it's a lore skill (ends with " lore")
-      if (skillName.endsWith(" lore")) {
-        // Handle both "Farming Lore" and "<Farming> Lore" formats
-        let loreSkillName = skillName.replace(" lore", "");
-
-        // Extract name from angle brackets if present (e.g., "<farming>" becomes "farming")
-        const angleBracketMatch = loreSkillName.match(/^<(.+)>$/);
-        if (angleBracketMatch) {
-          loreSkillName = angleBracketMatch[1].trim();
-        }
-
-        // Set proficiency to trained (1) if not already set or if current is lower
-        if (
-          !proficiencies.lore[loreSkillName] ||
-          1 > proficiencies.lore[loreSkillName]
-        ) {
-          proficiencies.lore[loreSkillName] = 1;
-        }
-      }
-      // Check if it's a regular skill
-      else if (possibleSkills.includes(skillName)) {
-        proficiencies[skillName] = 1;
-      }
-    }
+  const favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
+  const hitpointsMaxMods = getEffectsAndModifiersForToken(record, ["hitpoints"]);
+  const extraHitpoints = hitpointsMaxMods.reduce((acc, mod) => {
+    return acc + parseInt(mod.value || 0, 10);
+  }, 0);
+  const totalHp = baseHp + (conMod * characterLevel) + favoredClassHp + extraHitpoints;
+  valuesToSet["data.hitpoints"] = totalHp;
+  if (record.data?.curhp === undefined) {
+    valuesToSet["data.curhp"] = totalHp;
   }
 
-  // Now add all proficiencies from features
-  // First sort features by level (assume 0 if level is not set)
-  features.sort((a, b) => {
-    const levelA = parseInt(a.data?.level || "0", 10);
-    const levelB = parseInt(b.data?.level || "0", 10);
-    return levelA - levelB;
-  });
-
-  // Get character level (check valuesToSet first)
-  const characterLevel = valuesToSet["data.level"] ?? record.data?.level ?? 1;
-
-  // Go through each feature and update proficiencies if the new rank is higher
-  for (const feature of features) {
-    // Check if character level meets the feature's level requirement
-    const featureLevel = parseInt(feature.data?.level || "0", 10);
-    if (featureLevel > characterLevel) {
-      continue; // Skip this feature if character hasn't reached its level yet
-    }
-
-    const featureProficiencies = feature.data?.proficiencies || [];
-    featureProficiencies.forEach((proficiency) => {
-      const name = (proficiency?.data?.name || "").toLowerCase();
-      const rank = parseInt(proficiency?.data?.rank || "0", 10);
-      // Some proficiencies apply only to a specific group *by field* so we will not
-      // apply them here if field is set
-      const field = proficiency?.data?.field || "";
-      const setProfiency =
-        field === "" || field === null || field === undefined;
-
-      if (name && rank > 0 && setProfiency) {
-        // Check if it's a saving throw
-        if (name === "fortitude" || name === "reflex" || name === "will") {
-          if (rank > proficiencies[name]) {
-            proficiencies[name] = rank;
-          }
-        }
-        // Check if it's armor
-        else if (
-          name === "unarmored" ||
-          name === "light" ||
-          name === "medium" ||
-          name === "heavy"
-        ) {
-          if (rank > proficiencies[name]) {
-            proficiencies[name] = rank;
-          }
-        }
-        // Check if it's weapons
-        else if (
-          name === "unarmed" ||
-          name === "simple" ||
-          name === "martial" ||
-          name === "advanced"
-        ) {
-          if (rank > proficiencies[name]) {
-            proficiencies[name] = rank;
-          }
-        }
-        // Check if it's spellcasting
-        else if (name === "spellcasting") {
-          if (rank > proficiencies.spellcasting) {
-            proficiencies.spellcasting = rank;
-          }
-        }
-        // Check if it's perception
-        else if (name === "perception") {
-          if (rank > proficiencies.perception) {
-            proficiencies.perception = rank;
-          }
-        }
-        // Check if it's a skill
-        else if (possibleSkills.includes(name.toLowerCase())) {
-          if (rank > proficiencies[name.toLowerCase()]) {
-            proficiencies[name.toLowerCase()] = rank;
-          }
-        }
-        // Check if it's a lore skill (ends with " Lore")
-        else if (name.endsWith(" lore")) {
-          const loreSkillName = name.replace(" lore", "");
-          if (
-            !proficiencies.lore[loreSkillName] ||
-            rank > proficiencies.lore[loreSkillName]
-          ) {
-            proficiencies.lore[loreSkillName] = rank;
-          }
-        }
-        // Otherwise assume it's a class DC
-        else {
-          if (rank > proficiencies.classDC) {
-            proficiencies.classDC = rank;
-          }
-        }
-      }
-    });
-  }
-
-  // Set Class DC
-  const keyAbility = record.data?.keyAbility;
-  let keyAbilityScore = 0;
-  if (
-    keyAbility &&
-    ["str", "dex", "con", "int", "wis", "cha"].includes(keyAbility)
-  ) {
-    keyAbilityScore = getAbilityScore(keyAbility);
-  }
-  const currentClassDCProficiency = parseInt(
-    record.data?.classDCProficiency || "0",
-    10
+  // --- Perception = Wis mod + ranks + class skill bonus + misc ---
+  const perceptionRanks = parseInt(record.data?.perceptionRanks || "0", 10);
+  const classSkills = classObj?.data?.classSkills || [];
+  const isPerceptionClassSkill = classSkills.some(
+    (s) => s.toLowerCase() === "perception"
   );
+  const perceptionClassBonus = (isPerceptionClassSkill && perceptionRanks > 0) ? 3 : 0;
+  const perceptionMisc = parseInt(record.data?.perceptionMisc || "0", 10);
+  valuesToSet["data.perceptionMod"] = wisMod + perceptionRanks + perceptionClassBonus + perceptionMisc;
 
-  // If no class, reset class DC proficiency to 0
-  if (!classObj) {
-    valuesToSet["data.classDCProficiency"] = 0;
-    valuesToSet["data.classDC"] = 10 + keyAbilityScore;
-  } else {
-    const effectiveClassDCProficiency = Math.max(
-      currentClassDCProficiency,
-      proficiencies.classDC
-    );
-    const classDCProficiencyBonus = calculateProficiencyBonus(
-      record,
-      effectiveClassDCProficiency
-    );
-    valuesToSet["data.classDC"] =
-      10 + classDCProficiencyBonus + keyAbilityScore;
-    if (
-      currentClassDCProficiency < proficiencies.classDC ||
-      proficiencies.classDC === 0
-    ) {
-      valuesToSet["data.classDCProficiency"] = proficiencies.classDC;
-    }
-  }
-
-  // Set saving throw modifiers
-  const dexMod = getAbilityScore("dex");
-  const conMod = getAbilityScore("con");
-  const wisMod = getAbilityScore("wis");
-
-  // Reflex (DEX + proficiency bonus)
-  const currentReflex = parseInt(record.data?.reflex || "0", 10);
-  const effectiveReflex = Math.max(currentReflex, proficiencies.reflex);
-  const reflexProficiencyBonus = calculateProficiencyBonus(
-    record,
-    effectiveReflex
-  );
-  valuesToSet["data.reflexMod"] = dexMod + reflexProficiencyBonus;
-  if (currentReflex < proficiencies.reflex || proficiencies.reflex === 0) {
-    valuesToSet["data.reflex"] = proficiencies.reflex.toString();
-  }
-
-  // Fortitude (CON + proficiency bonus)
-  const currentFortitude = parseInt(record.data?.fortitude || "0", 10);
-  const effectiveFortitude = Math.max(
-    currentFortitude,
-    proficiencies.fortitude
-  );
-  const fortitudeProficiencyBonus = calculateProficiencyBonus(
-    record,
-    effectiveFortitude
-  );
-  valuesToSet["data.fortitudeMod"] = conMod + fortitudeProficiencyBonus;
-  if (
-    currentFortitude < proficiencies.fortitude ||
-    proficiencies.fortitude === 0
-  ) {
-    valuesToSet["data.fortitude"] = proficiencies.fortitude.toString();
-  }
-
-  // Will (WIS + proficiency bonus)
-  const currentWill = parseInt(record.data?.will || "0", 10);
-  const effectiveWill = Math.max(currentWill, proficiencies.will);
-  const willProficiencyBonus = calculateProficiencyBonus(record, effectiveWill);
-  valuesToSet["data.willMod"] = wisMod + willProficiencyBonus;
-  if (currentWill < proficiencies.will || proficiencies.will === 0) {
-    valuesToSet["data.will"] = proficiencies.will.toString();
-  }
-
-  // Perception (WIS + proficiency bonus)
-  const currentPerception = parseInt(record.data?.perception || "0", 10);
-  const effectivePerception = Math.max(
-    currentPerception,
-    proficiencies.perception
-  );
-  const perceptionProficiencyBonus = calculateProficiencyBonus(
-    record,
-    effectivePerception
-  );
-  valuesToSet["data.perceptionMod"] = wisMod + perceptionProficiencyBonus;
-  if (
-    currentPerception < proficiencies.perception ||
-    proficiencies.perception === 0
-  ) {
-    valuesToSet["data.perception"] = proficiencies.perception.toString();
-  }
-
-  // Set skill modifiers
+  // --- Skill Modifiers ---
   const pathfinderSkills = getPathfinderSkills();
   for (const [skillName, abilityKey] of Object.entries(pathfinderSkills)) {
-    const skillProficiency = proficiencies[skillName] || 0;
+    const ranks = parseInt(record.data?.[`${skillName}Ranks`] || "0", 10);
 
-    // Check if user has set a custom ability score for this skill
+    // Check if user has set a custom ability for this skill
     const customAbilityKey = record.data?.[`${skillName}Ability`];
     const effectiveAbilityKey = customAbilityKey || abilityKey;
-    const abilityMod = getAbilityScore(effectiveAbilityKey);
+    const abilityMod = getAbilityMod(effectiveAbilityKey);
 
-    // Get the current skill proficiency from the record
-    const currentSkillProficiency = parseInt(
-      record.data?.[skillName] || "0",
-      10
+    // Class skill bonus: +3 if it's a class skill AND has at least 1 rank
+    const isClassSkill = classSkills.some(
+      (s) => s.toLowerCase() === skillName.toLowerCase() ||
+             s.toLowerCase() === camelToNormal(skillName).toLowerCase()
     );
+    const classSkillBonus = (isClassSkill && ranks > 0) ? 3 : 0;
 
-    // Use the higher of current proficiency or calculated proficiency for the modifier
-    const effectiveProficiency = Math.max(
-      currentSkillProficiency,
-      skillProficiency
-    );
-    const skillProficiencyBonus = calculateProficiencyBonus(
-      record,
-      effectiveProficiency
-    );
+    // Misc modifier (manual adjustments)
+    const miscMod = parseInt(record.data?.[`${skillName}Misc`] || "0", 10);
 
-    // Always set the modifier based on the effective proficiency
-    valuesToSet[`data.${skillName}Mod`] = abilityMod + skillProficiencyBonus;
-
-    // Only update the proficiency value if the calculated one is higher
-    // Don't override manually set higher values
-    if (currentSkillProficiency < skillProficiency) {
-      valuesToSet[`data.${skillName}`] = skillProficiency.toString();
+    // Armor check penalty for physical skills
+    let acp = 0;
+    const acpSkills = [
+      "acrobatics", "climb", "escapeArtist", "fly", "ride",
+      "sleightOfHand", "stealth", "swim"
+    ];
+    if (acpSkills.includes(skillName)) {
+      acp = parseInt(record.data?.armorCheckPenalty || "0", 10);
     }
+
+    // Total = ranks + ability mod + class skill bonus + misc - ACP
+    const total = ranks + abilityMod + classSkillBonus + miscMod + acp;
+    valuesToSet[`data.${skillName}Mod`] = total;
   }
 
-  // Set lore skills
-  const currentLoreSkills = record.data?.loreSkills || [];
-  const loreSkillsToSet = [];
-  const processedLoreSkills = new Set();
-
-  // Process each lore skill from proficiencies
-  for (const [loreSkillName, rank] of Object.entries(proficiencies.lore)) {
-    const formattedLoreSkillName =
-      loreSkillName.charAt(0).toUpperCase() + loreSkillName.slice(1);
-    const loreSkillFullName = `${formattedLoreSkillName} Lore`;
-
-    // Check if this lore skill already exists in current lore skills
-    const existingLoreSkill = currentLoreSkills.find(
-      (skill) => skill.name === loreSkillFullName
-    );
-
-    if (existingLoreSkill) {
-      // Update existing lore skill if new rank is higher
-      const currentRank = parseInt(existingLoreSkill.data?.rank || "0", 10);
-      if (rank > currentRank) {
-        existingLoreSkill.data.rank = rank.toString();
-      }
-      loreSkillsToSet.push(existingLoreSkill);
-      processedLoreSkills.add(loreSkillFullName);
-    } else {
-      // Create new lore skill entry
-      loreSkillsToSet.push({
-        _id: generateUuid(),
-        name: loreSkillFullName,
-        recordType: "records",
-        unidentifiedName: "Lore Skill",
-        data: {
-          rank: rank.toString(),
-        },
-        icon: "IconTools",
-      });
-      processedLoreSkills.add(loreSkillFullName);
-    }
+  // --- Store weapon/armor proficiencies from class ---
+  if (classObj?.data?.weaponProficiencies) {
+    valuesToSet["data.weaponProficiencies"] = classObj.data.weaponProficiencies;
   }
-
-  // Preserve existing lore skills that weren't processed (user-added lore skills)
-  currentLoreSkills.forEach((loreSkill) => {
-    if (!processedLoreSkills.has(loreSkill.name)) {
-      loreSkillsToSet.push(loreSkill);
-    }
-  });
-
-  // Set the lore skills array (always set it to preserve existing lore skills)
-  valuesToSet["data.loreSkills"] = loreSkillsToSet;
-
-  // Process lore skills for modifiers
-  for (const loreSkill of loreSkillsToSet) {
-    const rank = parseInt(loreSkill.data?.rank || "0", 10);
-    const proficiencyBonus = calculateProficiencyBonus(record, rank);
-
-    // Check if lore skill has a custom ability score set
-    const customAbilityKey = loreSkill.data?.ability;
-    const effectiveAbilityKey = customAbilityKey || "int"; // Default to Intelligence for lore skills
-    const abilityMod = getAbilityScore(effectiveAbilityKey);
-
-    // Calculate and set the modifier
-    const totalMod = abilityMod + proficiencyBonus;
-    loreSkill.data.mod = totalMod;
-  }
-
-  // Set armor and weapon proficiencies
-  const currentUnarmored = parseInt(
-    record.data?.defenses?.unarmored || "0",
-    10
-  );
-  if (
-    currentUnarmored < proficiencies.unarmored ||
-    proficiencies.unarmored === 0
-  ) {
-    valuesToSet["data.defenses.unarmored"] = proficiencies.unarmored;
-  }
-
-  const currentLight = parseInt(record.data?.defenses?.light || "0", 10);
-  if (currentLight < proficiencies.light || proficiencies.light === 0) {
-    valuesToSet["data.defenses.light"] = proficiencies.light;
-  }
-
-  const currentMedium = parseInt(record.data?.defenses?.medium || "0", 10);
-  if (currentMedium < proficiencies.medium || proficiencies.medium === 0) {
-    valuesToSet["data.defenses.medium"] = proficiencies.medium;
-  }
-
-  const currentHeavy = parseInt(record.data?.defenses?.heavy || "0", 10);
-  if (currentHeavy < proficiencies.heavy || proficiencies.heavy === 0) {
-    valuesToSet["data.defenses.heavy"] = proficiencies.heavy;
-  }
-
-  const currentUnarmed = parseInt(
-    record.data?.attackProficiencies?.unarmed || "0",
-    10
-  );
-  if (currentUnarmed < proficiencies.unarmed || proficiencies.unarmed === 0) {
-    valuesToSet["data.attackProficiencies.unarmed"] = proficiencies.unarmed;
-  }
-
-  const currentSimple = parseInt(
-    record.data?.attackProficiencies?.simple || "0",
-    10
-  );
-  if (currentSimple < proficiencies.simple || proficiencies.simple === 0) {
-    valuesToSet["data.attackProficiencies.simple"] = proficiencies.simple;
-  }
-
-  const currentMartial = parseInt(
-    record.data?.attackProficiencies?.martial || "0",
-    10
-  );
-  if (currentMartial < proficiencies.martial || proficiencies.martial === 0) {
-    valuesToSet["data.attackProficiencies.martial"] = proficiencies.martial;
-  }
-
-  const currentAdvanced = parseInt(
-    record.data?.attackProficiencies?.advanced || "0",
-    10
-  );
-  if (
-    currentAdvanced < proficiencies.advanced ||
-    proficiencies.advanced === 0
-  ) {
-    valuesToSet["data.attackProficiencies.advanced"] = proficiencies.advanced;
-  }
-
-  // Set "other" attack proficiency if defined (e.g., Alchemical Bombs for Alchemist)
-  if (proficiencies.otherName) {
-    const currentOtherRank = parseInt(
-      record.data?.attackProficiencies?.other?.rank || "0",
-      10
-    );
-    if (
-      currentOtherRank < proficiencies.otherRank ||
-      proficiencies.otherRank === 0
-    ) {
-      valuesToSet["data.attackProficiencies.other.name"] =
-        proficiencies.otherName;
-      valuesToSet["data.attackProficiencies.other.rank"] =
-        proficiencies.otherRank;
-    }
-  }
-
-  // Set spellcasting proficiency
-  const currentSpellcasting = parseInt(record.data?.spellcasting || "0", 10);
-  if (
-    currentSpellcasting < proficiencies.spellcasting ||
-    proficiencies.spellcasting === 0
-  ) {
-    valuesToSet["data.spellcasting"] = proficiencies.spellcasting;
+  if (classObj?.data?.armorProficiencies) {
+    valuesToSet["data.armorProficiencies"] = classObj.data.armorProficiencies;
   }
 }
 
-// Calculate Pathfinder 2e ability boosts
-function calculateAbilityBoosts(record) {
-  const boosts = {
-    ancestryBoost1: record.data?.ancestryBoost1,
-    ancestryBoost2: record.data?.ancestryBoost2,
-    backgroundBoost1: record.data?.backgroundBoost1,
-    backgroundBoost2: record.data?.backgroundBoost2,
-    classBoost: record.data?.keyAbility,
-    freeBoosts: record.data?.freeBoosts || [],
-    freeBoostsLevel5: record.data?.freeBoostsLevel5 || [],
-    freeBoostsLevel10: record.data?.freeBoostsLevel10 || [],
-    freeBoostsLevel15: record.data?.freeBoostsLevel15 || [],
-    freeBoostsLevel20: record.data?.freeBoostsLevel20 || [],
-  };
-
-  // Count boosts per ability
-  const boostCounts = {
-    str: 0,
-    dex: 0,
-    con: 0,
-    int: 0,
-    wis: 0,
-    cha: 0,
-  };
-
-  // Handle ancestry boosts and flaws if not using alternate ancestry boosts
-  const alternateAncestryBoosts = record.data?.alternateAncestryBoosts;
-  const ancestries = record.data?.ancestries || [];
-  if (!alternateAncestryBoosts && ancestries.length > 0) {
-    const ancestry = ancestries[0];
-    const ancestryBoosts = ancestry?.data?.boosts || {};
-    const ancestryFlaws = ancestry?.data?.flaws || {};
-
-    // Process ancestry boosts (arrays of 1 are provided boosts)
-    for (const boost of Object.values(ancestryBoosts)) {
-      if (Array.isArray(boost) && boost.length === 1 && boost[0]) {
-        const ability = boost[0];
-        if (boostCounts.hasOwnProperty(ability)) {
-          boostCounts[ability]++;
-        }
-      }
-    }
-
-    // Process ancestry flaws (always decrement by 1)
-    for (const flaw of Object.values(ancestryFlaws)) {
-      if (Array.isArray(flaw) && flaw.length === 1 && flaw[0]) {
-        const ability = flaw[0];
-        if (boostCounts.hasOwnProperty(ability)) {
-          boostCounts[ability]--;
-        }
-      }
-    }
-  }
-
-  // Helper function to add a boost
-  const addBoost = (ability) => {
-    if (ability && boostCounts.hasOwnProperty(ability)) {
-      boostCounts[ability]++;
-    }
-  };
-
-  // Process all boost sources
-  Object.values(boosts).forEach((boost) => {
-    if (Array.isArray(boost)) {
-      boost.forEach(addBoost);
-    } else if (boost) {
-      addBoost(boost);
-    }
-  });
-
-  // Calculate final ability scores based on boost rules
+// Calculate PF1e ability scores from base scores + racial modifiers
+function calculateAbilityScores(record) {
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];
-  const boostResults = {};
+  const results = {};
+
+  // Get racial ability modifiers from the race record
+  const races = record.data?.races || [];
+  const race = races[0];
+  const racialMods = race?.data?.abilityModifiers || {};
 
   attributes.forEach((attribute) => {
-    const boostCount = boostCounts[attribute];
+    // Base score: the raw value entered by the player (default 10)
+    const baseScore = parseInt(record.data?.abilityScores?.[attribute] || "10", 10);
 
-    // Calculate modifier from boosts
-    let modifier = 0;
-    let partialBoost = false;
+    // Racial modifier (e.g., +2 Str, -2 Cha for Half-Orc)
+    const racialMod = parseInt(racialMods[attribute] || "0", 10);
 
-    if (boostCount !== 0) {
-      if (boostCount > 0) {
-        // Each boost adds +1 until +4, then it takes 2 boosts for each additional +1
-        if (boostCount <= 4) {
-          modifier = boostCount;
-        } else {
-          // After +4, it takes 2 boosts for each +1
-          const extraBoosts = boostCount - 4;
-          modifier = 4 + Math.floor(extraBoosts / 2);
+    // Total ability score
+    const totalScore = baseScore + racialMod;
 
-          // Check if there's a partial boost (odd number of extra boosts)
-          if (extraBoosts % 2 === 1) {
-            partialBoost = true;
-          }
-        }
-      } else {
-        // Negative boostCount (from flaws) - each flaw reduces by 1
-        modifier = boostCount;
-      }
-    }
+    // Ability modifier = floor((score - 10) / 2)
+    const modifier = calculateAbilityModifier(totalScore);
 
-    boostResults[attribute] = {
-      boostCount: boostCount,
+    results[attribute] = {
+      baseScore: baseScore,
+      racialMod: racialMod,
+      totalScore: totalScore,
       modifier: modifier,
-      partialBoost: partialBoost,
     };
   });
 
-  return boostResults;
+  return results;
 }
 
 // This function collects all `providesItems` from feats, features, actions, and backgrounds
@@ -5510,13 +4818,9 @@ function setProvidedItems(record, callback = undefined) {
   const bonusFeats = record.data?.bonusFeats || [];
   const features = record.data?.features || [];
   const actions = record.data?.actions || [];
-  const ancestries = record.data?.ancestries || [];
-  const ancestryFeatures = ancestries
-    .map((ancestry) => ancestry.data?.features || [])
-    .flat();
-  const heritages = record.data?.heritages || [];
-  const heritageFeatures = heritages
-    .map((heritage) => heritage.data?.features || [])
+  const races = record.data?.races || [];
+  const raceFeatures = races
+    .map((race) => race.data?.features || [])
     .flat();
   const classes = record.data?.classes || [];
   const classFeatures = classes
@@ -5533,8 +4837,7 @@ function setProvidedItems(record, callback = undefined) {
     ...bonusFeats,
     ...features,
     ...actions,
-    ...ancestryFeatures,
-    ...heritageFeatures,
+    ...raceFeatures,
     ...classFeatures,
     ...backgrounds,
   ];
@@ -5633,7 +4936,7 @@ function setProvidedItems(record, callback = undefined) {
     bonusFeats: [],
     actions: [],
     classFeatures: [], // Will be added to first class
-    ancestryFeatures: [], // Will be added to first ancestry
+    raceFeatures: [], // Will be added to first race
   };
 
   for (const item of providedItems) {
@@ -5693,16 +4996,16 @@ function setProvidedItems(record, callback = undefined) {
         });
       }
     } else if (recordType === "features") {
-      // Check feature type to determine if it's a class or ancestry feature
+      // Check feature type to determine if it's a class or race feature
       const featureType = (item.data?.type || "classfeature").toLowerCase();
-      const isAncestryFeature = featureType === "ancestryfeature";
+      const isRaceFeature = featureType === "racefeature" || featureType === "racialfeature";
 
-      if (isAncestryFeature) {
-        // Add to first ancestry's features
-        const ancestryList = record.data?.ancestries || [];
-        if (ancestryList.length > 0) {
-          const ancestryFeaturesList = ancestryList[0].data?.features || [];
-          const alreadyExists = ancestryFeaturesList.some(
+      if (isRaceFeature) {
+        // Add to first race's features
+        const raceList = record.data?.races || [];
+        if (raceList.length > 0) {
+          const raceFeaturesList = raceList[0].data?.features || [];
+          const alreadyExists = raceFeaturesList.some(
             (f) =>
               f.data?.fromId === itemId ||
               f._id === itemId ||
@@ -5710,7 +5013,7 @@ function setProvidedItems(record, callback = undefined) {
           );
 
           if (!alreadyExists) {
-            itemsToAdd.ancestryFeatures.push({
+            itemsToAdd.raceFeatures.push({
               ...item,
               data: {
                 ...item.data,
@@ -5784,14 +5087,14 @@ function setProvidedItems(record, callback = undefined) {
     }
   }
 
-  // Add ancestry features
-  if (itemsToAdd.ancestryFeatures.length > 0) {
-    const ancestryList = record.data?.ancestries || [];
-    if (ancestryList.length > 0) {
-      const existingFeatures = ancestryList[0].data?.features || [];
-      valuesToSet["data.ancestries.0.data.features"] = [
+  // Add race features
+  if (itemsToAdd.raceFeatures.length > 0) {
+    const raceList = record.data?.races || [];
+    if (raceList.length > 0) {
+      const existingFeatures = raceList[0].data?.features || [];
+      valuesToSet["data.races.0.data.features"] = [
         ...existingFeatures,
-        ...itemsToAdd.ancestryFeatures,
+        ...itemsToAdd.raceFeatures,
       ];
       hasChanges = true;
     }
@@ -5872,32 +5175,12 @@ function updateTogglesList(record, valuesToSet) {
     });
   }
 
-  // Get ancestry features (from first ancestry)
-  const ancestries = record.data?.ancestries || [];
-  if (ancestries.length > 0) {
-    const ancestry = ancestries[0];
-    const ancestryFeatures = ancestry.data?.features || [];
-    ancestryFeatures.forEach((feature) => {
-      if (
-        feature.data?.toggleable === true &&
-        feature.name &&
-        !seenNames.has(feature.name)
-      ) {
-        toggleableItems.push({
-          name: feature.name,
-          predicateValue: feature.data?.predicateValue || "",
-        });
-        seenNames.add(feature.name);
-      }
-    });
-  }
-
-  // Get heritage features (from first heritage)
-  const heritages = record.data?.heritages || [];
-  if (heritages.length > 0) {
-    const heritage = heritages[0];
-    const heritageFeatures = heritage.data?.features || [];
-    heritageFeatures.forEach((feature) => {
+  // Get race features (from first race)
+  const races = record.data?.races || [];
+  if (races.length > 0) {
+    const race = races[0];
+    const raceFeatures = race.data?.features || [];
+    raceFeatures.forEach((feature) => {
       if (
         feature.data?.toggleable === true &&
         feature.name &&
@@ -5984,10 +5267,10 @@ function onAddEditFeature(
   skipChoices = false,
   depth = 0
 ) {
-  // Calculate Pathfinder 2e ability boosts first
-  const boostResults = calculateAbilityBoosts(record);
+  // Calculate PF1e ability scores from base + racial + effects
+  const abilityResults = calculateAbilityScores(record);
 
-  // Check for ability score bonuses from other sources
+  // Check for ability score bonuses from effects (e.g., Bull's Strength, belts, etc.)
   const abilityScoreBonus = getEffectsAndModifiersForToken(record, [
     "attributeBonus",
     "attributePenalty",
@@ -5998,61 +5281,46 @@ function onAddEditFeature(
   // Update rollOptions first (these affect predicate evaluation for other modifiers)
   updateRollOptions(record, valuesToSet);
 
-  // Initialize total modifier values for each ability
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];
 
-  // Reset all total mods to 0 first
+  // Set base ability scores and modifiers from race + base scores
   attributes.forEach((attribute) => {
-    valuesToSet[`data.total${capitalize(attribute)}Mod`] = 0;
+    const result = abilityResults[attribute];
+    let totalScore = result.totalScore;
+
+    // Store the base score and racial mod for display
+    valuesToSet[`data.abilityScores.${attribute}`] = result.baseScore;
+    valuesToSet[`data.racialMods.${attribute}`] = result.racialMod;
+
+    // Start with the racial-adjusted modifier
+    valuesToSet[`data.total${capitalize(attribute)}Mod`] = result.modifier;
+    valuesToSet[`data.${attribute}Score`] = totalScore;
   });
 
-  // Apply boost-based modifiers first
-  attributes.forEach((attribute) => {
-    const boostResult = boostResults[attribute];
-    if (boostResult) {
-      valuesToSet[`data.total${capitalize(attribute)}Mod`] =
-        boostResult.modifier;
-
-      // Track partial boost if applicable
-      if (boostResult.partialBoost) {
-        valuesToSet[`data.partial${capitalize(attribute)}Boost`] = true;
-      } else {
-        valuesToSet[`data.partial${capitalize(attribute)}Boost`] = false;
-      }
-    }
-  });
-
-  // Calculate the total modifier for each ability from other sources
+  // Apply ability score bonuses/penalties from effects (enhancement bonuses, etc.)
   abilityScoreBonus.forEach((modifier) => {
     const ability = modifier.field || "";
     if (ability && attributes.includes(ability)) {
-      const currentTotalMod =
-        valuesToSet[`data.total${capitalize(ability)}Mod`] || 0;
-      valuesToSet[`data.total${capitalize(ability)}Mod`] =
-        currentTotalMod + modifier.value;
+      const currentScore = valuesToSet[`data.${ability}Score`] || 10;
+      const newScore = currentScore + (parseInt(modifier.value, 10) || 0);
+      valuesToSet[`data.${ability}Score`] = newScore;
+      valuesToSet[`data.total${capitalize(ability)}Mod`] = calculateAbilityModifier(newScore);
     } else if (ability === "all") {
-      attributes.forEach((attribute) => {
-        const currentTotalMod =
-          valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
-        valuesToSet[`data.total${capitalize(attribute)}Mod`] =
-          currentTotalMod + modifier.value;
+      attributes.forEach((attr) => {
+        const currentScore = valuesToSet[`data.${attr}Score`] || 10;
+        const newScore = currentScore + (parseInt(modifier.value, 10) || 0);
+        valuesToSet[`data.${attr}Score`] = newScore;
+        valuesToSet[`data.total${capitalize(attr)}Mod`] = calculateAbilityModifier(newScore);
       });
     }
   });
 
-  // Calculate final ability scores and modifiers
+  // Store final ability modifiers for use by other systems
   attributes.forEach((attribute) => {
-    const boostResult = boostResults[attribute];
-    if (boostResult) {
-      const totalMod =
-        valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
-
-      // Store the total modifier for reference
-      valuesToSet[`data.${attribute}Mod`] = totalMod;
-
-      // The final ability score is just the total modifier (starts from 0 base)
-      valuesToSet[`data.${attribute}`] = totalMod;
-    }
+    const totalMod = valuesToSet[`data.total${capitalize(attribute)}Mod`] || 0;
+    valuesToSet[`data.${attribute}Mod`] = totalMod;
+    // For backward compatibility, data.str/dex/etc stores the modifier
+    valuesToSet[`data.${attribute}`] = totalMod;
   });
 
   // Check for sense bonuses
@@ -6149,8 +5417,7 @@ function onAddEditFeature(
   // are now handled dynamically in getIWR() during damage calculation.
   // This prevents double-counting and allows for conditional IWR based on predicates.
 
-  // Show fields for alchemist if needed
-  showAlchemistFields(record, valuesToSet);
+  // PF2e alchemist fields removed — no PF1e equivalent needed
 
   // Determine the best proficiencies for class dcs / saving throws / armor / weapons
   // And set them on the character
@@ -6377,28 +5644,12 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   // Get the save modifier from the record
   const saveMod = parseInt(record.data?.[`${saveType}Mod`] || "0", 10);
 
-  // Get the proficiency level for display purposes (character only)
   const isNPC = record.recordType === "tokens" || record.recordType === "npcs";
-  let modifierName = `${capitalize(saveType)} Modifier`;
-  let saveDisplay = `${capitalize(saveType)}`;
+  let modifierName = `${capitalize(saveType)} Save`;
+  let saveDisplay = capitalize(saveType);
   let npcSaveBonus = 0;
 
-  if (!isNPC) {
-    const proficiencyLevel = parseInt(record.data?.[saveType] || "0", 10);
-    const proficiencyNames = [
-      "Untrained",
-      "Trained",
-      "Expert",
-      "Master",
-      "Legendary",
-    ];
-    const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
-
-    // Capitalize the save type for display
-    const saveDisplay = saveType.charAt(0).toUpperCase() + saveType.slice(1);
-    modifierName = `${saveDisplay} (${proficiencyName})`;
-  } else {
-    // Get the bonus
+  if (isNPC) {
     npcSaveBonus = parseInt(record.data?.saveBonus || "0", 10);
   }
 
@@ -6482,18 +5733,11 @@ function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
     }
   });
 
-  // Get degree of success adjustments for both the save type and its attribute
-  const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(record, [
-    saveType,
-    attribute,
-  ]);
-
   // Prepare metadata for the roll handler
   const metadata = {
     rollName: `${saveDisplay} Save`,
     tooltip: `${saveDisplay} Saving Throw`,
     saveType: saveType,
-    degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
   };
 
   // Add DC if provided
@@ -6530,7 +5774,7 @@ function modToString(mod) {
   });
 }
 
-// Generate a clickable save macro for PF2e
+// Generate a clickable save macro for PF1e
 function getSaveMacro(saveType, dc = null, isSpell = false, showDc = false) {
   if (!saveType) {
     console.error("getSaveMacro: Invalid saveType");
@@ -8256,23 +7500,17 @@ function activateSneakAttackIfConditionsMet(
 }
 
 function collectFeatures(record) {
-  // Collect all features from ancestries, heritages, classes, feats, and inventory
+  // Collect all features from races, classes, feats, and inventory
   const features = [];
-  const ancestries = record.data?.ancestries || [];
-  const heritages = record.data?.heritages || [];
+  const races = record.data?.races || [];
   const classes = record.data?.classes || [];
   const feats = record.data?.feats || [];
   const bonusFeats = record.data?.bonusFeats || [];
   const characterFeatures = record.data?.features || [];
 
-  // Collect features from ancestries
-  for (const ancestry of ancestries) {
-    features.push(...(ancestry.data?.features || []));
-  }
-
-  // Collect features from heritages
-  for (const heritage of heritages) {
-    features.push(...(heritage.data?.features || []));
+  // Collect features from races
+  for (const race of races) {
+    features.push(...(race.data?.features || []));
   }
 
   // Collect features from classes

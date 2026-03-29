@@ -64,6 +64,69 @@
     margin-bottom: 4px;
   "
 >
+  <!-- Hit Die & BAB Progression -->
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <dropdown
+      field="hitDie"
+      label="Hit Die"
+      placeholder="Select Hit Die..."
+      options='[{"label": "d6", "value": "6"}, {"label": "d8", "value": "8"}, {"label": "d10", "value": "10"}, {"label": "d12", "value": "12"}]'
+    >
+    </dropdown>
+    <dropdown
+      field="babProgression"
+      label="BAB Progression"
+      placeholder="Select BAB..."
+      options='[{"label": "Full", "value": "full"}, {"label": "3/4", "value": "threeQuarter"}, {"label": "1/2", "value": "half"}]'
+    >
+    </dropdown>
+  </div>
+
+  <!-- Save Progressions -->
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <dropdown
+      field="fortitudeSave"
+      label="Fortitude"
+      placeholder="Select..."
+      options='[{"label": "Good", "value": "good"}, {"label": "Poor", "value": "poor"}]'
+    >
+    </dropdown>
+    <dropdown
+      field="reflexSave"
+      label="Reflex"
+      placeholder="Select..."
+      options='[{"label": "Good", "value": "good"}, {"label": "Poor", "value": "poor"}]'
+    >
+    </dropdown>
+    <dropdown
+      field="willSave"
+      label="Will"
+      placeholder="Select..."
+      options='[{"label": "Good", "value": "good"}, {"label": "Poor", "value": "poor"}]'
+    >
+    </dropdown>
+  </div>
+
+  <!-- Skill Ranks & Class Skills -->
+  <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
+    <numberfield
+      field="skillRanksPerLevel"
+      label="Skill Ranks Per Level"
+      placeholder="2"
+      width="200px"
+    >
+    </numberfield>
+    <dropdown
+      field="classSkills"
+      label="Class Skills"
+      multiselect="100"
+      placeholder="Select Class Skills..."
+      optionsfunction="return getAllSkillOptions();"
+    >
+    </dropdown>
+  </div>
+
+  <!-- Traits -->
   <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
     <list
       width="100%"
@@ -87,6 +150,7 @@
     </dropdown>
   </box>
 
+  <!-- Portrait & Description -->
   <div style="display: flex; gap: 4px">
     <div
       style="width: 125px; height: 125px; min-height: 125px; min-width: 125px"
@@ -102,24 +166,8 @@
         margin-bottom: 4px;
       "
     >
-      <dropdown
-        field="keyAbility"
-        label="Key Ability"
-        multiselect="6"
-        placeholder="Select Key Ability Options..."
-        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-      >
-      </dropdown>
-      <numberfield
-        field="hp"
-        label="Hit Points"
-        placeholder="Enter Hit Points..."
-        width="100%"
-      >
-      </numberfield>
     </div>
   </div>
-  <!-- Other -->
 </div>
 
 <div style="margin-top: 8px; margin-bottom: 8px">
