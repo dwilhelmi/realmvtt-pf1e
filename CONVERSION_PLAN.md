@@ -138,7 +138,7 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 **Dependency**: Phase 2 (needs class skills list, skill ranks per level)
 
 ### characters-skills.html — Full Rewrite
-- [ ] ~35 skill rows, each showing:
+- [x] ~35 skill rows, each showing:
   - Skill name, ability abbreviation
   - Class skill indicator (auto-detected from class or manual checkbox)
   - Ranks (numberfield, max = character level)
@@ -146,22 +146,22 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
   - Misc modifier (numberfield)
   - Armor check penalty (auto, for Str/Dex-based physical skills)
   - Total (auto-calculated)
-- [ ] Total = ranks + ability mod + (3 if class skill AND ranks > 0) + misc - ACP (where applicable)
-- [ ] Subcategory skill support: dynamic list for Craft (specific), Knowledge (specific), Perform (specific), Profession (specific)
-- [ ] Total skill ranks available = (class ranks/level + Int mod) × level
-- [ ] Display ranks used vs ranks available
+- [x] Total = ranks + ability mod + (3 if class skill AND ranks > 0) + misc - ACP (where applicable)
+- [x] Subcategory skill support: dynamic list for Craft (specific), Knowledge (specific), Perform (specific), Profession (specific)
+- [x] Total skill ranks available = (class ranks/level + Int mod) × level
+- [x] Display ranks used vs ranks available
 
 ### common.js
-- [ ] Add skill total calculation: iterate all skills, compute totals
-- [ ] Armor check penalty calculation from equipped armor/shield
+- [x] Add skill total calculation: iterate all skills, compute totals
+- [x] Armor check penalty calculation from equipped armor/shield
 
 ### skill.js
-- [ ] Remove degree-of-success — pass/fail only (total >= DC)
-- [ ] Remove Treat Wounds special handling (PF2e-specific)
-- [ ] Keep item crafting on success (works similarly in PF1e)
+- [x] Remove degree-of-success — pass/fail only (total >= DC)
+- [x] Remove Treat Wounds special handling (PF2e-specific)
+- [x] Keep item crafting on success (works similarly in PF1e)
 
 ### lore-skill-list.html
-- [ ] Repurpose for subcategory skills (Craft, Knowledge, Perform, Profession)
+- [x] Repurpose for subcategory skills (Craft, Knowledge, Perform, Profession)
 
 ---
 

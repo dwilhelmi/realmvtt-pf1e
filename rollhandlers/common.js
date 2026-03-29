@@ -4681,6 +4681,7 @@ function updateProficiencies(record, valuesToSet) {
   // --- Save Totals = base + ability mod + misc ---
   const conMod = getAbilityMod("con");
   const dexMod = getAbilityMod("dex");
+  const intMod = getAbilityMod("int");
   const wisMod = getAbilityMod("wis");
   const strMod = getAbilityMod("str");
 
@@ -4726,47 +4727,90 @@ function updateProficiencies(record, valuesToSet) {
   // --- Perception = Wis mod + ranks + class skill bonus + misc ---
   const perceptionRanks = parseInt(record.data?.perceptionRanks || "0", 10);
   const classSkills = classObj?.data?.classSkills || [];
-  const isPerceptionClassSkill = classSkills.some(
+  const isPerceptionClassSkillFromClass = classSkills.some(
     (s) => s.toLowerCase() === "perception"
   );
+  const isPerceptionClassSkillManual = record.data?.perceptionClassSkill === true ||
+    record.data?.perceptionClassSkill === "true";
+  const isPerceptionClassSkill = isPerceptionClassSkillFromClass || isPerceptionClassSkillManual;
+  if (isPerceptionClassSkillFromClass && !isPerceptionClassSkillManual) {
+    valuesToSet["data.perceptionClassSkill"] = true;
+  }
   const perceptionClassBonus = (isPerceptionClassSkill && perceptionRanks > 0) ? 3 : 0;
   const perceptionMisc = parseInt(record.data?.perceptionMisc || "0", 10);
   valuesToSet["data.perceptionMod"] = wisMod + perceptionRanks + perceptionClassBonus + perceptionMisc;
 
   // --- Skill Modifiers ---
   const pathfinderSkills = getPathfinderSkills();
+  const acpSkills = [
+    "acrobatics", "climb", "escapeArtist", "fly", "ride",
+    "sleightOfHand", "stealth", "swim"
+  ];
+  let totalRanksUsed = 0;
+
   for (const [skillName, abilityKey] of Object.entries(pathfinderSkills)) {
     const ranks = parseInt(record.data?.[`${skillName}Ranks`] || "0", 10);
+    totalRanksUsed += ranks;
 
     // Check if user has set a custom ability for this skill
     const customAbilityKey = record.data?.[`${skillName}Ability`];
     const effectiveAbilityKey = customAbilityKey || abilityKey;
     const abilityMod = getAbilityMod(effectiveAbilityKey);
 
-    // Class skill bonus: +3 if it's a class skill AND has at least 1 rank
-    const isClassSkill = classSkills.some(
+    // Class skill: from class data OR manual checkbox on the sheet
+    const isClassSkillFromClass = classSkills.some(
       (s) => s.toLowerCase() === skillName.toLowerCase() ||
              s.toLowerCase() === camelToNormal(skillName).toLowerCase()
     );
+    const isClassSkillManual = record.data?.[`${skillName}ClassSkill`] === true ||
+      record.data?.[`${skillName}ClassSkill`] === "true";
+    const isClassSkill = isClassSkillFromClass || isClassSkillManual;
     const classSkillBonus = (isClassSkill && ranks > 0) ? 3 : 0;
+
+    // Auto-set the class skill checkbox if the class grants it
+    if (isClassSkillFromClass && !isClassSkillManual) {
+      valuesToSet[`data.${skillName}ClassSkill`] = true;
+    }
 
     // Misc modifier (manual adjustments)
     const miscMod = parseInt(record.data?.[`${skillName}Misc`] || "0", 10);
 
     // Armor check penalty for physical skills
     let acp = 0;
-    const acpSkills = [
-      "acrobatics", "climb", "escapeArtist", "fly", "ride",
-      "sleightOfHand", "stealth", "swim"
-    ];
     if (acpSkills.includes(skillName)) {
       acp = parseInt(record.data?.armorCheckPenalty || "0", 10);
     }
 
-    // Total = ranks + ability mod + class skill bonus + misc - ACP
+    // Total = ranks + ability mod + class skill bonus + misc + ACP (ACP is negative)
     const total = ranks + abilityMod + classSkillBonus + miscMod + acp;
     valuesToSet[`data.${skillName}Mod`] = total;
   }
+
+  // --- Subcategory Skills (Craft, Profession, etc.) ---
+  const subcategorySkills = record.data?.subcategorySkills || [];
+  for (let i = 0; i < subcategorySkills.length; i++) {
+    const skill = subcategorySkills[i];
+    const ranks = parseInt(skill.data?.ranks || "0", 10);
+    totalRanksUsed += ranks;
+
+    const abilityKey = skill.data?.ability || "int";
+    const abilityMod = getAbilityMod(abilityKey);
+
+    const isClassSkill = skill.data?.classSkill === true ||
+      skill.data?.classSkill === "true";
+    const classSkillBonus = (isClassSkill && ranks > 0) ? 3 : 0;
+
+    const miscMod = parseInt(skill.data?.misc || "0", 10);
+
+    const total = ranks + abilityMod + classSkillBonus + miscMod;
+    valuesToSet[`data.subcategorySkills[${i}].data.mod`] = total;
+  }
+
+  // --- Skill Ranks Tracking ---
+  const skillRanksPerLevel = parseInt(classObj?.data?.skillRanksPerLevel || "0", 10);
+  const totalRanksAvailable = (skillRanksPerLevel + intMod) * characterLevel;
+  valuesToSet["data.skillRanksUsed"] = totalRanksUsed;
+  valuesToSet["data.skillRanksAvailable"] = Math.max(totalRanksAvailable, 0);
 
   // --- Store weapon/armor proficiencies from class ---
   if (classObj?.data?.weaponProficiencies) {
