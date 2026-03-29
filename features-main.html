@@ -27,33 +27,6 @@
       valuesToSet[`${dataPrefix}.traitsList`] = traitsObjects;
     }
 
-    const showActions = feature.data?.actionType === "action";
-    if (showActions && feature.fields?.actions?.hidden !== false) {
-      valuesToSet[`${fieldsPath}.actions.hidden`] = false;
-    } else if (!showActions && feature.fields?.actions?.hidden !== true) {
-      valuesToSet[`${fieldsPath}.actions.hidden`] = true;
-    }
-
-    const showKeyOptions = feature.data?.type === "classfeature";
-    if (showKeyOptions && feature.fields?.keyOptions?.hidden !== false) {
-      valuesToSet[`${fieldsPath}.keyOptions.hidden`] = false;
-    } else if (!showKeyOptions && feature.fields?.keyOptions?.hidden !== true) {
-      valuesToSet[`${fieldsPath}.keyOptions.hidden`] = true;
-    }
-
-    const levelLabel = feature.data?.level
-      ? `Level ${feature.data?.level}`
-      : "";
-    if (levelLabel && feature.fields?.levelLabel?.hidden !== false) {
-      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = false;
-    } else if (!levelLabel && feature.fields?.levelLabel?.hidden !== true) {
-      valuesToSet[`${fieldsPath}.levelLabel.hidden`] = true;
-    }
-
-    if (levelLabel && feature.data?.levelLabel !== levelLabel) {
-      valuesToSet[`${dataPrefix}.levelLabel`] = levelLabel;
-    }
-
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
     }
@@ -80,26 +53,6 @@
     size="lg"
     variant="bold"
   ></label>
-  <iconbutton
-    field="actions"
-    size="md"
-    variant="subtle"
-    color="default"
-    disablediflocked="true"
-    hidden="true"
-    width="max-content"
-    options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
-    {"label": "One Action", "value": "oneAction", "icon": "one-action"},
-    {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
-    {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
-    {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
-    {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
-    {"label": "2 to 3 Actions", "value": "twoToThreeActions", "icon": "2-to-3"},
-    {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
-  ></iconbutton>
-  <div style="margin-left: auto">
-    <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>
-  </div>
 </div>
 
 <div
@@ -154,7 +107,6 @@
         <numberfield
           width="70px"
           field="level"
-          onchange="showHideFields();"
           label="Level"
           placeholder="N/A"
         ></numberfield>
@@ -162,29 +114,18 @@
           <dropdown
             width="100%"
             field="type"
-            onchange="showHideFields();"
             combo="true"
             label="Feature Type"
             placeholder="Select Type..."
-            options='[{"label": "Ancestry Feature", "value": "ancestryfeature"},
-  {"label": "Class Feature", "value": "classfeature"},
-  {"label": "Calling", "value": "calling"},
-  {"label": "Defensive", "value": "defensive"},
-  {"label": "Offensive", "value": "offensive"},
-  {"label": "Interaction", "value": "interaction"}]'
+            options='[{"label": "Class Feature", "value": "classfeature"},
+  {"label": "Racial Trait", "value": "racialtrait"},
+  {"label": "Extraordinary (Ex)", "value": "extraordinary"},
+  {"label": "Supernatural (Su)", "value": "supernatural"},
+  {"label": "Spell-Like (Sp)", "value": "spelllike"},
+  {"label": "Other", "value": "other"}]'
           ></dropdown>
         </div>
       </div>
-      <dropdown
-        width="100%"
-        field="actionType"
-        onchange="showHideFields();"
-        label="Action Type"
-        defaultvalue="passive"
-        placeholder="Select Action Type..."
-        options='[{"label": "Passive", "value": "passive"},
-  {"label": "Action", "value": "action"}]'
-      ></dropdown>
     </div>
   </div>
 
@@ -194,21 +135,6 @@
     label="Prerequisites"
     placeholder="None"
   ></stringfield>
-
-  <dropdown
-    field="keyOptions"
-    label="Key Ability Options"
-    placeholder="None"
-    hidden="true"
-    multiselect="6"
-    options='[{"label": "None", "value": "none"},
-    {"label": "Strength", "value": "str"},
-    {"label": "Dexterity", "value": "dex"},
-    {"label": "Constitution", "value": "con"},
-    {"label": "Intelligence", "value": "int"},
-    {"label": "Wisdom", "value": "wis"},
-    {"label": "Charisma", "value": "cha"}]'
-  ></dropdown>
 
   <div style="margin-top: 8px; margin-bottom: 8px">
     <divider label="Description"></divider>

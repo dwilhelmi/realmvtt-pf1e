@@ -22,86 +22,20 @@
       flex-direction: row;
       width: 100%;
       gap: 4px;
-      background-color: rgb(from var(--mantine-color-red-filled) r g b / 0.25);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      padding: 0px 4px;
-    "
-  >
-    <label label="Class Feats" size="sm" variant="bold"></label>
-  </div>
-
-  <list
-    listtype="feats_list"
-    field="feats"
-    getfilters="return getSlotFilters('class');"
-    emptylisttext="No Class Feat Slots"
-  ></list>
-
-  <div
-    style="
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      gap: 4px;
       background-color: rgb(from var(--mantine-color-blue-filled) r g b / 0.25);
       border-radius: 4px;
       margin-bottom: 4px;
       padding: 0px 4px;
     "
   >
-    <label label="General Feats" size="sm" variant="bold"></label>
+    <label label="Feats" size="sm" variant="bold"></label>
   </div>
 
   <list
     listtype="feats_list"
     field="feats"
     getfilters="return getSlotFilters('general');"
-    emptylisttext="No General Feat Slots"
-  ></list>
-
-  <div
-    style="
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      gap: 4px;
-      background-color: rgb(from var(--mantine-color-cyan-filled) r g b / 0.25);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      padding: 0px 4px;
-    "
-  >
-    <label label="Skill Feats" size="sm" variant="bold"></label>
-  </div>
-
-  <list
-    listtype="feats_list"
-    field="feats"
-    emptylisttext="No Skill Feat Slots"
-    getfilters="return getSlotFilters('skill');"
-  ></list>
-
-  <div
-    style="
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      gap: 4px;
-      background-color: rgb(from var(--mantine-color-teal-filled) r g b / 0.25);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      padding: 0px 4px;
-    "
-  >
-    <label label="Ancestry Feats" size="sm" variant="bold"></label>
-  </div>
-
-  <list
-    listtype="feats_list"
-    field="feats"
-    emptylisttext="No Ancestry Feat Slots"
-    getfilters="return getSlotFilters('ancestry');"
+    emptylisttext="No Feat Slots"
   ></list>
 
   <div
@@ -112,6 +46,30 @@
       gap: 4px;
       background-color: rgb(
         from var(--mantine-color-green-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      margin-bottom: 4px;
+      padding: 0px 4px;
+    "
+  >
+    <label label="Class Bonus Feats" size="sm" variant="bold"></label>
+  </div>
+
+  <list
+    listtype="feats_list"
+    field="feats"
+    getfilters="return getSlotFilters('classBonus');"
+    emptylisttext="No Class Bonus Feat Slots"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-orange-filled) r g b / 0.25
       );
       border-radius: 4px;
       margin-bottom: 4px;
@@ -141,11 +99,6 @@
   <list
     listtype="character_feature_list"
     field="ancestries"
-    emptylisttext="No Ancestry Features"
-  ></list>
-  <list
-    listtype="character_feature_list"
-    field="heritages"
-    emptylisttext="No Heritage Features"
+    emptylisttext="No Racial Traits"
   ></list>
 </div>

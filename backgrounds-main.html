@@ -39,6 +39,7 @@
   }
 </script>
 
+<!-- Campaign Trait — PF1e equivalent of backgrounds -->
 <div
   style="
     display: flex;
@@ -55,7 +56,7 @@
 >
   <label
     field="namefield"
-    placeholder="New Background"
+    placeholder="New Campaign Trait"
     size="lg"
     variant="bold"
   ></label>
@@ -109,34 +110,24 @@
       "
     >
       <dropdown
-        field="boosts.0"
-        placeholder="Select possible choices..."
-        multiselect="6"
-        label="Ability Boost 1 Choices"
-        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
-      >
-      </dropdown>
-
-      <dropdown
-        field="boosts.1"
-        placeholder="Select possible choices..."
-        multiselect="6"
-        label="Ability Boost 2 Choices"
-        options='[{"label": "Strength", "value": "str"}, {"label": "Dexterity", "value": "dex"}, {"label": "Constitution", "value": "con"}, {"label": "Intelligence", "value": "int"}, {"label": "Wisdom", "value": "wis"}, {"label": "Charisma", "value": "cha"}]'
+        field="traitType"
+        placeholder="Select trait type..."
+        label="Trait Type"
+        width="100%"
+        options='[{"label": "Campaign", "value": "campaign"},
+        {"label": "Combat", "value": "combat"},
+        {"label": "Faith", "value": "faith"},
+        {"label": "Magic", "value": "magic"},
+        {"label": "Social", "value": "social"},
+        {"label": "Regional", "value": "regional"},
+        {"label": "Race", "value": "race"},
+        {"label": "Religion", "value": "religion"},
+        {"label": "Equipment", "value": "equipment"},
+        {"label": "Drawback", "value": "drawback"}]'
       >
       </dropdown>
     </div>
   </div>
-
-  <dropdown
-    field="trainedSkills"
-    label="Trained Skills"
-    placeholder="None"
-    multiselect="100"
-    combo="true"
-    width="100%"
-    optionsfunction="return getAllSkillOptions();"
-  ></dropdown>
 
   <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px">
     <label
@@ -158,7 +149,7 @@
 </div>
 
 <richtextfield
-  placeholder="Enter Background description..."
+  placeholder="Enter trait description and benefit..."
   field="description"
   label="Description"
 ></richtextfield>

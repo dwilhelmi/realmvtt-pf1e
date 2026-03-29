@@ -38,44 +38,10 @@
     }
 
     // Check if feat type matches slot type
-    if (featSlotType === "ancestry" && featType !== "ancestry") {
-      api.showNotification(
-        `This slot only accepts Ancestry feats.`,
-        "red",
-        "Feat Type Mismatch"
-      );
-      return;
-    }
-
-    if (featSlotType === "class" && featType !== "class") {
-      api.showNotification(
-        `This slot only accepts Class feats.`,
-        "red",
-        "Feat Type Mismatch"
-      );
-      return;
-    }
-
-    if (
-      featSlotType === "general" &&
-      featType !== "general" &&
-      featType !== "skill"
-    ) {
-      api.showNotification(
-        `This slot only accepts General or Skill feats.`,
-        "red",
-        "Feat Type Mismatch"
-      );
-      return;
-    }
-
-    if (featSlotType === "skill" && featType !== "skill") {
-      api.showNotification(
-        `This slot only accepts Skill feats.`,
-        "red",
-        "Feat Type Mismatch"
-      );
-      return;
+    // PF1e slot types: "general" accepts any feat, "classBonus" accepts combat feats for fighters etc.
+    if (featSlotType === "classBonus") {
+      // Class bonus feat slots — typically accept combat feats but we allow any for flexibility
+      // GMs can enforce restrictions via feat type field
     }
 
     if (featSlot.data?.type === "slot") {
@@ -107,28 +73,27 @@
 
     onDeleteFeat = () => {
       if (featSlot.data?.type !== "slot") {
+        const slotType = featSlot?.data?.featSlotType || "general";
+        const slotLabel = slotType === "classBonus" ? "Class Bonus" : capitalize(slotType);
         const valuesToSet = {};
         valuesToSet[`${dataPathToFeat}`] = {
-          name: capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
-          unidentifiedName:
-            capitalize(featSlot?.data?.featSlotType) + " Feat Slot",
+          name: slotLabel + " Feat Slot",
+          unidentifiedName: slotLabel + " Feat Slot",
           _id: featSlot?._id,
           data: {
             type: "slot",
             description: "",
+            benefit: "",
+            special: "",
             level: featSlot?.data?.level,
             featSlotType: featSlot?.data?.featSlotType,
             slotOrder: featSlot?.data?.slotOrder,
-            actionType: "",
             prerequisites: "",
-            actions: [],
-            levelLabel: "",
             traitsList: [],
             traits: [],
             modifiers: [],
             item: [],
             choices: [],
-            proficiencies: [],
             providesItems: [],
           },
           fields: {
@@ -158,22 +123,6 @@
     const featSlotType = featSlot?.data?.featSlotType;
     const featSlotLevel = parseInt(featSlot?.data?.level || "0", 10);
 
-    const classes = record?.data?.classes || [];
-    const className = classes?.[0]?.name || record?.data?.className || "";
-    const ancestries = record?.data?.ancestries || [];
-    const ancestryName =
-      ancestries?.[0]?.name || record?.data?.ancestryName || "";
-    const heritage = record?.data?.heritages || [];
-    const heritageName =
-      heritage?.[0]?.name || record?.data?.heritageName || "";
-    const ourTraits = record?.data?.traits || [];
-
-    const options = [];
-
-    if (featSlotType === "ancestry") {
-      options.push({ label: "Ancestry Feat", value: "ancestry" });
-    }
-
     const optionSelection = (values) => {
       if (values.length > 0) {
         const feat = values[0];
@@ -181,57 +130,20 @@
       }
     };
 
-    // Collect all traits for ancestry feats and remove duplicates (case insensitive)
-    const ancestryTraits = [];
-    if (ancestryName) ancestryTraits.push(ancestryName);
-    if (heritageName) ancestryTraits.push(heritageName);
-    ancestryTraits.push(...ourTraits);
-
-    // Remove duplicates case-insensitively
-    const seen = new Set();
-    const uniqueAncestryTraits = ancestryTraits
-      .filter((trait) => trait && trait.trim())
-      .filter((trait) => {
-        const lowerTrait = trait.toLowerCase();
-        if (seen.has(lowerTrait)) {
-          return false;
-        }
-        seen.add(lowerTrait);
-        return true;
-      });
-
+    // PF1e: general slots accept any feat, classBonus slots show combat feats by default
     const optionsQuery = {
       type: "feats",
       query: {
-        $or: [
-          { "data.level": { $lte: featSlotLevel } },
-          { "data.level": { $exists: false } },
-          { "data.level": null },
-        ],
-        ...(featSlotType === "general"
-          ? { "data.type": { $in: ["general", "skill"] } }
-          : { "data.type": featSlotType }),
-        ...(featSlotType === "class" && className
-          ? {
-              "data.traits": {
-                $elemMatch: { $regex: `^${className}$`, $options: "i" },
-              },
-            }
-          : featSlotType === "ancestry" && uniqueAncestryTraits.length > 0
-          ? {
-              "data.traits": {
-                $elemMatch: {
-                  $regex: `^(${uniqueAncestryTraits.join("|")})$`,
-                  $options: "i",
-                },
-              },
-            }
+        ...(featSlotType === "classBonus"
+          ? { "data.type": "combat" }
           : {}),
       },
     };
 
+    const slotLabel = featSlotType === "classBonus" ? "Class Bonus" : capitalize(featSlotType);
+
     api.showPrompt(
-      `Select a ${capitalize(featSlotType)} Feat for Level ${featSlotLevel}`,
+      `Select a ${slotLabel} Feat for Level ${featSlotLevel}`,
       "Select Feat",
       `Select a Feat...`,
       null,
@@ -310,23 +222,6 @@
           placeholder="1"
         ></numberfield>
         <label field="namefield" size="sm" variant="bold"></label>
-        <iconbutton
-          field="actions"
-          size="sm"
-          variant="subtle"
-          color="default"
-          disabled="true"
-          hidden="true"
-          width="max-content"
-          options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
-    {"label": "One Action", "value": "oneAction", "icon": "one-action"},
-    {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
-    {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
-    {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
-    {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
-    {"label": "2 to 3 Actions", "value": "twoToThreeActions", "icon": "2-to-3"},
-    {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
-        ></iconbutton>
         <div
           style="display: flex; gap: 4px; margin-right: 4px; margin-left: auto"
         >
@@ -369,31 +264,6 @@
         size="sm"
         variant="bold"
       ></label>
-      <iconbutton
-        field="actions"
-        size="sm"
-        variant="subtle"
-        color="default"
-        disablediflocked="true"
-        hidden="true"
-        width="max-content"
-        options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
-  {"label": "One Action", "value": "oneAction", "icon": "one-action"},
-  {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
-  {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
-  {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
-  {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
-  {"label": "2 to 3 Actions", "value": "twoToThreeActions", "icon": "2-to-3"},
-  {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
-      ></iconbutton>
-      <div style="margin-left: auto">
-        <label
-          hidden="true"
-          field="levelLabel"
-          size="sm"
-          variant="bold"
-        ></label>
-      </div>
     </div>
 
     <div
