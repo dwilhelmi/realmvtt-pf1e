@@ -1,69 +1,10 @@
-<script>
-  function showHideFields() {
-    const spellDataPath = getNearestParentDataPath(dataPath);
-    const spell = spellDataPath ? api.getValue(spellDataPath) : record;
-    const dataPrefix = spellDataPath ? `${spellDataPath}.data` : "data";
-    const fieldsPath = spellDataPath ? `${spellDataPath}.fields` : "fields";
-
-    const valuesToSet = {};
-
-    // Check heightening list
-    const heighteningList = spell.data?.heightening || [];
-    for (let i = 0; i < heighteningList.length; i++) {
-      const heightening = heighteningList[i];
-      const heightPath = `${dataPrefix}.heightening.${i}`;
-      const heightFieldsPath = `${heightPath}.fields`;
-      const typeValue = heightening?.data?.type || "";
-
-      // Show/hide interval-specific fields
-      const showInterval = typeValue === "interval";
-      if (heightening.fields?.intervalBox?.hidden !== !showInterval) {
-        valuesToSet[`${heightFieldsPath}.intervalBox.hidden`] = !showInterval;
-      }
-
-      // Show/hide fixed-specific fields
-      const showFixed = typeValue === "fixed";
-      if (heightening.fields?.levelsBox?.hidden !== !showFixed) {
-        valuesToSet[`${heightFieldsPath}.levelsBox.hidden`] = !showFixed;
-      }
-    }
-
-    if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet);
-    }
-  }
-</script>
-
 <label variant="bold" textalign="center" label="Damage" size="md"></label>
 
 <list listtype="spell_damage_list" field="damage" variant="striped"></list>
 
 <div style="margin-top: 12px">
-  <label
-    label="Heightening"
-    size="md"
-    variant="bold"
-    textalign="center"
-  ></label>
-  <list
-    listtype="spell_heightening_list"
-    field="heightening"
-    onload="showHideFields()"
-  ></list>
-</div>
-
-<div style="margin-top: 12px">
-  <label
-    label="Alternate Casting Methods"
-    size="md"
-    variant="bold"
-    textalign="center"
-  ></label>
-  <list
-    listtype="spell_overlays_list"
-    field="overlays"
-    variant="striped"
-  ></list>
+  <label label="Modifiers" size="md" variant="bold" textalign="center"></label>
+  <list field="modifiers" listtype="modifier_list" variant="striped"></list>
 </div>
 
 <div style="margin-top: 12px">

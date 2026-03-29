@@ -4469,58 +4469,46 @@ function showAlchemistFields(record, valuesToSet) {
   }
 }
 
-// Called by onAddEditSpellcastingEntry to update the DC and Mod for all spellcasting entries
+// Called by onAddEditFeature to update PF1e spell DC, caster level, and concentration for all spellcasting entries
+// PF1e: Spell DC = 10 + spell level + ability modifier (computed per-spell at cast time)
+// Base DC (stored) = 10 + ability modifier (the spell level portion is added when casting)
+// Concentration = caster level + ability modifier
 function updateSpellcastingEntries(record, valuesToSet) {
   if (record.recordType !== "characters") {
     return;
   }
 
   const spellcastingEntries = record.data?.spells || [];
+  const characterLevel = parseInt(
+    valuesToSet["data.level"] ?? record.data?.level ?? "1",
+    10
+  );
+
   spellcastingEntries.forEach((spellcastingEntry, index) => {
     const spellcastingEntryDataPath = `data.spells.${index}`;
 
-    const proficiency = spellcastingEntry.data?.proficiency || "spell";
     const attribute = spellcastingEntry.data?.attribute || "int";
-    const training = parseInt(spellcastingEntry.data?.training || "0", 10);
-    const isItem = spellcastingEntry.data?.type === "item";
 
-    // Don't auto-update item types since they might be manually set
-    if (!isItem) {
-      // Get current spellcasting training level (check valuesToSet first)
-      const currentTraining =
-        proficiency === "spell"
-          ? `${
-              valuesToSet["data.spellcasting"] ??
-              record.data?.spellcasting ??
-              "0"
-            }`
-          : `${
-              valuesToSet["data.classDCProficiency"] ??
-              record.data?.classDCProficiency ??
-              "0"
-            }`;
-      const newTraining = Math.max(parseInt(currentTraining, 10), training);
+    // Check if attribute is being updated in valuesToSet
+    const attributeScore =
+      valuesToSet[`data.${attribute}`] ?? record.data?.[`${attribute}`] ?? 0;
 
-      // Check if level is being updated in valuesToSet
-      const level = valuesToSet["data.level"] ?? record.data?.level ?? 1;
+    // Caster level: use override if set, otherwise character level
+    const casterLevelOverride = parseInt(
+      spellcastingEntry.data?.casterLevel || "0",
+      10
+    );
+    const casterLevel = casterLevelOverride > 0 ? casterLevelOverride : characterLevel;
 
-      const proficiencyBonus = calculateProficiencyBonusForLevel(
-        level,
-        newTraining
-      );
+    // PF1e base DC = 10 + ability modifier (spell level added at cast time)
+    const baseDC = 10 + attributeScore;
 
-      // Check if attribute is being updated in valuesToSet
-      const attributeScore =
-        valuesToSet[`data.${attribute}`] ?? record.data?.[`${attribute}`] ?? 0;
+    // Concentration check modifier = caster level + ability modifier
+    const concentrationMod = casterLevel + attributeScore;
 
-      // Set the DC and Modifier based on the proficiency
-      const mod = attributeScore + proficiencyBonus;
-      const dc = 10 + mod;
-
-      valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = dc;
-      valuesToSet[`${spellcastingEntryDataPath}.data.mod`] = mod;
-      valuesToSet[`${spellcastingEntryDataPath}.data.training`] = newTraining;
-    }
+    valuesToSet[`${spellcastingEntryDataPath}.data.dc`] = baseDC;
+    valuesToSet[`${spellcastingEntryDataPath}.data.casterLevelDisplay`] = casterLevel;
+    valuesToSet[`${spellcastingEntryDataPath}.data.concentrationMod`] = concentrationMod;
   });
 }
 

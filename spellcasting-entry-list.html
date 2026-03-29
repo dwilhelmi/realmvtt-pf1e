@@ -109,12 +109,12 @@
             <dropdown
               size="xs"
               field="shownSpells"
-              placeholder="Select Spells to Show..."
+              placeholder="Select Spell Levels to Show..."
               width="100%"
-              multiselect="12"
+              multiselect="11"
               onchange="onChangeValue();"
-              label="Spells to Show"
-              options='[{"label": "Cantrips", "value": "cantrips"}, {"label": "1st Rank", "value": "spells1"}, {"label": "2nd Rank", "value": "spells2"}, {"label": "3rd Rank", "value": "spells3"}, {"label": "4th Rank", "value": "spells4"}, {"label": "5th Rank", "value": "spells5"}, {"label": "6th Rank", "value": "spells6"}, {"label": "7th Rank", "value": "spells7"}, {"label": "8th Rank", "value": "spells8"}, {"label": "9th Rank", "value": "spells9"}, {"label": "10th Rank", "value": "spells10"}]'
+              label="Spell Levels to Show"
+              options='[{"label": "0 (Cantrips)", "value": "cantrips"}, {"label": "1st Level", "value": "spells1"}, {"label": "2nd Level", "value": "spells2"}, {"label": "3rd Level", "value": "spells3"}, {"label": "4th Level", "value": "spells4"}, {"label": "5th Level", "value": "spells5"}, {"label": "6th Level", "value": "spells6"}, {"label": "7th Level", "value": "spells7"}, {"label": "8th Level", "value": "spells8"}, {"label": "9th Level", "value": "spells9"}]'
             ></dropdown>
             <divider></divider>
             <dropdown
@@ -126,59 +126,32 @@
               onchange="onChangeValue();"
               label="Spellcasting Type"
               options='[{"label": "Prepared", "value": "prepared"},
-              {"label": "Spontaneous", "value": "spontaneous"},
-              {"label": "Innate", "value": "innate"},
-              {"label": "Focus", "value": "focus"},
-              {"label": "Item Only", "value": "item"}]'
+              {"label": "Spontaneous", "value": "spontaneous"}]'
             ></dropdown>
-            <numberfield
-              size="xs"
-              field="focusPoolMax"
-              hidden="true"
-              placeholder="1"
-              updateonblur="true"
-              minvalue="1"
-              maxvalue="3"
-              width="100%"
-              label="Focus Pool Max"
-            ></numberfield>
             <divider></divider>
-            <dropdown
-              size="xs"
-              field="proficiency"
-              placeholder="Select Proficiency..."
-              width="100%"
-              onchange="onChangeValue();"
-              label="Proficiency"
-              options='[{"label": "Spell Attack Modifiers & DCs", "value": "spell"},
-              {"label": "Class DC", "value": "class"}]'
-            ></dropdown>
-            <dropdown
-              size="xs"
-              field="tradition"
-              placeholder="Select Magic Tradition..."
-              width="100%"
-              onchange="onChangeValue();"
-              label="Magic Tradition"
-              options='[{"label": "Arcane", "value": "Arcane"},
-            {"label": "Divine", "value": "Divine"},
-            {"label": "Occult", "value": "Occult"},
-            {"label": "Primal", "value": "Primal"}]'
-            ></dropdown>
             <dropdown
               size="xs"
               field="attribute"
               onchange="onChangeValue();"
-              placeholder="Select Attribute..."
+              placeholder="Select Ability..."
               width="100%"
-              label="Key Attribute"
-              options='[{"label": "Strength", "value": "str"},
-            {"label": "Dexterity", "value": "dex"},
-            {"label": "Constitution", "value": "con"},
-            {"label": "Intelligence", "value": "int"},
+              label="Casting Ability"
+              options='[{"label": "Intelligence", "value": "int"},
             {"label": "Wisdom", "value": "wis"},
             {"label": "Charisma", "value": "cha"}]'
             ></dropdown>
+            <numberfield
+              size="xs"
+              field="casterLevel"
+              placeholder="0"
+              updateonblur="true"
+              minvalue="1"
+              maxvalue="20"
+              width="100%"
+              label="Caster Level (override)"
+              description="Leave blank to use character level"
+              onchange="onChangeValue();"
+            ></numberfield>
           </div>
         </popover.dropdown>
       </popover>
@@ -205,7 +178,7 @@
   </div>
 </div>
 
-<!-- Show DC / To Hit Modifier and Training Level -->
+<!-- Show DC and Caster Level -->
 <div
   style="
     display: flex;
@@ -228,34 +201,19 @@
       size="xxs"
     ></numberfield>
   </div>
-  <label label="Modifier" size="xs" variant="bold" color="primary"></label>
+  <label label="CL" size="xs" variant="bold" color="primary"></label>
   <div style="min-width: 35px; width: 35px; margin-bottom: 2px">
     <numberfield
-      field="mod"
+      field="casterLevelDisplay"
       width="100%"
       placeholder="0"
       bold="true"
       textalign="center"
       variant="filled"
       hidecontrols="true"
-      showsign="true"
       size="xxs"
     ></numberfield>
   </div>
-  <label
-    field="focusPoolLabel"
-    hidden="true"
-    label="Focus Pool"
-    size="xs"
-    variant="bold"
-  ></label>
-  <counter
-    hidden="true"
-    field="focusPool"
-    size="xs"
-    maxvaluefield="focusPoolMax"
-    editable="true"
-  ></counter>
   <div
     style="
       display: flex;
@@ -265,17 +223,20 @@
       align-items: center;
     "
   >
-    <label field="tradition" color="primary" size="xs" variant="bold"></label>
-    <dropdown
-      size="xs"
-      field="training"
-      width="110px"
-      textalign="center"
-      placeholder="Untrained"
-      defaultvalue="1"
-      onchange="onChangeValue();"
-      options='[{"label": "Untrained", "value": "0"}, {"label": "Trained", "value": "1"}, {"label": "Expert", "value": "2"}, {"label": "Master", "value": "3"}, {"label": "Legendary", "value": "4"}]'
-    ></dropdown>
+    <label label="Concentration" size="xs" variant="bold" color="primary"></label>
+    <div style="min-width: 35px; width: 35px; margin-bottom: 2px">
+      <numberfield
+        field="concentrationMod"
+        width="100%"
+        placeholder="0"
+        bold="true"
+        textalign="center"
+        variant="filled"
+        hidecontrols="true"
+        showsign="true"
+        size="xxs"
+      ></numberfield>
+    </div>
   </div>
 </div>
 
@@ -303,7 +264,7 @@
   </accordion>
 </box>
 
-<!-- Cantrips List -->
+<!-- Cantrips (Level 0) List -->
 <box field="cantripsBox" hidden="true">
   <div
     style="
@@ -358,7 +319,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -386,7 +347,7 @@
   ></list>
 </box>
 
-<!-- Rank 1 Spells List -->
+<!-- 1st Level Spells List -->
 <box field="spells1Box" hidden="true">
   <div
     style="
@@ -410,7 +371,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="1st Rank"
+          label="1st Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -460,7 +421,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -488,7 +449,7 @@
   ></list>
 </box>
 
-<!-- Rank 2 Spells List -->
+<!-- 2nd Level Spells List -->
 <box field="spells2Box" hidden="true">
   <div
     style="
@@ -512,7 +473,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="2nd Rank"
+          label="2nd Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -562,7 +523,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -590,7 +551,7 @@
   ></list>
 </box>
 
-<!-- Rank 3 Spells List -->
+<!-- 3rd Level Spells List -->
 <box field="spells3Box" hidden="true">
   <div
     style="
@@ -614,7 +575,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="3rd Rank"
+          label="3rd Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -622,786 +583,194 @@
         ></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells3"
-              maxvaluefield="numSpells3"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells3" maxvaluefield="numSpells3" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells3"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells3" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
     </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells3');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells3');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells3"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells3" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 4 Spells List -->
+<!-- 4th Level Spells List -->
 <box field="spells4Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="4th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="4th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells4"
-              maxvaluefield="numSpells4"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells4" maxvaluefield="numSpells4" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells4"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells4" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells4');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells4');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells4"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells4" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 5 Spells List -->
+<!-- 5th Level Spells List -->
 <box field="spells5Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="5th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="5th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells5"
-              maxvaluefield="numSpells5"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells5" maxvaluefield="numSpells5" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells5"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells5" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells5');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells5');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells5"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells5" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 6 Spells List -->
+<!-- 6th Level Spells List -->
 <box field="spells6Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="6th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="6th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells6"
-              maxvaluefield="numSpells6"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells6" maxvaluefield="numSpells6" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells6"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells6" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells6');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells6');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells6"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells6" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 7 Spells List -->
+<!-- 7th Level Spells List -->
 <box field="spells7Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="7th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="7th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells7"
-              maxvaluefield="numSpells7"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells7" maxvaluefield="numSpells7" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells7"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells7" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells7');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells7');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells7"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells7" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 8 Spells List -->
+<!-- 8th Level Spells List -->
 <box field="spells8Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="8th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="8th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells8"
-              maxvaluefield="numSpells8"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells8" maxvaluefield="numSpells8" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells8"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells8" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells8');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells8');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells8"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells8" variant="striped" listtype="spell_list"></list>
 </box>
 
-<!-- Rank 9 Spells List -->
+<!-- 9th Level Spells List -->
 <box field="spells9Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
+  <div style="width: 100%; background-color: var(--mantine-color-dark-light); border: 1px solid var(--mantine-color-default-border); padding: 4px; margin-top: 4px; display: flex; flex-direction: row; align-items: center">
+    <div style="display: flex; flex-direction: row; align-items: center; flex-grow: 1">
       <div style="min-width: 70px; width: 70px">
-        <label
-          label="9th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
+        <label label="9th Level" width="100%" size="xs" variant="bold" textalign="left"></label>
       </div>
       <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
+        <div style="display: flex; flex-direction: row; gap: 4px; align-items: center; margin-right: 4px">
           <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells9"
-              maxvaluefield="numSpells9"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
+            <numberfield field="usedSpells9" maxvaluefield="numSpells9" width="100%" placeholder="0" minvalue="0" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
           </div>
           <label label="/" size="xs" variant="bold"></label>
         </div>
       </box>
       <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells9"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
+        <numberfield field="numSpells9" updateonblur="true" onchange="onChangeValue();" width="100%" placeholder="0" minvalue="0" maxvalue="20" bold="true" hidecontrols="true" textalign="center" size="xs"></numberfield>
       </div>
     </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
+    <div style="min-width: 96px; width: 96px; margin-left: 16px"><label label="Save" size="xs" variant="bold"></label></div>
+    <div style="min-width: 70px; width: 70px; margin-left: 16px"><label label="Range" size="xs" variant="bold"></label></div>
+    <box field="spacer" hideonlocked="true"><div style="min-width: 20px; width: 20px"></div></box>
     <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells9');"
-    ></iconbutton>
+    <iconbutton field="addBtn" hidden="true" size="sm" variant="subtle" color="default" options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]' onclick="onAddSpell('spells9');"></iconbutton>
   </div>
-
-  <list
-    lazy="true"
-    field="spells9"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
-</box>
-
-<!-- Rank 10 Spells List -->
-<box field="spells10Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
-      <div style="min-width: 70px; width: 70px">
-        <label
-          label="10th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
-      </div>
-      <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
-          <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells10"
-              maxvaluefield="numSpells10"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
-          </div>
-          <label label="/" size="xs" variant="bold"></label>
-        </div>
-      </box>
-      <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells10"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
-      </div>
-    </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
-    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells10');"
-    ></iconbutton>
-  </div>
-
-  <list
-    lazy="true"
-    field="spells10"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
+  <list lazy="true" field="spells9" variant="striped" listtype="spell_list"></list>
 </box>

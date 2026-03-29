@@ -243,31 +243,39 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 **Dependency**: Phase 4 (ranged touch attacks)
 
 ### spells-main.html
-- [ ] Remove: heightening, traditions (arcane/divine/occult/primal), action cost (1/2/3 actions)
-- [ ] Add: spell level (0-9), school, subschool, descriptor, casting time (standard/full-round/etc.), components (V/S/M/F/DF), spell resistance (yes/no), saving throw type
-- [ ] Spell DC = 10 + spell level + casting ability modifier
+- [x] Remove: heightening, traditions (arcane/divine/occult/primal), action cost (1/2/3 actions)
+- [x] Add: spell level (0-9), school, subschool, descriptor, casting time (standard/full-round/etc.), components (V/S/M/F/DF), spell resistance (yes/no), saving throw type
+- [x] Spell DC = 10 + spell level + casting ability modifier
 
 ### spellcasting-entry-list.html — Rewrite
-- [ ] Prepared casters (Wizard, Cleric, Druid): slots per spell level, each slot filled with specific spell
-- [ ] Spontaneous casters (Sorcerer, Bard, Oracle): spells known list + slots per day per level
-- [ ] Add: caster level, spells per day table, bonus spells from ability score
+- [x] Prepared casters (Wizard, Cleric, Druid): slots per spell level, each slot filled with specific spell
+- [x] Spontaneous casters (Sorcerer, Bard, Oracle): spells known list + slots per day per level
+- [x] Add: caster level, spells per day table, bonus spells from ability score
 
-### Files to Remove
-- [ ] spell-heightening-list.html
-- [ ] spell-heightening-damage-list.html
-- [ ] spell-heightening-level-list.html
-- [ ] spell-overlays-list.html
+### Files to Stub
+- [x] spell-heightening-list.html (stubbed)
+- [x] spell-heightening-damage-list.html (stubbed)
+- [x] spell-heightening-level-list.html (stubbed)
+- [x] spell-overlays-list.html (stubbed)
+
+### spell-damage-list.html
+- [x] Remove splash and precision damage categories (PF2e concepts)
+- [x] Replace PF2e damage types with PF1e types (negative energy, positive energy, untyped)
 
 ### common.js
-- [ ] Replace spell DC calculation: DC = 10 + spell level + ability modifier (not proficiency-based)
-- [ ] Remove spell attack modifier (PF1e uses ranged touch attacks via normal attack system)
-- [ ] Add concentration check support: 1d20 + caster level + casting ability mod vs DC
+- [x] Replace spell DC calculation: DC = 10 + spell level + ability modifier (not proficiency-based)
+- [x] Add caster level and concentration modifier calculation
+- [x] Remove PF2e proficiency-based spell DC/attack
 
 ### spells.js
-- [ ] Adjust for PF1e: spell resistance checks, concentration checks
-- [ ] Remove heightening logic
-- [ ] Prepared caster slot tracking (fill/expend individual slots)
-- [ ] Spontaneous caster slot tracking (expend from pool per level)
+- [x] Remove heightening logic (getCastingRank, getSpellHeighteningInfo, interval/fixed heightening)
+- [x] Add PF1e getSpellLevel() and getCasterLevel() helpers
+- [x] Rewrite calculateSpellDamage() — remove splash/precision/heightening
+- [x] Rewrite getSpellAttackMacro() — PF1e touch attacks (melee/ranged) vs touch AC
+- [x] Rewrite getSpellSaveMacro() — PF1e DC = 10 + spell level + ability mod
+- [x] Rewrite castSpell() — remove PF2e action icons, overlays, focus pool, innate spells
+- [x] Prepared caster slot tracking (fill/expend individual slots)
+- [x] Spontaneous caster slot tracking (expend from pool per level)
 
 ---
 
