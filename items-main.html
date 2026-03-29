@@ -532,159 +532,135 @@
   <!-- Weapon Properties -->
   <box field="weaponProperties" hidden="true" hidewhenidentified="false">
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
+      <dropdown
+        width="100%"
+        field="weaponType"
+        label="Weapon Type"
+        placeholder="Select Type..."
+        options='[
+          {"label": "Simple", "value": "simple"},
+          {"label": "Martial", "value": "martial"},
+          {"label": "Exotic", "value": "exotic"},
+          {"label": "Natural", "value": "natural"},
+          {"label": "Unarmed", "value": "unarmed"}
+        ]'
+      ></dropdown>
+      <dropdown
+        width="100%"
+        field="weaponCategory"
+        label="Category"
+        placeholder="Select Category..."
+        options='[
+          {"label": "Light", "value": "light"},
+          {"label": "One-Handed", "value": "one-handed"},
+          {"label": "Two-Handed", "value": "two-handed"},
+          {"label": "Ranged", "value": "ranged"}
+        ]'
+      ></dropdown>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <numberfield
-        width="120px"
+        width="100px"
         field="damage.dice"
         label="Dice"
         placeholder="1"
         minvalue="1"
       ></numberfield>
       <dropdown
-        width="120px"
+        width="100px"
         field="damage.die"
         label="Die"
         placeholder="Select Die..."
         options='[
+          {"label": "d2", "value": "d2"},
+          {"label": "d3", "value": "d3"},
           {"label": "d4", "value": "d4"},
           {"label": "d6", "value": "d6"},
           {"label": "d8", "value": "d8"},
           {"label": "d10", "value": "d10"},
-          {"label": "d12", "value": "d12"},
-          {"label": "d20", "value": "d20"}
+          {"label": "d12", "value": "d12"}
         ]'
-      >
-      </dropdown>
+      ></dropdown>
       <dropdown
         width="100%"
         field="damage.damageType"
         label="Damage Type"
-        placeholder="Select Damage Type..."
+        placeholder="Select..."
         options='[
-        {"label": "Bludgeoning", "value": "bludgeoning"},
-        {"label": "Piercing", "value": "piercing"},
-        {"label": "Slashing", "value": "slashing"},
-        {"label": "Acid", "value": "acid"},
-        {"label": "Cold", "value": "cold"},
-        {"label": "Electricity", "value": "electricity"},
-        {"label": "Fire", "value": "fire"},
-        {"label": "Force", "value": "force"},
-        {"label": "Mental", "value": "mental"},
-        {"label": "Poison", "value": "poison"},
-        {"label": "Sonic", "value": "sonic"},
-        {"label": "Spirit", "value": "spirit"},
-        {"label": "Vitality", "value": "vitality"},
-        {"label": "Void", "value": "void"}
-      ]'
-      >
-      </dropdown>
-      <numberfield
-        width="120px"
-        field="splashDamage"
-        label="Splash"
-        placeholder="0"
-        minvalue="0"
-      ></numberfield>
+          {"label": "Bludgeoning", "value": "bludgeoning"},
+          {"label": "Piercing", "value": "piercing"},
+          {"label": "Slashing", "value": "slashing"},
+          {"label": "B & P", "value": "bludgeoning and piercing"},
+          {"label": "P & S", "value": "piercing and slashing"},
+          {"label": "B & S", "value": "bludgeoning and slashing"}
+        ]'
+      ></dropdown>
     </div>
     <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <dropdown
         width="100%"
-        field="group"
-        label="Group"
-        placeholder="Select Group..."
-        combo="true"
+        field="critRange"
+        label="Crit Range"
+        placeholder="20"
+        defaultvalue="20"
         options='[
-          {"label": "Axe", "value": "Axe"},
-          {"label": "Bomb", "value": "Bomb"},
-          {"label": "Bow", "value": "Bow"},
-          {"label": "Brawling", "value": "Brawling"},
-          {"label": "Club", "value": "Club"},
-          {"label": "Composite", "value": "Composite"},
-          {"label": "Crossbow", "value": "Crossbow"},
-          {"label": "Dart", "value": "Dart"},
-          {"label": "Firearm", "value": "Firearm"},
-          {"label": "Flail", "value": "Flail"},
-          {"label": "Hammer", "value": "Hammer"},
-          {"label": "Knife", "value": "Knife"},
-          {"label": "Pick", "value": "Pick"},
-          {"label": "Polearm", "value": "Polearm"},
-          {"label": "Shield", "value": "Shield"},
-          {"label": "Sling", "value": "Sling"},
-          {"label": "Spear", "value": "Spear"},
-          {"label": "Sword", "value": "Sword"}
+          {"label": "20", "value": "20"},
+          {"label": "19-20", "value": "19"},
+          {"label": "18-20", "value": "18"}
         ]'
-      >
-      </dropdown>
+      ></dropdown>
+      <dropdown
+        width="100%"
+        field="critMultiplier"
+        label="Crit Multiplier"
+        placeholder="x2"
+        defaultvalue="2"
+        options='[
+          {"label": "x2", "value": "2"},
+          {"label": "x3", "value": "3"},
+          {"label": "x4", "value": "4"}
+        ]'
+      ></dropdown>
+      <numberfield
+        width="100%"
+        field="enhancementBonus"
+        label="Enhancement"
+        placeholder="0"
+        minvalue="0"
+        showsign="true"
+      ></numberfield>
+    </div>
+    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
       <numberfield
         width="100%"
         field="range"
-        label="Range"
-        placeholder="N/A"
+        label="Range Increment (ft)"
+        placeholder="—"
         minvalue="0"
       ></numberfield>
-      <stringfield
-        width="100%"
-        field="reload"
-        label="Reload"
-        placeholder="-"
-      ></stringfield>
-      <numberfield
-        width="100%"
-        field="expend"
-        label="Expend"
-        placeholder="N/A"
-        minvalue="0"
-      ></numberfield>
-    </div>
-    <div style="display: flex; flex-direction: row; width: 100%; gap: 8px">
-      <div style="min-width: 120px">
-        <numberfield
-          width="100%"
-          field="damage.persistent.number"
-          label="Persistent Dice"
-          placeholder="0"
-          minvalue="0"
-        ></numberfield>
-      </div>
-      <div style="min-width: 120px">
-        <dropdown
-          width="100%"
-          field="damage.persistent.faces"
-          label="Die Type"
-          placeholder="Select..."
-          options='[
-          {"label": "d4", "value": "4"},
-          {"label": "d6", "value": "6"},
-          {"label": "d8", "value": "8"},
-          {"label": "d10", "value": "10"},
-          {"label": "d12", "value": "12"},
-          {"label": "d20", "value": "20"}
-        ]'
-        >
-        </dropdown>
-      </div>
       <dropdown
         width="100%"
-        field="damage.persistent.type"
-        label="Persistent Type"
-        placeholder="Select Type..."
+        field="group"
+        label="Weapon Group"
+        placeholder="Select..."
+        combo="true"
         options='[
-          {"label": "Acid", "value": "acid"},
-          {"label": "Bludgeoning", "value": "bludgeoning"},
-          {"label": "Cold", "value": "cold"},
-          {"label": "Electricity", "value": "electricity"},
-          {"label": "Fire", "value": "fire"},
-          {"label": "Force", "value": "force"},
-          {"label": "Mental", "value": "mental"},
-          {"label": "Piercing", "value": "piercing"},
-          {"label": "Poison", "value": "poison"},
-          {"label": "Slashing", "value": "slashing"},
-          {"label": "Sonic", "value": "sonic"},
-          {"label": "Spirit", "value": "spirit"},
-          {"label": "Vitality", "value": "vitality"},
-          {"label": "Void", "value": "void"}
+          {"label": "Axe", "value": "Axe"},
+          {"label": "Blade, Heavy", "value": "Blade, Heavy"},
+          {"label": "Blade, Light", "value": "Blade, Light"},
+          {"label": "Bow", "value": "Bow"},
+          {"label": "Close", "value": "Close"},
+          {"label": "Crossbow", "value": "Crossbow"},
+          {"label": "Double", "value": "Double"},
+          {"label": "Flail", "value": "Flail"},
+          {"label": "Hammer", "value": "Hammer"},
+          {"label": "Monk", "value": "Monk"},
+          {"label": "Natural", "value": "Natural"},
+          {"label": "Polearm", "value": "Polearm"},
+          {"label": "Spear", "value": "Spear"},
+          {"label": "Thrown", "value": "Thrown"}
         ]'
-      >
-      </dropdown>
+      ></dropdown>
     </div>
   </box>
 
