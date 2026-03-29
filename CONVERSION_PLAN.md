@@ -172,31 +172,31 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 **Dependency**: Phase 2 (BAB), Phase 0 (bonus types for AC components)
 
 ### common.js — AC Calculation
-- [ ] Rewrite AC in `updateAttribute()`:
+- [x] Rewrite AC in `updateAttribute()`:
   - AC = 10 + armor + shield + Dex (capped by max Dex) + size + natural armor + deflection + dodge + misc
   - Touch AC = 10 + Dex + size + deflection + dodge + misc
   - Flat-Footed AC = AC - Dex bonus - dodge bonus (min 0 for each)
   - Store: data.ac, data.touchAC, data.flatFootedAC
-- [ ] Attack roll preparation: BAB + Str mod (melee) or BAB + Dex mod (ranged) + size + enhancement + misc
-- [ ] Iterative attacks at -5 per step
+- [x] Attack roll preparation: BAB + Str mod (melee) or BAB + Dex mod (ranged) + size + enhancement + misc
+- [x] Iterative attacks at -5 per step
 
 ### attack.js — Major Rewrite
-- [ ] Remove degree-of-success system entirely
-- [ ] PF1e hit determination: total >= target AC = hit, else miss
-- [ ] Nat 20 = auto-hit + critical threat
-- [ ] Nat 1 = auto-miss
-- [ ] Critical threat: if nat 20 OR total >= AC within crit range (e.g., 19-20)
-- [ ] Crit confirmation: roll another attack vs AC. If confirms, apply crit multiplier.
-- [ ] Remove: deadlyDie, fatalDie, strikingRune logic
+- [x] Remove degree-of-success system entirely
+- [x] PF1e hit determination: total >= target AC = hit, else miss
+- [x] Nat 20 = auto-hit + critical threat
+- [x] Nat 1 = auto-miss
+- [x] Critical threat: if nat 20 OR total >= AC within crit range (e.g., 19-20)
+- [x] Crit confirmation: roll another attack vs AC. If confirms, apply crit multiplier.
+- [x] Remove: deadlyDie, fatalDie, strikingRune logic
 
 ### damage.js
-- [ ] Critical damage: roll weapon dice × crit multiplier (x2/x3/x4). Bonus damage (sneak attack etc.) NOT multiplied.
-- [ ] Remove: criticalOnlyDice, doubleDamageDice, persistent damage doubling, splash damage system
-- [ ] Keep: resistance/weakness/immunity application (works similarly in PF1e via DR and energy resistance)
+- [x] Critical damage: roll weapon dice × crit multiplier (x2/x3/x4). Bonus damage (sneak attack etc.) NOT multiplied.
+- [x] Remove: criticalOnlyDice, doubleDamageDice, persistent damage doubling, splash damage system
+- [x] Keep: resistance/weakness/immunity application (works similarly in PF1e via DR and energy resistance)
 
 ### items-main.html / items-rules.html
-- [ ] Remove PF2e weapon traits (Agile, Fatal, Deadly, Forceful, etc.)
-- [ ] Add PF1e weapon properties:
+- [x] Remove PF2e weapon traits (Agile, Fatal, Deadly, Forceful, etc.)
+- [x] Add PF1e weapon properties:
   - Critical range (20, 19-20, 18-20)
   - Critical multiplier (x2, x3, x4)
   - Weapon type (simple, martial, exotic)
@@ -206,9 +206,9 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
   - Range increment (for ranged)
 
 ### characters-main.html
-- [ ] Add Touch AC and Flat-Footed AC display fields
-- [ ] Add AC component breakdown (armor, shield, Dex, size, natural, deflection, dodge, misc)
-- [ ] Remove shield raise/lower toggle, shield HP/broken threshold
+- [x] Add Touch AC and Flat-Footed AC display fields (done in Phase 2)
+- [x] Add AC component breakdown (armor, shield, Dex, size, natural, deflection, dodge, misc) (done in Phase 2)
+- [x] Remove shield raise/lower toggle, shield HP/broken threshold
 
 ---
 

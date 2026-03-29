@@ -8164,38 +8164,17 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
 
     for (const trait of traits) {
       const traitLower = trait.toLowerCase();
-      // Priority 1: Match "range-increment-60" or "range increment 60"
       let match = traitLower.match(/range[-\s]increment[-\s](\d+)/);
       if (match) {
         return parseInt(match[1], 10);
       }
 
-      // Priority 2: Check for "thrown-10" or "thrown 10" (save for later if no range-increment)
       match = traitLower.match(/\bthrown[-\s](\d+)\b/);
       if (match && !thrownRange) {
         thrownRange = parseInt(match[1], 10);
       }
 
-      // Priority 3: Match just "range-60" or "range 60"
       match = traitLower.match(/\brange[-\s](\d+)\b/);
-      if (match) {
-        return parseInt(match[1], 10);
-      }
-    }
-
-    // Return thrown range if found, otherwise 0
-    return thrownRange;
-  }
-
-  // Helper function to get volley range from traits
-  // Volley weapons take a -2 penalty when attacking targets within the specified range
-  function getVolleyRangeFromTraits(traits) {
-    if (!traits || !Array.isArray(traits)) return 0;
-
-    for (const trait of traits) {
-      const traitLower = trait.toLowerCase();
-      // Match "volley-30" or "volley 30"
-      const match = traitLower.match(/\bvolley[-\s](\d+)\b/);
       if (match) {
         return parseInt(match[1], 10);
       }
@@ -8210,47 +8189,10 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   const hasThrownTrait = weapon.data?.traits?.some((trait) =>
     trait.toLowerCase().startsWith("thrown")
   );
-  const hasFinesseTrait = weapon.data?.traits?.some((trait) =>
-    trait.toLowerCase().includes("finesse")
-  );
-  const hasAgileTrait = weapon.data?.traits?.some((trait) =>
-    trait.toLowerCase().includes("agile")
-  );
   const range = weapon.data?.range || getRangeFromTraits(weapon.data?.traits);
-  const volleyRange = getVolleyRangeFromTraits(weapon.data?.traits);
-  const hasReachTrait = weapon.data?.traits?.some((trait) =>
-    trait.toLowerCase().includes("reach")
-  );
 
-  // Create a list of all traits as tags that we'll add to the roll message
   const traits = weapon.data?.traits || [];
   const damageCategories = [];
-
-  // Create a list of all runes as tags that we'll add to the roll message
-  const runes = weapon.data?.runes?.property || [];
-
-  // Check if weapon has any runes, add "non-magical" trait if it does not or does not have a magic trait
-  const hasMagicalTrait = traits.some(
-    (trait) =>
-      trait.toLowerCase().includes("magical") ||
-      trait.toLowerCase().includes("arcane") ||
-      trait.toLowerCase().includes("divine") ||
-      trait.toLowerCase().includes("occult") ||
-      trait.toLowerCase().includes("primal")
-  );
-  const hasRunes =
-    runes.length > 0 ||
-    !!weapon.data?.runes?.potency ||
-    !!weapon.data?.runes?.striking;
-
-  if (!hasMagicalTrait && !hasRunes) {
-    damageCategories.push("non-magical");
-  }
-
-  runes.forEach((rune) => {
-    // Format runes like "Ghost Touch" to "ghost-touch"
-    damageCategories.push(rune.toLowerCase().replace(/ /g, "-"));
-  });
 
   // Add material type if present (e.g., "cold-iron", "silver", "adamantine")
   if (weapon.data?.material?.type) {
@@ -8266,250 +8208,84 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   let reach = getTokenReach(record, weapon);
 
   const isThrown = hasThrownTrait && weapon.data?.rangeToggleBtn === "ranged";
-  const requiresReload =
-    !isNPCAttack && (weapon.data?.reload || 0) > 0 && !isMelee;
 
-  if (requiresReload && !weapon.data?.loadedAmmo) {
-    api.showNotification("You need to reload first!", "red", "Out of Ammo");
-    return;
-  }
-
+  // PF1e: Melee uses Str, Ranged uses Dex
   let abilityScore = "str";
-  let damageScore = "";
+  let damageScore = "str";
   let addStrengthToDamage = true;
-  let isPropulsive = false;
-  // If the weapon has the propulsive trait we only do half strength
-  if (
-    weapon.data?.traits?.some((trait) =>
-      trait.toLowerCase().includes("propulsive")
-    )
-  ) {
-    isPropulsive = true;
-  }
-
-  // Bombs and thrown weapons don't use ammo select
-  const isBomb = !isNPCAttack && weapon?.data?.group?.toLowerCase() === "bomb";
 
   if (!isNPCAttack && (isThrown || !isMelee)) {
-    // Thrown and ranged always use dex
     abilityScore = "dex";
-    // Only if thrown
     addStrengthToDamage = isThrown;
-    // Check if we have enough ammo
+
+    // Check ammo for ranged weapons
     const ammo = weapon.data?.ammo || 0;
-    if (ammo <= 0) {
+    if (ammo <= 0 && !isThrown) {
       api.showNotification("You are out of ammo!", "red", "Out of Ammo");
       return;
     }
 
-    // Deduct ammo for all weapons that are using this, as well as the item itself
-    let ammoSelected = weapon.data?.ammoSelect;
-    if (isBomb || isThrown) {
-      // In this case, we just use the weapon itself as the ammo selected
-      ammoSelected = weapon._id;
-    }
-
-    const expend = parseInt(weapon.data?.expend || "1", 10) || 1; // Default to 1 if 0 or undefined
-
-    // Get the ammo item to check for uses system
-    let ammoItem = null;
-    let newAmmoCount = 0;
-    let newUsesValue = 0;
-    let needsReload = false; // Track if we need to reload (consumed a full shot)
-
-    if (ammoSelected) {
-      const inventory = record.data?.inventory || [];
-      ammoItem = inventory.find((item) => item._id === ammoSelected);
-    } else {
-      ammoItem = weapon;
-    }
-
-    // Calculate the new ammo count and uses value once
-    if (ammoItem) {
-      const usesMax = parseInt(ammoItem.data?.uses?.max || "0", 10);
-      const usesValue = parseInt(
-        ammoItem.data?.uses?.value || (usesMax > 0 ? usesMax : "0"),
-        10
-      );
-
-      if (usesMax <= 1) {
-        // No uses system or single-use, just deduct count
-        newAmmoCount = Math.max(0, ammo - expend);
-        newUsesValue = 0;
-        needsReload = true; // Always need reload if no uses system
+    // Deduct ammo
+    if (!isThrown) {
+      const ammoSelected = weapon.data?.ammoSelect;
+      const expend = parseInt(weapon.data?.expend || "1", 10) || 1;
+      if (ammoSelected) {
+        const inventory = record.data?.inventory || [];
+        inventory.forEach((item, index) => {
+          if (item._id === ammoSelected) {
+            valuesToSet[`data.inventory.${index}.data.count`] = Math.max(0, ammo - expend);
+            valuesToSet[`data.inventory.${index}.data.ammo`] = Math.max(0, ammo - expend);
+          }
+          if (item.data?.ammoSelect === ammoSelected) {
+            valuesToSet[`data.inventory.${index}.data.ammo`] = Math.max(0, ammo - expend);
+          }
+        });
       } else {
-        // Multi-use system
-        const newValue = usesValue - expend;
-
-        if (newValue > 0) {
-          // Still have uses left on current item
-          newAmmoCount = ammo;
-          newUsesValue = newValue;
-          needsReload = false; // Don't need reload, still have uses
-        } else if (newValue === 0) {
-          // Exactly used up this item, deduct count and reset to max
-          newAmmoCount = Math.max(0, ammo - 1);
-          newUsesValue = usesMax;
-          needsReload = true; // Need reload, consumed full item
-        } else {
-          // Went negative, deduct count and calculate carry-over
-          const countToDeduct = Math.ceil(Math.abs(newValue) / usesMax);
-          newAmmoCount = Math.max(0, ammo - countToDeduct);
-          const remainder = Math.abs(newValue) % usesMax;
-          newUsesValue = remainder > 0 ? usesMax - remainder : usesMax;
-          needsReload = true; // Need reload, consumed full item(s)
-        }
+        valuesToSet[`${weaponDataPath}.data.ammo`] = Math.max(0, ammo - expend);
       }
     } else {
-      // Fallback if no ammo item found
-      newAmmoCount = Math.max(0, ammo - expend);
-      newUsesValue = 0;
-      needsReload = true;
-    }
-
-    // Apply the calculated values to all relevant items
-    if (ammoSelected) {
-      const inventory = record.data?.inventory || [];
-      inventory.forEach((item, index) => {
-        if (item._id === ammoSelected) {
-          // Update the ammo item itself
-          valuesToSet[`data.inventory.${index}.data.count`] = newAmmoCount;
-          valuesToSet[`data.inventory.${index}.data.ammo`] = newAmmoCount;
-          const usesMax = parseInt(item.data?.uses?.max || "0", 10);
-          if (usesMax > 1) {
-            valuesToSet[`data.inventory.${index}.data.uses.value`] =
-              newUsesValue;
-          }
-        }
-        if (item.data?.ammoSelect === ammoSelected) {
-          // Update all weapons using this ammo
-          valuesToSet[`data.inventory.${index}.data.ammo`] = newAmmoCount;
-          const usesMax = parseInt(ammoItem?.data?.uses?.max || "0", 10);
-          if (usesMax > 1) {
-            valuesToSet[`data.inventory.${index}.data.uses.value`] =
-              newUsesValue;
-            valuesToSet[`data.inventory.${index}.data.uses.max`] = usesMax;
-          }
-          // If weapon requires reloading and we consumed a shot, set loadedAmmo to false
-          if (requiresReload && needsReload) {
-            valuesToSet[`data.inventory.${index}.data.loadedAmmo`] = false;
-          }
-        }
-      });
-    } else {
-      // No ammo selected, update weapon itself
-      valuesToSet[`${weaponDataPath}.data.ammo`] = newAmmoCount;
-      const usesMax = parseInt(weapon.data?.uses?.max || "0", 10);
-      if (usesMax > 1) {
-        valuesToSet[`${weaponDataPath}.data.uses.value`] = newUsesValue;
+      // Thrown weapons deduct from themselves
+      const ammo = weapon.data?.ammo || 0;
+      if (ammo <= 0) {
+        api.showNotification("You are out of ammo!", "red", "Out of Ammo");
+        return;
       }
+      valuesToSet[`${weaponDataPath}.data.ammo`] = Math.max(0, ammo - 1);
     }
-
-    // If this weapon requires reloading and we consumed a shot, set loadedAmmo to false
-    if (requiresReload && needsReload) {
-      valuesToSet[`${weaponDataPath}.data.loadedAmmo`] = false;
-    }
-  } else if (
-    hasFinesseTrait &&
-    (record.data?.dex || 0) > (record.data?.str || 0)
-  ) {
-    // If melee, and has finesse trait, use dex if it's higher than str
-    abilityScore = "dex";
   }
 
-  // Get weapon damage info using helper function
+  // Get weapon damage info
   const weaponDamageInfo = getWeaponDamageInfo(record, weapon);
   const damageType = weaponDamageInfo.damageType;
   const damage = weaponDamageInfo.damageString;
-  let splashDamage = weaponDamageInfo.splashDamage;
-  let splashDamageType = weaponDamageInfo.splashDamageType || damageType;
-  const fatalDamageString = weaponDamageInfo.fatalDamageString;
-  const hasDeathTraitFromHelper = weaponDamageInfo.hasDeathTrait;
-  const strikingRuneMod = weaponDamageInfo.strikingRuneMod;
-  const deadlyDie = weaponDamageInfo.deadlyDie;
-  const fatalDie = weaponDamageInfo.fatalDie;
 
-  let targetShieldRaised = false;
-  const damageIsPhysical = ["bludgeoning", "piercing", "slashing"].includes(
-    damageType.toLowerCase()
-  );
+  // PF1e critical properties from weapon data
+  const critRange = parseInt(weapon.data?.critRange || "20", 10);
+  const critMultiplier = parseInt(weapon.data?.critMultiplier || "2", 10);
 
-  // Check for persistent damage
-  let persistentDamage = "";
-  if (isNPCAttack) {
-    // For NPC attacks, persistent damage comes from weaponDamageInfo
-    persistentDamage = weaponDamageInfo.persistentDamage || "";
-  } else {
-    // For PC weapons, calculate from damage.persistent structure
-    const persistentDamageNumber = weapon.data?.damage?.persistent?.number || 0;
-    const persistentDie = weapon.data?.damage?.persistent?.faces
-      ? `d${weapon.data?.damage?.persistent?.faces}`
-      : "";
-    const persistentType = weapon.data?.damage?.persistent?.type || "acid";
-    persistentDamage =
-      persistentDamageNumber > 0
-        ? `${persistentDamageNumber}${persistentDie} ${persistentType}`
-        : "";
-  }
+  // Enhancement bonus from weapon
+  const enhancementBonus = parseInt(weapon.data?.enhancementBonus || "0", 10);
 
-  // Check for Scatter trait and calculate scatter splash damage
-  // Scatter weapons deal splash damage equal to 1 point per weapon damage die
-  const scatterRadius = getScatterRadiusFromTraits(traits);
-
-  if (scatterRadius > 0) {
-    // Get the striking rune level to count total dice
-    const strikingRune = parseInt(weapon.data?.runes?.striking || "0", 10);
-    const totalDice = countWeaponDamageDice(weapon, strikingRune);
-
-    if (totalDice > 0) {
-      // Add scatter splash to existing splash damage
-      const existingSplash =
-        typeof splashDamage === "number"
-          ? splashDamage
-          : parseInt(splashDamage, 10) || 0;
-      splashDamage = existingSplash + totalDice;
-      if (!splashDamageType) {
-        splashDamageType = damageType;
-      }
-    }
-  }
-
-  // Override damageMod logic for attack roll (uses addStrengthToDamage flag)
+  // Damage modifier (ability score to damage)
   let damageMod = {
     ...weaponDamageInfo.damageMod,
   };
 
-  // In attack rolls, we use addStrengthToDamage instead of the helper's logic
-  if (isMelee || addStrengthToDamage || isPropulsive) {
-    const isPositive = record.data?.str > 0;
+  if (isMelee || addStrengthToDamage) {
     damageScore = "str";
-    if (isPropulsive) {
-      // Add half strength for propulsive weapons if positive, else add whole strength
-      if (isPositive) {
-        damageMod.value = Math.floor(record.data?.str / 2);
-        damageMod.name = "Half Strength (Propulsive)";
-      } else {
-        damageMod.value = record.data?.str;
-        damageMod.name = "Strength (Propulsive)";
-      }
-    } else {
-      damageMod.value = record.data?.str;
-    }
+    damageMod.value = record.data?.str || 0;
   } else {
-    damageMod.value = 0; // Don't add damage if conditions not met
+    damageMod.value = 0;
   }
 
-  // Get targets early so we can pass them to modifier collection for target:mark predicates
   const targets = api.getTargets();
 
-  // Check for damageCalculation modifier
-  // Don't filter by field - collect all and filter manually
+  // Check for damageCalculation modifier override
   const attackType = isMelee && !isThrown ? "melee" : "ranged";
-  // Get all damageCalculation modifiers without field filtering
-  let damageCalculationMod = getEffectsAndModifiersForToken(
+  const damageCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["damageCalculation"],
-    undefined, // Don't filter by field here
+    undefined,
     weapon._id,
     undefined,
     { weapon, targets }
@@ -8518,47 +8294,16 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   if (damageCalculationMod.length) {
     damageCalculationMod.forEach((mod) => {
       if (mod.active) {
-        // Support both old and new patterns:
-        // - Old: field contains the ability (e.g., field: "dex"), no field restriction
-        // - New: value contains the ability (e.g., value: "dex"), field contains attack type (e.g., "melee")
-        // Check if this modifier applies to this attack type
         const modField = (mod.field || "").toLowerCase();
-        const isAbilityScore = [
-          "str",
-          "dex",
-          "con",
-          "int",
-          "wis",
-          "cha",
-        ].includes(modField);
+        const isAbility = ["str", "dex", "con", "int", "wis", "cha"].includes(modField);
         const matchesAttackType = modField === attackType || modField === "";
 
-        // For new pattern: field must match attack type (or be empty)
-        // For old pattern: field is an ability score (always applies)
-        if (!isAbilityScore && !matchesAttackType) {
-          return; // Skip this modifier
-        }
+        if (!isAbility && !matchesAttackType) return;
 
-        // Determine which ability to use
-        let alternativeAbility;
-        if (isAbilityScore) {
-          // Old pattern: field contains the ability
-          alternativeAbility = modField;
-        } else {
-          // New pattern: value contains the ability
-          alternativeAbility = mod.value
-            ? mod.value.toString().toLowerCase()
-            : "";
-        }
+        const alternativeAbility = isAbility ? modField : (mod.value ? mod.value.toString().toLowerCase() : "");
 
-        if (
-          alternativeAbility &&
-          ["str", "dex", "con", "int", "wis", "cha"].includes(
-            alternativeAbility
-          )
-        ) {
+        if (alternativeAbility && ["str", "dex", "con", "int", "wis", "cha"].includes(alternativeAbility)) {
           const alternativeScore = record.data?.[alternativeAbility] || 0;
-          // Only use the alternative if it's higher than the current damage score
           if (alternativeScore > damageMod.value) {
             damageScore = alternativeAbility;
             damageMod.value = alternativeScore;
@@ -8569,11 +8314,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     });
   }
 
-  const animation = weapon?.data?.animation?.animationName
-    ? weapon?.data?.animation
-    : undefined;
-
-  // Check attackCalculation modifier to see if we use a different stat
+  // Check attackCalculation modifier for attack stat override
   const attackCalculationMod = getEffectsAndModifiersForToken(
     record,
     ["attackCalculation"],
@@ -8585,79 +8326,75 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
   attackCalculationMod.forEach((mod) => {
     const attackCalculation = mod.field;
     if (attackCalculation && mod.active) {
-      if (
-        record.data?.[`${attackCalculation}`] > record.data?.[`${abilityScore}`]
-      ) {
+      if (record.data?.[`${attackCalculation}`] > record.data?.[`${abilityScore}`]) {
         abilityScore = attackCalculation.toLowerCase();
       }
     }
   });
 
+  const animation = weapon?.data?.animation?.animationName
+    ? weapon?.data?.animation
+    : undefined;
+
   const modifiers = [];
 
-  // Determine weapon category and group (needed for metadata even for NPCs)
-  const weaponCategory = isNPCAttack
-    ? ""
-    : (weapon.data?.itemCategory || "simple").toLowerCase();
   const weaponGroup = weapon.data?.group || "";
 
   if (isNPCAttack) {
-    // For NPC attacks, use the simple bonus field
     const attackBonus = parseInt(weapon.data?.bonus || "0", 10);
     if (attackBonus !== 0) {
       modifiers.push({
-        name: `Attack Bonus`,
+        name: "Attack Bonus",
         type: "",
         value: attackBonus,
         active: true,
       });
     }
   } else {
-    // PC weapon proficiency and potency runes
-    // Check proficiency
-    const weaponProficiency = getProfiencyForWeapon(
-      record,
-      weaponCategory,
-      weaponGroup,
-      weapon
-    );
-    const proficiencyNames = [
-      "Untrained",
-      "Trained",
-      "Expert",
-      "Master",
-      "Legendary",
-    ];
-    const proficiencyName = proficiencyNames[weaponProficiency] || "Untrained";
+    // PF1e: BAB + ability mod + size mod + enhancement
+    const bab = parseInt(record.data?.bab || "0", 10);
+    const statMod = parseInt(record.data?.[abilityScore] || "0", 10);
+    const size = (record.data?.size || "medium").toLowerCase();
+    const sizeModAttack = getSizeModifier(size, "acAttack");
 
-    // Add the total proficiency modifier
-    if (weaponProficiency !== 0) {
-      // Calculate the modifier
-      const level = parseInt(record.data?.level || "0", 10);
-      let statMod = parseInt(record.data?.[`${abilityScore}`] || "0", 10);
-      let modifier = weaponProficiency * 2 + level + statMod;
+    if (bab !== 0) {
       modifiers.push({
-        name: `${weaponCategory} (${proficiencyName})`,
+        name: "BAB",
         type: "",
-        value: modifier,
+        value: bab,
         active: true,
       });
     }
 
-    // Get bonuses for potency runes
-    const potencyRune = parseInt(weapon.data?.runes?.potency || "0", 10);
-    if (potencyRune > 0) {
+    if (statMod !== 0) {
       modifiers.push({
-        name: `Weapon Potency +${potencyRune}`,
-        value: potencyRune,
-        isPenalty: false,
+        name: `${abilityScore.toUpperCase()} Mod`,
+        type: "",
+        value: statMod,
         active: true,
-        valueType: "number",
+      });
+    }
+
+    if (sizeModAttack !== 0) {
+      modifiers.push({
+        name: "Size",
+        type: "",
+        value: sizeModAttack,
+        active: true,
+      });
+    }
+
+    if (enhancementBonus > 0) {
+      modifiers.push({
+        name: `Enhancement +${enhancementBonus}`,
+        type: "enhancement",
+        value: enhancementBonus,
+        active: true,
       });
     }
   }
 
-  // Get other bonuses and penalties
+  // Get other bonuses and penalties from effects
   const seenAttackModifiers = new Set();
   const otherBonusesAndPenalties = getEffectsAndModifiersForToken(
     record,
@@ -8675,26 +8412,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   });
 
-  // In unarmed, get for unarmed
-  if (weaponCategory === "unarmed") {
-    const unarmedBonusesAndPenalties = getEffectsAndModifiersForToken(
-      record,
-      ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
-      "unarmed",
-      weapon._id,
-      undefined,
-      { weapon, targets }
-    );
-    unarmedBonusesAndPenalties.forEach((mod) => {
-      const modString = modToString(mod);
-      if (!seenAttackModifiers.has(modString)) {
-        seenAttackModifiers.add(modString);
-        modifiers.push(mod);
-      }
-    });
-  }
-
-  // Get bonuses and penalties for stat-based checks
+  // Get stat-based bonuses
   const statBonusesAndPenalties = getEffectsAndModifiersForToken(
     record,
     ["attackBonus", "attackPenalty", "allBonus", "allPenalty"],
@@ -8711,7 +8429,7 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     }
   });
 
-  // Add extra attack modifiers passed via weapon (e.g., from elemental blast)
+  // Extra attack modifiers from weapon data
   if (weapon.data?.extraAttackModifiers) {
     weapon.data.extraAttackModifiers.forEach((mod) => {
       const modString = modToString(mod);
@@ -8719,78 +8437,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         seenAttackModifiers.add(modString);
         modifiers.push(mod);
       }
-    });
-  }
-
-  // Check if weapon has nonlethal trait and add option to make it lethal
-  const hasNonlethalTrait = traits.some(
-    (trait) =>
-      trait.toLowerCase().trim() === "nonlethal" ||
-      trait.toLowerCase().trim() === "non-lethal"
-  );
-
-  if (hasNonlethalTrait) {
-    // Check if there's already a circumstance penalty of -2 or more
-    // Circumstance penalties don't stack, so we only add this if needed
-    const existingCircumstancePenalties = otherBonusesAndPenalties.filter(
-      (mod) =>
-        mod.modifierType === "circumstance" &&
-        mod.value < 0 &&
-        Math.abs(mod.value) >= 2
-    );
-
-    let lethalPenaltyValue = -2;
-    if (existingCircumstancePenalties.length > 0) {
-      // Already have a -2 or worse circumstance penalty, so this adds nothing
-      lethalPenaltyValue = 0;
-    }
-
-    modifiers.push({
-      name: "Make Attack Lethal",
-      type: "circumstance",
-      value: lethalPenaltyValue,
-      active: false, // Inactive by default - player must opt in
-      modifierType: "circumstance",
-    });
-  }
-
-  // If this is the second or third attach we add MAP
-  if (attackNumber === 2 || attackNumber === 3) {
-    let mapPenalty = attackNumber === 2 ? -5 : -10;
-    if (hasAgileTrait) {
-      // If agile trait, -4 / -8
-      mapPenalty = attackNumber === 2 ? -4 : -8;
-    }
-    // Check for MAP reduction modifier
-    const mapReductionMod = getEffectsAndModifiersForToken(
-      record,
-      ["mapReduction"],
-      isSpell ? "spell" : "attack",
-      weapon._id,
-      undefined,
-      { weapon, targets }
-    );
-
-    if (mapReductionMod.length) {
-      mapReductionMod.forEach((mod) => {
-        const mapReduction = mod.value;
-        if (mod.active && Math.abs(mapReduction) > 0) {
-          modifiers.push({
-            name: `${mod.name} (Reduce MAP)`,
-            value: Math.abs(mapReduction),
-            isPenalty: false,
-            valueType: "number",
-            active: true,
-          });
-        }
-      });
-    }
-    modifiers.push({
-      name: "Mutliple Attack Penalty",
-      value: mapPenalty,
-      isPenalty: true,
-      valueType: "number",
-      active: true,
     });
   }
 
@@ -8808,7 +8454,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     { weapon, targets }
   );
 
-  // Damage stat modifiers
   if (damageScore) {
     const damageStatModifiers = getEffectsAndModifiersForToken(
       record,
@@ -8818,7 +8463,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
       undefined,
       { weapon, targets }
     );
-    // Create a Set from existing damage modifiers to avoid duplicates
     const seenDamageModifiers = new Set(
       damageModifiers.map((mod) => modToString(mod))
     );
@@ -8831,7 +8475,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     });
   }
 
-  // Add extra damage modifiers passed via weapon (e.g., from elemental blast)
   if (weapon.data?.extraDamageModifiers) {
     const seenDamageModifiers = new Set(
       damageModifiers.map((mod) => modToString(mod))
@@ -8845,7 +8488,6 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     });
   }
 
-  // Preserve the modifierType before mapping to avoid losing deduplication info
   damageModifiers = damageModifiers.map((mod) => {
     return {
       ...mod,
@@ -8853,21 +8495,27 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         getDamageType(mod?.value?.toString() || "") !== "untyped"
           ? ""
           : damageType,
-      modifierType: mod.modifierType, // Preserve for potential future deduplication
+      modifierType: mod.modifierType,
     };
   });
 
-  // Add striking rune modifier if present
-  if (strikingRuneMod) {
-    damageModifiers.unshift(strikingRuneMod);
-  }
-
-  // Push the damage mod, if there is one, to the top
+  // Push ability damage mod to front
   if (damageMod.value !== 0) {
     damageModifiers.unshift(damageMod);
   }
 
-  // Add precision damage for NPC attacks
+  // Enhancement bonus to damage
+  if (enhancementBonus > 0) {
+    damageModifiers.unshift({
+      name: `Enhancement +${enhancementBonus}`,
+      value: enhancementBonus,
+      active: true,
+      type: damageType,
+      valueType: "number",
+    });
+  }
+
+  // NPC precision damage
   if (isNPCAttack && weaponDamageInfo.precisionDamage) {
     weaponDamageInfo.precisionDamage.forEach((precisionRoll) => {
       damageModifiers.push({
@@ -8880,78 +8528,22 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
     });
   }
 
-  // Remove duplicates based on name and value
-  const seenModifiers = new Set();
+  // Deduplicate damage modifiers
+  const seenDmgModifiers = new Set();
   damageModifiers = damageModifiers.filter((mod) => {
     const key = `${mod.name}-${mod.value}-${mod.valueType}`;
-    if (seenModifiers.has(key)) {
-      return false; // Skip duplicate
-    }
-    seenModifiers.add(key);
+    if (seenDmgModifiers.has(key)) return false;
+    seenDmgModifiers.add(key);
     return true;
   });
 
-  // Apply adjustModifier effects to splash damage (e.g., upgrade splash based on intelligence)
-  splashDamage = applyAdjustModifiers(record, splashDamage, "splash", weapon);
-
-  // Process damage modifiers to extract category-specific damage (persistent, splash, precision)
-  const processedDamage = processDamageModifierCategories(
-    damageModifiers,
-    persistentDamage,
-    splashDamage,
-    splashDamageType
-  );
-  damageModifiers = processedDamage.modifiers;
-  persistentDamage = processedDamage.persistentDamage;
-  splashDamage = processedDamage.splashDamage;
-  splashDamageType = processedDamage.splashDamageType;
-  // Add precision categories to damageCategories if any were found
-  processedDamage.precisionCategories.forEach((cat) => {
-    if (!damageCategories.includes(cat)) {
-      damageCategories.push(cat);
-    }
-  });
-
-  // Determine if we are making a damage roll that ignores resistances / immunities
-  const damageIgnoresResistances = damageModifiers
-    .filter(
-      (mod) =>
-        mod.valueType === "string" &&
-        typeof mod.value === "string" &&
-        mod.value.trim().toLowerCase().startsWith("ignore") &&
-        mod.value.trim().toLowerCase().includes("resistance")
-    )
-    ?.map((mod) => mod.value.split(" ")[1])
-    .join(",");
-  const damageIgnoresImmunities = damageModifiers
-    .filter(
-      (mod) =>
-        mod.valueType === "string" &&
-        typeof mod.value === "string" &&
-        mod.value.trim().toLowerCase().startsWith("ignore") &&
-        (mod.value.trim().toLowerCase().includes("immunities") ||
-          mod.value.trim().toLowerCase().includes("immunity"))
-    )
-    ?.map((mod) => mod.value.split(" ")[1])
-    .join(",");
-  const damageIgnoresWeaknesses = damageModifiers
-    .filter(
-      (mod) =>
-        mod.valueType === "string" &&
-        typeof mod.value === "string" &&
-        mod.value.trim().toLowerCase().startsWith("ignore") &&
-        mod.value.trim().toLowerCase().includes("weakness")
-    )
-    ?.map((mod) => mod.value.split(" ")[1])
-    .join(",");
-  // Filter these out of the modifiers array, we don't need them to be toggleable
+  // Filter out "ignore" modifiers from toggleable list
   const filteredDamageModifiers = damageModifiers.filter(
     (m) => !m?.value?.toString()?.toLowerCase()?.includes("ignore")
   );
 
   // Roll for each target or just once
   const ourToken = api.getToken();
-  const otherTokens = api.getOtherTokens();
   if (targets.length > 0) {
     for (const target of targets) {
       const targetName =
@@ -8960,99 +8552,41 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           : target?.token?.record?.name;
       const targetDistance = target?.distance || 0;
 
-      // Check if target has shield raised
-      if (target?.token?.data?.shieldRaised === "true") {
-        targetShieldRaised = true;
-      }
-
-      // If this a ranged attack, add penalties based on range increment
+      // Range increment penalties for ranged attacks
       if (!isMelee || isThrown) {
-        let rangePenalty = 0;
-        let increment = 0;
-
-        // Look up ignoreRangePenalty modifier
-        const ignoreRangePenaltyMod = getEffectsAndModifiersForToken(
-          record,
-          ["ignoreRangePenalty"],
-          undefined,
-          weapon._id,
-          undefined,
-          { weapon, targets: [target] }
-        );
-        let ignoreRangePenalty = 0;
-        for (const mod of ignoreRangePenaltyMod) {
-          if (mod.value > 0 && mod.value > ignoreRangePenalty && mod.active) {
-            ignoreRangePenalty = mod.value;
-          }
-        }
-
-        // Calculate range increment penalty
-        // No penalty within first range increment, -2 for each additional increment
-        // Attacks beyond 6th increment (6x range) are impossible
         if (range > 0 && targetDistance > range) {
-          increment = Math.ceil(targetDistance / range);
-
-          // Attacks beyond 6th increment are impossible
-          if (increment > 6) {
+          const increment = Math.ceil(targetDistance / range);
+          if (increment > 5) {
             api.showNotification(
-              `Target is beyond maximum range (${6 * range} ft)!`,
+              `Target is beyond maximum range (${5 * range} ft)!`,
               "red",
               "Out of Range"
             );
             continue;
           }
-
-          // -2 penalty for each increment beyond the first
-          rangePenalty = -(increment - 1) * 2;
-        }
-
-        // Add penalties based on range increment
-        if (
-          targetDistance > 0 &&
-          rangePenalty < 0 &&
-          increment > ignoreRangePenalty
-        ) {
-          modifiers.push({
-            name: `Range Increment (${increment})`,
-            value: rangePenalty,
-            valueType: "number",
-            isPenalty: true,
-            active: true,
-          });
-        }
-
-        // Check for volley penalty (attacks within volley range take -2 penalty)
-        if (
-          volleyRange > 0 &&
-          targetDistance > 0 &&
-          targetDistance <= volleyRange
-        ) {
-          modifiers.push({
-            name: `Volley (within ${volleyRange} ft)`,
-            value: -2,
-            valueType: "number",
-            isPenalty: true,
-            active: true,
-          });
+          const rangePenalty = -(increment - 1) * 2;
+          if (rangePenalty < 0) {
+            modifiers.push({
+              name: `Range Increment (${increment})`,
+              value: rangePenalty,
+              valueType: "number",
+              isPenalty: true,
+              active: true,
+            });
+          }
         }
       }
 
-      // Get modifiers for target
-      // Get effects and modifiers for the target
-      let autoCritical = false;
+      // Get target-specific attack modifiers
       const targetEffects = getAttackModifiersForTarget(
         target?.token,
         targetDistance
       );
       targetEffects.forEach((r) => {
-        if (r.value === "critical") {
-          autoCritical = true;
-        } else {
-          modifiers.push(r);
-        }
+        modifiers.push(r);
       });
 
-      // Get damage effects for the target
+      // Get target-specific damage effects
       const targetDamageEffects = getDamageEffectsForTarget(
         ourToken,
         target?.token
@@ -9065,68 +8599,15 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
         });
       });
 
-      // Check if target is off guard due to effects or flanking (only for melee attacks)
-      // Per PF2e rules, flanking only applies to melee attacks
-      let targetIsOffGuard = isOffGuard(target?.token);
-      let targetIsOffGuardDueToFlanking = false;
-      if (isMelee && !isThrown && !targetIsOffGuard) {
-        targetIsOffGuardDueToFlanking = isOffGuardDueToFlanking({
-          sourceToken: ourToken,
-          sourceReach: reach,
-          otherTokens: otherTokens,
-          target: target,
-        });
-        targetIsOffGuard = targetIsOffGuardDueToFlanking;
-      }
-
-      // Activate sneak attack modifiers if conditions are met
-      const finalDamageModifiers = activateSneakAttackIfConditionsMet(
-        allDamageModifiers,
-        weapon,
-        targetIsOffGuard
-      );
-
-      // Build list of precision modifier indices for damage handler
-      const precisionModifierIndices = [];
-      finalDamageModifiers.forEach((mod, index) => {
-        if (mod.precisionDamage === true) {
-          precisionModifierIndices.push(index);
-        }
-      });
-
-      let targetAc = getArmorClassForToken(
-        target?.token,
-        targetIsOffGuardDueToFlanking
-      );
-
-      // Check if we have a critical specialization effect
-      const hasCriticalSpecialization = hasCriticalSpecializationEffect(
-        record,
-        weapon,
-        targetIsOffGuard
-      );
-
-      const diceRoll = "1d20";
-      // Get degree of success adjustments for attack rolls (ability score and melee/ranged)
-      const attackField = isMelee ? "melee" : "ranged";
-      const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(
-        record,
-        [attackField, abilityScore],
-        weapon._id,
-        undefined,
-        { weapon, targets: [target] }
-      );
+      let targetAc = getArmorClassForToken(target?.token, false);
 
       const metadata = {
         attack: `${weapon.name}`,
         rollName: "Attack",
         tooltip: `Attack with ${weapon.name}`,
         weaponName: weapon.name,
-        weaponGroup: weaponGroup,
-        hasCriticalSpecialization: hasCriticalSpecialization,
         traits: traits,
         damageCategories: damageCategories,
-        runes: runes,
         icon: isMelee && !isThrown ? "IconSword" : "IconBow",
         targetName: targetName,
         tokenId: ourToken?._id,
@@ -9135,76 +8616,33 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
             ? ourToken?.record?.unidentifiedName
             : ourToken?.record?.name,
         targetId: target?.token?._id,
-        autoCritical: autoCritical,
         dc: targetAc,
         damage: damage,
-        showShieldDamage: targetShieldRaised && damageIsPhysical,
-        persistentDamage: persistentDamage,
         damageType: damageType,
-        splashDamage: splashDamage,
-        splashDamageType: splashDamageType,
-        fatalDamageString: fatalDamageString,
-        damageModifiers: finalDamageModifiers,
-        damageIgnoresResistances: damageIgnoresResistances,
-        damageIgnoresImmunities: damageIgnoresImmunities,
-        damageIgnoresWeaknesses: damageIgnoresWeaknesses,
-        isOffGuard: targetIsOffGuard,
+        damageModifiers: allDamageModifiers,
         isRanged: !isMelee || isThrown,
-        deadlyDie: deadlyDie,
-        fatalDie: fatalDie,
+        critRange: critRange,
+        critMultiplier: critMultiplier,
+        attackModifiers: [...modifiers],
         animation,
-        precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
-        degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
       };
-
-      if (targetIsOffGuardDueToFlanking) {
-        // Float text to show
-        api.floatText(target?.token, "Off-Guard (Flanked)", "#ff7700");
-      }
 
       api.promptRoll(
         `Attack with ${weapon.name}`,
-        diceRoll,
+        "1d20",
         modifiers,
         metadata,
         "attack"
       );
     }
   } else {
-    const hasCriticalSpecialization = hasCriticalSpecializationEffect(
-      record,
-      weapon,
-      false
-    );
-
-    // Build list of precision modifier indices for damage handler
-    const precisionModifierIndices = [];
-    filteredDamageModifiers.forEach((mod, index) => {
-      if (mod.precisionDamage === true) {
-        precisionModifierIndices.push(index);
-      }
-    });
-
-    // Get degree of success adjustments for attack rolls (ability score and melee/ranged)
-    const attackField = isMelee ? "melee" : "ranged";
-    const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(
-      record,
-      [attackField, abilityScore],
-      weapon._id,
-      undefined,
-      { weapon }
-    );
-
     const metadata = {
       attack: `${weapon.name}`,
       rollName: "Attack",
       tooltip: `Attack with ${weapon.name}`,
       traits: traits,
       damageCategories: damageCategories,
-      runes: runes,
       weaponName: weapon.name,
-      weaponGroup: weaponGroup,
-      hasCriticalSpecialization: hasCriticalSpecialization,
       icon: isMelee && !isThrown ? "IconSword" : "IconBow",
       tokenId: ourToken?._id,
       tokenName:
@@ -9212,23 +8650,13 @@ function performAttackRoll(record, weapon, weaponDataPath, attackNumber = 1) {
           ? ourToken?.record?.unidentifiedName
           : ourToken?.record?.name,
       damage: damage,
-      persistentDamage: persistentDamage,
       damageType: damageType,
-      showShieldDamage: targetShieldRaised && damageIsPhysical,
-      splashDamage: splashDamage,
-      splashDamageType: splashDamageType,
-      fatalDamageString: fatalDamageString,
       damageModifiers: filteredDamageModifiers,
-      damageIgnoresResistances: damageIgnoresResistances,
-      damageIgnoresImmunities: damageIgnoresImmunities,
-      damageIgnoresWeaknesses: damageIgnoresWeaknesses,
-      hasDeathTrait: hasDeathTraitFromHelper,
       isRanged: !isMelee || isThrown,
-      deadlyDie: deadlyDie,
-      fatalDie: fatalDie,
+      critRange: critRange,
+      critMultiplier: critMultiplier,
+      attackModifiers: [...modifiers],
       animation,
-      precisionModifierIndices: precisionModifierIndices, // Track which modifiers are precision damage
-      degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
     };
 
     api.promptRoll(
