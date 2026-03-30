@@ -1931,9 +1931,6 @@ function getEffectsAndModifiersForToken(
       (!requiresInvestment(item) || item.data?.invested === "true")
   );
 
-  // Get and modifiers from runes
-  const runeModifiers = getFeaturesFromRunes(equippedItems);
-
   // Determine if we're using a weapon that has ammo, and add effects for that ammo
   let ammoEffects = [];
   if (itemId) {
@@ -1962,7 +1959,7 @@ function getEffectsAndModifiersForToken(
   const togglePredicateValues = toggles
     .map((toggle) => toggle.data?.predicateValue || "")
     .filter((value) => value !== "");
-  [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
+  [...features, ...equippedItems].forEach((feature) => {
     const name = (feature?.name || "")
       .replace(/'/g, "") // Remove apostrophes (Mage's -> Mages)
       .toLowerCase() // Convert to lowercase
@@ -1974,7 +1971,7 @@ function getEffectsAndModifiersForToken(
     }
   });
 
-  [...features, ...equippedItems, ...runeModifiers].forEach((feature) => {
+  [...features, ...equippedItems].forEach((feature) => {
     const modifiers = feature.data?.modifiers || [];
     modifiers.forEach((modifier) => {
       const ruleType = modifier.data?.type || "";
