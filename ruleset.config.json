@@ -2,7 +2,7 @@
   "name": "Pathfinder First Edition",
   "description": "The First Edition of the Pathfinder Roleplaying Game.",
   "version": 1,
-  "published": true,
+  "published": false,
   "records": [
     {
       "name": "Characters",
