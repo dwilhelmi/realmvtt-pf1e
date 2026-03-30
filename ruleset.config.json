@@ -4901,8 +4901,8 @@
         "file": "rollhandlers/common.js"
       },
       "scripts": {
-        "PF2e": {
-          "file": "rollhandlers/PF2e.js"
+        "PF1e": {
+          "file": "rollhandlers/PF1e.js"
         },
         "Spells": {
           "file": "rollhandlers/spells.js"
