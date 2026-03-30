@@ -338,9 +338,9 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 - [x] npc-spellcasting-entry-list.html — Remove focus pool, 10th rank, traditions; Rank→Level labels; Defense→Save headers
 
 ### Documentation
-- [ ] Update CLAUDE.md to reflect PF1e ruleset
-- [ ] Document new modifier types and stacking rules
-- [ ] Document PF1e-specific API patterns
+- [x] Update CLAUDE.md to reflect PF1e ruleset
+- [x] Document modifier types and common patterns
+- [x] Document PF1e-specific game mechanics and removed PF2e features
 
 ---
 
