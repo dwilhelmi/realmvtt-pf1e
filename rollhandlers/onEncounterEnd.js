@@ -1,4 +1,4 @@
-// On Encounter End, calculate XP based on PF2e rules
+// On Encounter End, calculate XP based on PF1e rules
 // Find all non-enemy character tokens in the combat
 const partyTokens = (data?.tokens || []).filter(
   (t) => t?.faction !== "enemy" && t?.recordType === "characters"

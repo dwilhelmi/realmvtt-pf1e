@@ -1,4 +1,4 @@
-<!-- Represents a list of choices this character is prompted with, when they obtain the feature -->
+<!-- Represents a list of proficiencies this character gains from the feature -->
 <div style="display: flex; flex-direction: row; width: 100%; gap: 4px">
   <div style="display: flex; flex-direction: column; min-width: 50px; flex: 1">
     <dropdown
@@ -8,60 +8,13 @@
       width="100%"
       combo="true"
       placeholder="Select or Enter Proficiency..."
-      options='[{"label": "Perception", "value": "perception"},
-        {"label": "Fortitude Saving Throws", "value": "fortitude"},
-        {"label": "Reflex Saving Throws", "value": "reflex"},
-        {"label": "Will Saving Throws", "value": "will"},
-        {"label": "Unarmored Defense", "value": "unarmored"},
+      options='[{"label": "Simple Weapons", "value": "simple"},
+        {"label": "Martial Weapons", "value": "martial"},
+        {"label": "Exotic Weapons", "value": "exotic"},
         {"label": "Light Armor", "value": "light"},
         {"label": "Medium Armor", "value": "medium"},
         {"label": "Heavy Armor", "value": "heavy"},
-        {"label": "Unarmed Attacks", "value": "unarmed"},
-        {"label": "Simple Weapons", "value": "simple"},
-        {"label": "Martial Weapons", "value": "martial"},
-        {"label": "Advanced Weapons", "value": "advanced"},
-        {"label": "Spellcasting", "value": "spellcasting"},
-        {"label": "Acrobatics", "value": "acrobatics"},
-        {"label": "Arcana", "value": "arcana"},
-        {"label": "Athletics", "value": "athletics"},
-        {"label": "Crafting", "value": "crafting"},
-        {"label": "Deception", "value": "deception"},
-        {"label": "Diplomacy", "value": "diplomacy"},
-        {"label": "Intimidation", "value": "intimidation"},
-        {"label": "Medicine", "value": "medicine"},
-        {"label": "Nature", "value": "nature"},
-        {"label": "Occultism", "value": "occultism"},
-        {"label": "Performance", "value": "performance"},
-        {"label": "Religion", "value": "religion"},
-        {"label": "Society", "value": "society"},
-        {"label": "Stealth", "value": "stealth"},
-        {"label": "Survival", "value": "survival"},
-        {"label": "Thievery", "value": "thievery"},
-        {"label": "Alchemist Class DC", "value": "alchemist"},
-        {"label": "Barbarian Class DC", "value": "barbarian"},
-        {"label": "Bard Class DC", "value": "bard"},
-        {"label": "Champion Class DC", "value": "champion"},
-        {"label": "Cleric Class DC", "value": "cleric"},
-        {"label": "Commander Class DC", "value": "commander"},
-        {"label": "Druid Class DC", "value": "druid"},
-        {"label": "Exemplar Class DC", "value": "exemplar"},
-        {"label": "Fighter Class DC", "value": "fighter"},
-        {"label": "Guardian Class DC", "value": "guardian"},
-        {"label": "Gunslinger Class DC", "value": "gunslinger"},
-        {"label": "Inventor Class DC", "value": "inventor"},
-        {"label": "Investigator Class DC", "value": "investigator"},
-        {"label": "Magus Class DC", "value": "magus"},
-        {"label": "Monk Class DC", "value": "monk"},
-        {"label": "Oracle Class DC", "value": "oracle"},
-        {"label": "Psychic Class DC", "value": "psychic"},
-        {"label": "Ranger Class DC", "value": "ranger"},
-        {"label": "Rogue Class DC", "value": "rogue"},
-        {"label": "Sorcerer Class DC", "value": "sorcerer"},
-        {"label": "Summoner Class DC", "value": "summoner"},
-        {"label": "Swashbuckler Class DC", "value": "swashbuckler"},
-        {"label": "Thaumaturge Class DC", "value": "thaumaturge"},
-        {"label": "Witch Class DC", "value": "witch"},
-        {"label": "Wizard Class DC", "value": "wizard"}]'
+        {"label": "Shields", "value": "shield"}]'
     >
     </dropdown>
     <stringfield
@@ -69,32 +22,23 @@
       name="Field"
       size="xs"
       label="Field"
-      description="Additional field if applicable (e.g. weapon group, armor group, etc.)"
+      description="Additional field if applicable (e.g. specific weapon name, armor type, etc.)"
       placeholder="Enter field..."
     ></stringfield>
   </div>
   <dropdown
     field="rank"
-    label="Proficiency Rank"
-    placeholder="Untrained"
+    label="Proficient"
+    placeholder="No"
     width="115px"
     size="xs"
     defaultvalue="0"
     options='[{
-      "label": "Untrained",
+      "label": "Not Proficient",
       "value": "0"
       }, {
-      "label": "Trained",
+      "label": "Proficient",
       "value": "1"
-      }, {
-      "label": "Expert",
-      "value": "2"
-      }, {
-      "label": "Master",
-      "value": "3"
-      }, {
-      "label": "Legendary",
-      "value": "4"
       }]'
   ></dropdown>
 </div>

@@ -151,7 +151,7 @@
     const ourToken = api.getToken();
 
     api.sendMessage(
-      `**:one-action: Stowing Weapon: ${weapon.name}**`,
+      `**Stowing Weapon: ${weapon.name}**`,
       undefined,
       [],
       [],
@@ -169,7 +169,7 @@
     const ourToken = api.getToken();
 
     api.sendMessage(
-      `**:free-action: Dropping Weapon: ${weapon.name}**`,
+      `**Dropping Weapon: ${weapon.name}**`,
       undefined,
       [],
       [],
@@ -312,7 +312,6 @@
       size="xs"
       field="stowBtn"
       label="Stow"
-      icon="one-action"
       variant="default"
       onclick="handleStow()"
     ></button>
@@ -320,7 +319,6 @@
       size="xs"
       field="dropBtn"
       label="Drop"
-      icon="free-action"
       variant="default"
       onclick="handleDrop()"
     ></button>
