@@ -4,9 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Pathfinder 2nd Edition ruleset implementation for Realm VTT. The codebase consists of HTML files with embedded JavaScript that interact with the Realm VTT API.
+This is a **Pathfinder 1st Edition** ruleset implementation for Realm VTT. The codebase consists of HTML files with embedded JavaScript that interact with the Realm VTT API.
 
 **Important**: This ruleset uses the Realm VTT API (https://www.realmvtt.com/wiki/ruleset-editor-and-api). HTML and JavaScript must be written to conform to this API. Field values cannot be directly embedded into HTML - all data access must go through the API.
+
+## PF1e Game System Reference
+
+### Core Mechanics
+- **Ability Scores**: Str, Dex, Con, Int, Wis, Cha — each has a score and a modifier = floor((score - 10) / 2)
+- **BAB (Base Attack Bonus)**: Class-based, determines attack rolls and iterative attacks
+- **CMB/CMD**: Combat Maneuver Bonus/Defense — BAB + Str + size mod / 10 + BAB + Str + Dex + size mod
+- **Saves**: Fortitude (Con), Reflex (Dex), Will (Wis) — base save from class + ability mod
+- **Skills**: Ranks (1/level, max = character level) + ability mod + class skill bonus (+3) + misc
+- **AC**: 10 + armor + shield + Dex + size + natural + deflection + misc
+- **Touch AC**: 10 + Dex + size + deflection (no armor/shield/natural)
+- **Flat-Footed AC**: AC without Dex bonus
+
+### Spellcasting (PF1e Vancian System)
+- **Spell Levels**: 0-9 (no 10th level spells)
+- **Prepared Casters** (Wizard, Cleric, Druid): Fill specific spell slots, each slot used once
+- **Spontaneous Casters** (Sorcerer, Bard, Oracle): Spells known + slots per day per level
+- **Spell DC**: 10 + spell level + casting ability modifier
+- **Concentration**: Caster level + casting ability modifier
+- **Spell Properties**: School/subschool, components (V/S/M/F/DF), spell resistance, casting time, saving throw with descriptor (half/negates/partial/see text)
+- **Attack Spells**: Melee touch attack or ranged touch attack vs Touch AC
+
+### Combat
+- **Initiative**: 1d20 + Dex modifier + misc bonuses
+- **Iterative Attacks**: Full attack at BAB/BAB-5/BAB-10/BAB-15
+- **Action Economy**: Standard, Move, Full-Round, Swift, Free, Immediate actions (NOT PF2e 3-action system)
+- **Death**: Die at negative HP equal to Constitution score. Stabilization = DC 10 Con check each round.
+
+### Character Building
+- **Races**: Use racial traits (not PF2e ancestry/heritage system)
+- **Feats**: General, Combat, Metamagic, Item Creation, Critical, Teamwork, etc. at odd levels + class bonus feats
+- **Features**: Class Feature, Racial Trait, Extraordinary (Ex), Supernatural (Su), Spell-Like (Sp)
+- **Campaign Traits**: Replace PF2e backgrounds. Types: Campaign, Combat, Faith, Magic, Social, Regional, etc.
 
 ## Architecture
 
@@ -15,10 +48,17 @@ This is a Pathfinder 2nd Edition ruleset implementation for Realm VTT. The codeb
 The ruleset is organized by game entity types and UI components:
 
 - **Character sheets**: `characters-*.html` - Main character sheet and its tabs (skills, features, notes)
-- **Entity definitions**: `ancestry-*.html`, `class-*.html`, `heritage-*.html`, `backgrounds-*.html`, `feats-*.html`, `features-*.html`, `items-*.html`
+- **Entity definitions**: `ancestry-*.html` (races), `class-*.html`, `backgrounds-*.html` (campaign traits), `feats-*.html`, `features-*.html`, `items-*.html`
 - **List components**: `*-list.html` files - Reusable list components for various data types
 - **Rules**: `*-rules.html` files - Rule-specific UI and logic
-- **Shared logic**: `rollhandlers/common.js` - Core game mechanics and utility functions
+- **NPC sheets**: `npcs-main.html`, `npc-*.html` - NPC/monster stat blocks
+- **Roll handlers**: `rollhandlers/*.js` - Process dice rolls and game mechanics
+  - `common.js` - Core game mechanics and utility functions
+  - `spells.js` - Spell casting, damage calculation, touch attacks
+  - `attack.js` / `damage.js` - Weapon attack and damage rolls
+  - `recovery.js` - Stabilization checks (DC 10 Con check)
+  - `flatCheck.js` - Miss chance rolls (concealment/blur/displacement)
+  - `onTurnStart.js` / `onTurnEnd.js` - Turn-based effects
 
 ### Key API Patterns
 
@@ -80,7 +120,7 @@ The Realm VTT API provides these core functions used throughout:
   );
   ```
 
-**Roll Type Parameter**: Defaults to "chat" but should match Roll Types defined in Settings (e.g., "attack", "damage", "save", "skill", etc.)
+**Roll Type Parameter**: Defaults to "chat" but should match Roll Types defined in Settings (e.g., "attack", "damage", "save", "skill", "initiative", "recovery", etc.)
 
 **Metadata Note**: Keep metadata lightweight - pass IDs instead of entire records to avoid performance issues.
 
@@ -108,10 +148,12 @@ Located primarily in `rollhandlers/common.js`:
 
 - `generateUuid()` - Create unique identifiers for list items
 - `onAddEditFeature(record, callback)` - Recalculate character features and abilities
-- `calculateAbilityBoosts(record)` - Handle ability score calculations
-- `updateProficiencies(record, valuesToSet)` - Update skill/save proficiencies
-- `calculateProficiencyBonus(record, training)` - Calculate proficiency bonuses
+- `calculateAbilityScores(record)` - Handle ability score calculations
+- `updateSkills(record, valuesToSet)` - Update skill totals (ranks + ability mod + class skill + misc)
+- `updateSaves(record, valuesToSet)` - Update save totals (base + ability mod + misc)
 - `rollSave(record, type)` - Roll a saving throw with proper modifiers
+- `performInitiativeRoll(record)` - Roll Dex-based initiative with modifiers
+- `updateSpellcastingEntries(record, valuesToSet)` - Calculate spell DCs, caster level, concentration
 
 #### Modifier System - Critical for All Rolls
 
@@ -127,6 +169,14 @@ getEffectsAndModifiersForToken(record, modifierTypes, field, itemId, appliedById
 - `field` - **Third parameter (often required)** - The relevant field/context (e.g., 'fortitude', 'dex', 'perception')
 - `itemId` - Fourth parameter - Only for attack rolls with specific items
 - `appliedById` - Fifth parameter - Only when checking for effects from specific tokens
+
+**Common Modifier Types**:
+- Saves: `['saveBonus', 'savePenalty']`, `['allBonus', 'allPenalty']`
+- Attacks: `['attackBonus', 'attackPenalty']`, `['spellAttackBonus', 'spellAttackPenalty']`
+- Damage: `['damageBonus', 'damagePenalty']`, `['spellDamageBonus', 'spellDamagePenalty']`
+- Skills: `['skillBonus', 'skillPenalty']`
+- Initiative: `['initiativeBonus', 'initiativePenalty']`
+- Spell DC: `['spellDCBonus', 'spellDCPenalty']`
 
 **Implementation Pattern**:
 1. Always make TWO modifier checks:
@@ -150,13 +200,23 @@ const allMods = getEffectsAndModifiersForToken(
 );
 ```
 
-**Note**: The field parameter may not be relevant for all modifier types, but include it when there's a relevant context.
+### Spellcasting Functions (rollhandlers/spells.js)
+
+Key functions for the PF1e spell system:
+
+- `getSpellLevel(spell, dataPathToSpell)` - Get spell level (0-9) from spell data or slot path
+- `getCasterLevel(record, dataPathToSpell)` - Get caster level (character level or override)
+- `calculateSpellDamage(record, spell, dataPathToSpell)` - Calculate base damage with attribute modifier
+- `getSpellDamageMacro(record, spell, dataPathToSpell)` - Generate damage roll macro
+- `getSpellAttackMacro(record, spell, spellCastingEntry, dataPathToSpell, animation)` - Generate touch attack macro (melee/ranged touch vs Touch AC)
+- `getSpellSaveMacro(record, spell, spellCastingEntry, dataPathToSpell)` - Generate save macro (DC = 10 + spell level + ability mod)
+- `castSpell(record, spell, dataPathToSpell)` - Cast a spell: mark as used, deduct slots, send chat message with macros
 
 ### Event Handlers
 
 - `onDrop(type, recordLink)` - Handle drag-and-drop of game entities
 - `showHideFields()` - Dynamic UI visibility based on data state
-- Various `onDrop*` functions for specific entity types (ancestry, class, heritage, etc.)
+- Various `onDrop*` functions for specific entity types (race, class, etc.)
 
 ### UI Conventions
 
@@ -164,6 +224,7 @@ const allMods = getEffectsAndModifiersForToken(
 - Trait objects structure: `{ _id, name, identified, data }`
 - Hidden field control via `fields.[fieldname].hidden` properties
 - Conditional visibility based on data values
+- PF1e action types in dropdowns: Standard, Move, Full-Round, Swift, Free, Immediate, Passive
 
 ## Development Guidelines
 
@@ -184,7 +245,7 @@ const allMods = getEffectsAndModifiersForToken(
 ### Modifying Game Mechanics
 
 1. Core mechanics are in `rollhandlers/common.js`
-2. Proficiency calculations, ability scores, and modifiers are centralized
+2. Ability scores, skills, saves, and BAB calculations are centralized
 3. Use `onAddEditFeature()` to trigger recalculations after data changes
 
 ### Data Structure
@@ -196,7 +257,7 @@ const allMods = getEffectsAndModifiersForToken(
 
 ## Common Tasks
 
-### Adding a new character option (ancestry, class, feat, etc.)
+### Adding a new character option (race, class, feat, etc.)
 
 1. Create the appropriate `-main.html` file following existing patterns
 2. Implement `showHideFields()` for conditional UI
@@ -215,3 +276,26 @@ const allMods = getEffectsAndModifiersForToken(
 2. Follow the pattern of checking `getNearestParentDataPath()` for context
 3. Use `api.setValues()` for all data updates
 4. Implement proper `onchange` handlers
+
+## PF1e-Specific Notes
+
+### Things That Do NOT Exist in PF1e (removed from PF2e)
+- Heightening spells / spell heightening
+- Spell overlays / alternate casting methods
+- 3-action economy (1/2/3 actions, reaction icons)
+- Multiple Attack Penalty (MAP) — PF1e uses iterative attacks instead
+- Proficiency training levels (Untrained/Trained/Expert/Master/Legendary)
+- Dying/Wounded counters — PF1e uses negative HP
+- Shield raising as an action — shields are always active when equipped
+- Focus pools / Focus spells
+- Spell traditions (Arcane/Divine/Occult/Primal) — PF1e uses class-based casting
+- 10th level spells
+- Splash/Precision damage categories
+- Vitality/Void damage types
+
+### Stubbed Files (kept for API compatibility)
+- `spell-heightening-list.html` — empty stub
+- `spell-heightening-damage-list.html` — empty stub
+- `spell-heightening-level-list.html` — empty stub
+- `spell-overlays-list.html` — empty stub
+- `heritage-*.html` — PF1e uses racial traits instead of heritage
