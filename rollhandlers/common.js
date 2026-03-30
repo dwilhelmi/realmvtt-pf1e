@@ -986,52 +986,41 @@ function collectTraitsAndProperties(
     }
   });
 
-  // Add item:proficiency:rank:{value} for items in context
+  // Add item category/group traits for items in context
   const item = context.item || context.weapon || context.spell;
   if (item && token) {
-    // Determine the item category (weapon or armor)
-    const itemType = (item.data?.type || "").toLowerCase();
     const itemCategory = (item.data?.itemCategory || "").toLowerCase();
     const itemGroup = (item.data?.group || "").toLowerCase();
 
-    // Add item:category:X trait (e.g., item:category:martial, item:category:simple)
     if (itemCategory) {
       traits.add(`item:category:${itemCategory}`);
     }
-
-    // Add item:group:X trait (e.g., item:group:firearm, item:group:crossbow)
     if (itemGroup) {
       traits.add(`item:group:${itemGroup}`);
     }
 
-    // For weapons, check attack proficiencies
+    // Add proficiency trait (PF1e: boolean proficient/not proficient)
+    const itemType = (item.data?.type || "").toLowerCase();
     const isWeapon =
       itemType === "weapon" ||
-      ["simple", "martial", "advanced", "unarmed"].includes(itemCategory);
+      ["simple", "martial", "exotic"].includes(itemCategory);
 
     if (item.recordType === "items" && isWeapon && itemCategory) {
-      // Use getProfiencyForWeapon helper which handles group-specific proficiencies
-      const rank = getProfiencyForWeapon(token, itemCategory, itemGroup);
-      if (rank !== undefined && rank !== null) {
-        traits.add(`item:proficiency:rank:${rank}`);
-      }
+      const proficient = getWeaponProficiency(token, itemCategory, itemGroup);
+      traits.add(`item:proficiency:${proficient ? "proficient" : "nonproficient"}`);
     }
 
-    // For armor, check defense proficiencies
     const isArmor =
       itemType === "armor" ||
-      ["unarmored", "light", "medium", "heavy"].includes(itemCategory);
+      ["light", "medium", "heavy", "shield"].includes(itemCategory);
 
     if (item.recordType === "items" && isArmor && itemCategory) {
-      // Use getProfiencyForArmor helper which handles group-specific proficiencies
-      const rank = getProfiencyForArmor(token, itemCategory, itemGroup);
-      if (rank !== undefined && rank !== null) {
-        traits.add(`item:proficiency:rank:${rank}`);
-      }
+      const proficient = getArmorProficiency(token, itemCategory);
+      traits.add(`item:proficiency:${proficient ? "proficient" : "nonproficient"}`);
     }
   }
 
-  // Collect target conditions from context (e.g., target:condition:off-guard)
+  // Collect target conditions from context (e.g., target:condition:flat-footed)
   // Target info can be passed in context.target
   if (context.target) {
     const target = context.target;
@@ -1711,7 +1700,7 @@ function getEffectsAndModifiersForToken(
     // Get the relevant field for the rule
     rules.forEach((rule) => {
       let field = rule?.field || "";
-      // Fields can reference other fields on the record in PF2e, so we need to resolve them
+      // Fields can reference other fields on the record, so we need to resolve them
       if (field && field.startsWith("data.")) {
         field = String(api.getValueOnRecord(target, field) || "").toLowerCase();
       }
@@ -2517,7 +2506,7 @@ function getDegreeOfSuccessAdjustments(
 }
 
 /**
- * Returns all Pathfinder 2e skills with their associated ability scores
+ * Returns all Pathfinder 1e skills with their associated ability scores
  */
 function getPathfinderSkills() {
   return {
@@ -3287,7 +3276,7 @@ function getSaveDCForToken(token, saveType) {
   return saveDC;
 }
 
-function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
+function getArmorClassForToken(token, targetIsFlatFootedDueToFlanking = false) {
   // Get best equipped armor to pass as context for predicate evaluation
   const bestArmor = getBestEquippedArmor(token);
   let armorItem = null;
@@ -3328,7 +3317,7 @@ function getArmorClassForToken(token, targetIsOffGuardDueToFlanking = false) {
   });
 
   // Handle flanking: -2 circumstance penalty
-  if (targetIsOffGuardDueToFlanking) {
+  if (targetIsFlatFootedDueToFlanking) {
     if (!existingCircumstancePenalty) {
       // No circumstance penalty exists, add -2 for flanking
       ac -= 2;
@@ -5657,7 +5646,7 @@ function setTraits(traits, callback = undefined) {
   });
 }
 
-// Roll a saving throw for PF2e
+// Roll a saving throw
 function rollSave(record, type, dc = null, isSpell = false, isMacro = false) {
   if (!record || !type) {
     console.error("rollSave: Invalid record or type");
@@ -5859,7 +5848,7 @@ ${macroContent}
 \`\`\``;
 }
 
-// Roll a skill check for PF2e
+// Roll a skill check
 function rollSkill(
   record,
   skillName,
@@ -5891,21 +5880,15 @@ function rollSkill(
 
   const isNPC = record.recordType === "npcs" || record.recordType === "tokens";
 
-  // Get the proficiency level for display purposes (if character)
+  // Get skill ranks for display purposes (if character)
   let skillModName = `${skillName} Modifier`;
   if (!isNPC) {
-    const proficiencyLevel = isLore
+    const skillRanks = isLore
       ? loreSkillTraining
       : parseInt(record.data?.[skill] || "0", 10);
-    const proficiencyNames = [
-      "Untrained",
-      "Trained",
-      "Expert",
-      "Master",
-      "Legendary",
-    ];
-    const proficiencyName = proficiencyNames[proficiencyLevel] || "Untrained";
-    skillModName = `${skillName} (${proficiencyName})`;
+    if (skillRanks > 0) {
+      skillModName = `${skillName} (${skillRanks} ranks)`;
+    }
   } else if (isNPC & !isPerception) {
     // NPCs need to get the skill mod from the .skills list
     const skills = record.data?.skills || [];
@@ -6089,7 +6072,7 @@ function rollSkill(
   }
 }
 
-// Generate a clickable skill check macro for PF2e
+// Generate a clickable skill check macro
 function getSkillCheckMacro(skillName, dc = null) {
   if (!skillName) {
     console.error("getSkillCheckMacro: Invalid skillName");
@@ -6253,7 +6236,7 @@ function isTokenIncapacitated(token) {
     "paralyzed",
     "petrified",
     "unconscious",
-    "stunned", // In PF2e, stunned can prevent actions
+    "stunned",
     "restrained", // Prevents attack
   ];
 
@@ -6363,26 +6346,26 @@ function getTokenReach(token, weapon = null) {
   return maxReach;
 }
 
-function isOffGuard(token) {
+function isFlatFooted(token) {
   const effects = token?.effects || [];
   return effects.some(
     (effect) =>
-      effect.name.toLowerCase().includes("off-guard") ||
-      effect.name.toLowerCase().includes("off guard") ||
-      effect.name.toLowerCase().includes("offguard")
+      effect.name.toLowerCase().includes("flat-footed") ||
+      effect.name.toLowerCase().includes("flat-footed") ||
+      effect.name.toLowerCase().includes("flat-footed")
   );
 }
 
-function getOffGuardTooltip() {
-  return "You're distracted or otherwise unable to focus your full attention on defense. You take a –2 circumstance penalty to AC. Some effects give you the off-guard condition only to certain creatures or against certain attacks. Others—especially conditions—can make you off-guard against everything. If a rule doesn't specify that the condition applies only to certain circumstances, it applies to all of them, such as \"The target is off-guard.\"";
+function getFlatFootedTooltip() {
+  return "A flat-footed character loses their Dexterity bonus to AC (if any) and cannot make attacks of opportunity. Characters are flat-footed at the start of combat before they have acted, when they are caught off-guard, or when they are flanked.";
 }
 
-// Checks if a token can be made off-guard by an attacker based on off-guard prevention modifiers
-// Returns true if the token CAN be made off-guard, false if prevented
-function canBeOffGuard(targetToken, attackerToken, source = "flanking") {
+// Checks if a token can be made flat-footed by an attacker based on flat-footed prevention modifiers
+// Returns true if the token CAN be made flat-footed, false if prevented
+function canBeFlatFooted(targetToken, attackerToken, source = "flanking") {
   if (!targetToken) return true;
 
-  // Get off-guard prevention modifiers
+  // Get flat-footed prevention modifiers
   const preventionModifiers = getEffectsAndModifiersForToken(
     targetToken,
     ["offGuardPrevention"],
@@ -6390,7 +6373,7 @@ function canBeOffGuard(targetToken, attackerToken, source = "flanking") {
   );
 
   if (preventionModifiers.length === 0) {
-    return true; // No prevention, can be off-guard
+    return true; // No prevention, can be flat-footed
   }
 
   // Check each prevention modifier
@@ -6409,20 +6392,20 @@ function canBeOffGuard(targetToken, attackerToken, source = "flanking") {
       }
     }
 
-    // If attacker's level is <= threshold, prevent off-guard
+    // If attacker's level is <= threshold, prevent flat-footed
     const attackerLevel = attackerToken?.data?.level || 0;
     if (attackerLevel <= levelThreshold) {
-      return false; // Prevented from being off-guard
+      return false; // Prevented from being flat-footed
     }
   }
 
-  return true; // Can be off-guard
+  return true; // Can be flat-footed
 }
 
-// Determines if an enemy is Off-Guard due to Flanking
-// Per PF2e rules: A line drawn between the center of the flankers' spaces
-// must pass through opposite sides or opposite corners of the target's space
-function isOffGuardDueToFlanking({
+// Determines if an enemy is flanked (flat-footed to flankers)
+// Per PF1e rules: Two allies threatening a target on opposite sides
+// Line drawn between flankers must pass through opposite sides or corners of target's space
+function isFlatFootedDueToFlanking({
   sourceToken,
   sourceReach = 5, // Default to 5ft reach
   otherTokens,
@@ -6699,9 +6682,9 @@ function isOffGuardDueToFlanking({
 
     // Check if the line between source and ally passes through opposite sides
     if (doesLineCrossOppositeSides(sourcePos, allyPos)) {
-      // Check if target can be made off-guard (considering prevention modifiers)
-      if (!canBeOffGuard(targetToken, sourceToken, "flanking")) {
-        continue; // Target is immune to off-guard from this attacker's level
+      // Check if target can be made flat-footed (considering prevention modifiers)
+      if (!canBeFlatFooted(targetToken, sourceToken, "flanking")) {
+        continue; // Target is immune to flat-footed from this attacker's level
       }
       return true;
     }
@@ -7474,22 +7457,22 @@ function countWeaponDamageDice(weapon, strikingRune) {
 /**
  * Activates Sneak Attack modifiers if conditions are met.
  * Sneak Attack applies when:
- * - Target has the off-guard condition
+ * - Target has the flat-footed condition
  * - AND you're using an agile/finesse melee weapon, agile/finesse unarmed attack,
  *   ranged weapon attack, or ranged unarmed attack
  *
  * @param {Array} modifiers - Array of damage modifiers
  * @param {Object} weapon - The weapon being used
- * @param {boolean} targetIsOffGuard - Whether the target has the off-guard condition
+ * @param {boolean} targetIsFlatFooted - Whether the target has the flat-footed condition
  * @returns {Array} - Modified array with sneak attack modifiers activated if conditions met
  */
 function activateSneakAttackIfConditionsMet(
   modifiers,
   weapon,
-  targetIsOffGuard
+  targetIsFlatFooted
 ) {
-  if (!targetIsOffGuard) {
-    return modifiers; // No sneak attack if target is not off-guard
+  if (!targetIsFlatFooted) {
+    return modifiers; // No sneak attack if target is not flat-footed
   }
 
   // Check weapon properties
@@ -7579,164 +7562,68 @@ function collectFeatures(record) {
   return features;
 }
 
-function getProfiencyForArmor(record, armorCategory, armorGroup) {
-  // First check proficiency for the armor category
-  let armorProf = parseInt(record?.data?.defenses?.[armorCategory] || "0", 10);
-
-  const features = collectFeatures(record);
-
-  // Check all features for armor group-specific proficiencies
-  for (const feature of features) {
-    const featureProficiencies = feature.data?.proficiencies || [];
-    featureProficiencies.forEach((proficiency) => {
-      const name = (proficiency?.data?.name || "").toLowerCase();
-      const rank = parseInt(proficiency?.data?.rank || "0", 10);
-      const field = (proficiency?.data?.field || "").toLowerCase();
-
-      // Check if this proficiency matches the armor category and has a field matching the armor group
-      if (
-        name === armorCategory.toLowerCase() &&
-        field &&
-        field === armorGroup.toLowerCase() &&
-        rank > armorProf
-      ) {
-        armorProf = rank;
-      }
-    });
-  }
-
-  return armorProf;
+// PF1e: Check if character is proficient with an armor category
+// Returns true/false (PF1e uses boolean proficiency, not rank tiers)
+function getArmorProficiency(record, armorCategory) {
+  const proficiencies = record?.data?.armorProficiencies || {};
+  return proficiencies[armorCategory.toLowerCase()] === true ||
+    proficiencies[armorCategory.toLowerCase()] === "true";
 }
 
-function getProfiencyForWeapon(
-  record,
-  weaponCategory,
-  weaponGroup,
-  weapon = null
-) {
-  // First check proficiency for the weapon category
-  let weaponProficiency = parseInt(
-    record.data?.attackProficiencies?.[weaponCategory] || "0",
-    10
-  );
+// PF1e: Check if character is proficient with a weapon category/group
+// Categories: simple, martial, exotic
+// Returns true/false (PF1e uses boolean proficiency, not rank tiers)
+function getWeaponProficiency(record, weaponCategory, weaponGroup) {
+  const proficiencies = record?.data?.weaponProficiencies || {};
 
-  // Check if "other" attack proficiency applies to this weapon
-  const otherProf = record.data?.attackProficiencies?.other;
-  if (otherProf?.name && otherProf?.rank) {
-    const otherRank = parseInt(otherProf.rank || "0", 10);
-
-    // Get weapon name from weapon parameter or fall back to checking by group
-    const weaponName = (weapon?.data?.name || weapon?.name || "").toLowerCase();
-    const weaponGroupLower = (weaponGroup || "").toLowerCase();
-    const weaponCategoryLower = (weaponCategory || "").toLowerCase();
-
-    // Split by comma to handle multiple proficiencies like "Simple Firearms, Martial Firearms"
-    const otherNames = otherProf.name
-      .split(",")
-      .map((n) => n.trim().toLowerCase());
-
-    let otherMatches = false;
-
-    for (const otherName of otherNames) {
-      // Special case: "Alchemical Bombs" matches weapons with group "Bomb"
-      if (otherName === "alchemical bombs") {
-        if (weaponGroupLower === "bomb") {
-          otherMatches = true;
-          break;
-        }
-      }
-      // Check for category + group patterns like "Simple Firearms" or "Martial Firearms"
-      // This matches if the proficiency name starts with the weapon category and
-      // the weapon group matches the rest (e.g., "simple firearms" matches simple category + firearm group)
-      else if (otherName.startsWith(weaponCategoryLower + " ")) {
-        const expectedGroup = otherName.substring(
-          weaponCategoryLower.length + 1
-        );
-        // Handle plurals (e.g., "firearms" -> "firearm")
-        const normalizedExpectedGroup = expectedGroup.endsWith("s")
-          ? expectedGroup.slice(0, -1)
-          : expectedGroup;
-        const normalizedWeaponGroup = weaponGroupLower.endsWith("s")
-          ? weaponGroupLower.slice(0, -1)
-          : weaponGroupLower;
-        if (normalizedWeaponGroup === normalizedExpectedGroup) {
-          otherMatches = true;
-          break;
-        }
-      }
-      // Otherwise check if weapon name contains the proficiency name
-      else if (weaponName.includes(otherName)) {
-        otherMatches = true;
-        break;
-      }
-    }
-
-    if (otherMatches && otherRank > weaponProficiency) {
-      weaponProficiency = otherRank;
-    }
+  // Check category-level proficiency (e.g., "martial" = all martial weapons)
+  if (proficiencies[weaponCategory.toLowerCase()] === true ||
+      proficiencies[weaponCategory.toLowerCase()] === "true") {
+    return true;
   }
 
-  // Then check if we have any features or class features that provide a proficiency for this weapon group
-  const features = collectFeatures(record);
+  // Check specific weapon group proficiency
+  if (weaponGroup && (proficiencies[weaponGroup.toLowerCase()] === true ||
+      proficiencies[weaponGroup.toLowerCase()] === "true")) {
+    return true;
+  }
 
-  // Check all features for weapon group-specific proficiencies
+  // Check features for specific weapon proficiencies
+  const features = collectFeatures(record);
   for (const feature of features) {
     const featureProficiencies = feature.data?.proficiencies || [];
-    featureProficiencies.forEach((proficiency) => {
+    for (const proficiency of featureProficiencies) {
       const name = (proficiency?.data?.name || "").toLowerCase();
-      const rank = parseInt(proficiency?.data?.rank || "0", 10);
-      const field = (proficiency?.data?.field || "").toLowerCase();
-
-      // Check if this proficiency matches the weapon category and has a field matching the weapon group
-      if (
-        name === weaponCategory.toLowerCase() &&
-        field &&
-        field === weaponGroup.toLowerCase() &&
-        rank > weaponProficiency
-      ) {
-        weaponProficiency = rank;
-      }
-    });
-  }
-
-  // Check for weaponProficiency modifiers from effects/features
-  // These use predicates to match specific weapons (e.g., martial firearms, crossbows)
-  if (weapon) {
-    const weaponProfMods = getEffectsAndModifiersForToken(
-      record,
-      ["weaponProficiency"],
-      "",
-      undefined,
-      undefined,
-      { item: weapon }
-    );
-
-    for (const mod of weaponProfMods) {
-      // Skip inactive modifiers (predicate failed)
-      if (mod.active === false) continue;
-
-      const modRank = parseInt(mod.value || "0", 10);
-      if (modRank > weaponProficiency) {
-        weaponProficiency = modRank;
+      if (name === weaponCategory.toLowerCase() || name === weaponGroup?.toLowerCase()) {
+        return true;
       }
     }
   }
 
-  return weaponProficiency;
+  return false;
+}
+
+// Legacy aliases for backward compatibility
+function getProfiencyForArmor(record, armorCategory, armorGroup) {
+  return getArmorProficiency(record, armorCategory) ? 1 : 0;
+}
+
+function getProfiencyForWeapon(record, weaponCategory, weaponGroup, weapon = null) {
+  return getWeaponProficiency(record, weaponCategory, weaponGroup) ? 1 : 0;
 }
 
 /**
  * Evaluates a predicate string for game mechanics.
  * Supports predicates like:
  * - gte(item:proficiency:rank, 3)
- * - target:condition:off-guard
+ * - target:condition:flat-footed
  * - item:trait:agile
  * - and(...), or(...) for combining conditions
  *
  * @param {string} predicate - The predicate string to evaluate
  * @param {Object} record - The character record
  * @param {Object} item - The item (weapon, armor, etc.) being evaluated
- * @param {Object} targetIsOffGuard - True if the target is off guard (optional)
+ * @param {Object} targetIsFlatFooted - True if the target is flat-footed (optional)
  * @param {Set} traits - Optional set of collected traits to check against
  * @returns {boolean} - True if predicate is satisfied
  */
@@ -7744,7 +7631,7 @@ function evaluatePredicate(
   predicate,
   record,
   item,
-  targetIsOffGuard = false,
+  targetIsFlatFooted = false,
   traits = null
 ) {
   if (!predicate || typeof predicate !== "string") {
@@ -7803,15 +7690,15 @@ function evaluatePredicate(
       );
     }
 
-    // Handle target:condition:off-guard
-    // Check both the targetIsOffGuard parameter AND if traits set includes it
-    if (evaluatedPredicate.includes("target:condition:off-guard")) {
-      const offGuardFromTraits =
-        traits && traits.has("target:condition:off-guard");
-      const offGuardValue = targetIsOffGuard || offGuardFromTraits ? "1" : "0";
+    // Handle target:condition:flat-footed
+    // Check both the targetIsFlatFooted parameter AND if traits set includes it
+    if (evaluatedPredicate.includes("target:condition:flat-footed")) {
+      const flatFootedFromTraits =
+        traits && traits.has("target:condition:flat-footed");
+      const flatFootedValue = targetIsFlatFooted || flatFootedFromTraits ? "1" : "0";
       evaluatedPredicate = evaluatedPredicate.replace(
-        /target:condition:off-guard/g,
-        offGuardValue
+        /target:condition:flat-footed/g,
+        flatFootedValue
       );
     }
 
@@ -7965,13 +7852,13 @@ function evaluatePredicate(
  *
  * @param {Object} record - The character record
  * @param {Object} item - The item (typically a weapon) being used
- * @param {Object} targetIsOffGuard - True if the target is off guard (optional)
+ * @param {Object} targetIsFlatFooted - True if the target is flat-footed (optional)
  * @returns {boolean} - True if critical specialization effect applies
  */
 function hasCriticalSpecializationEffect(
   record,
   item,
-  targetIsOffGuard = false
+  targetIsFlatFooted = false
 ) {
   const features = collectFeatures(record);
 
@@ -8001,11 +7888,11 @@ function hasCriticalSpecializationEffect(
           // Build context for predicate evaluation
           const context = { weapon: item, item: item };
 
-          // Add target conditions if target is off-guard
-          if (targetIsOffGuard) {
-            // Create a mock target with off-guard effect for trait collection
+          // Add target conditions if target is flat-footed
+          if (targetIsFlatFooted) {
+            // Create a mock target with flat-footed effect for trait collection
             context.target = {
-              effects: [{ name: "Off-Guard" }],
+              effects: [{ name: "Flat-Footed" }],
             };
           }
 
@@ -8033,7 +7920,7 @@ function hasCriticalSpecializationEffect(
                 predicate,
                 record,
                 item,
-                targetIsOffGuard,
+                targetIsFlatFooted,
                 traits
               )
             ) {
@@ -8043,9 +7930,9 @@ function hasCriticalSpecializationEffect(
         } else if (predicateField) {
           // Build context for predicate evaluation
           const context = { weapon: item, item: item };
-          if (targetIsOffGuard) {
+          if (targetIsFlatFooted) {
             context.target = {
-              effects: [{ name: "Off-Guard" }],
+              effects: [{ name: "Flat-Footed" }],
             };
           }
 
@@ -8058,7 +7945,7 @@ function hasCriticalSpecializationEffect(
               predicateField,
               record,
               item,
-              targetIsOffGuard,
+              targetIsFlatFooted,
               traits
             )
           ) {
@@ -9135,31 +9022,23 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   // Roll for each target or just once
   const targets = api.getTargets();
   const ourToken = api.getToken();
-  let targetIsOffGuard = false;
-  let targetShieldRaised = false;
-  const damageIsPhysical = ["bludgeoning", "piercing", "slashing"].includes(
-    damageType.toLowerCase()
-  );
+  let targetIsFlatFooted = false;
 
   if (targets.length > 0) {
     for (const target of targets) {
-      // Check if target has shield raised
-      if (target?.token?.data?.shieldRaised === "true") {
-        targetShieldRaised = true;
-      }
-      // Check if target is off-guard
-      targetIsOffGuard = isOffGuard(target?.token);
+      // Check if target is flat-footed
+      targetIsFlatFooted = isFlatFooted(target?.token);
 
-      let targetIsOffGuardDueToFlanking = false;
-      if (isMelee && !isThrown && !targetIsOffGuard) {
+      let targetIsFlatFootedDueToFlanking = false;
+      if (isMelee && !isThrown && !targetIsFlatFooted) {
         const otherTokens = api.getOtherTokens();
-        targetIsOffGuardDueToFlanking = isOffGuardDueToFlanking({
+        targetIsFlatFootedDueToFlanking = isFlatFootedDueToFlanking({
           sourceToken: ourToken,
           sourceReach: getTokenReach(ourToken),
           otherTokens: otherTokens,
           target: target,
         });
-        targetIsOffGuard = targetIsOffGuardDueToFlanking;
+        targetIsFlatFooted = targetIsFlatFootedDueToFlanking;
       }
 
       // Get damage effects for the target
@@ -9180,7 +9059,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
   const finalDamageModifiers = activateSneakAttackIfConditionsMet(
     filteredDamageModifiers,
     weapon,
-    targetIsOffGuard
+    targetIsFlatFooted
   );
 
   // Build list of precision modifier indices for damage handler
@@ -9207,8 +9086,7 @@ function performDamageRoll(record, weapon, weaponDataPath, isCritical) {
     damageIgnoresResistances: damageIgnoresResistances,
     damageIgnoresImmunities: damageIgnoresImmunities,
     damageIgnoresWeaknesses: damageIgnoresWeaknesses,
-    // If the target has the shield raised and damage is physical, can block
-    showShieldDamage: targetShieldRaised && damageIsPhysical,
+    showShieldDamage: false,
     isRanged: !isMelee || isThrown,
     isSpell: isSpell,
     hasDeathTrait: hasDeathTrait,
@@ -9264,7 +9142,7 @@ function rollMatchesCondition(roll, conditionsArray) {
   );
 }
 
-// Helper function to get Immunities, Weaknesses, and Resistances for PF2e
+// Helper function to get Immunities, Weaknesses, and Resistances
 function getIWR(target, armorSpecDetails = null) {
   const immunitiesMap = {};
   const weaknessesMap = {};
@@ -9598,7 +9476,7 @@ function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
 }
 
 /**
- * Applies damage to selected or dropped tokens following PF2e rules.
+ * Applies damage to selected or dropped tokens.
  *
  * @param {Object} record - The record that initiated the damage (for ownership checks)
  * @param {Object} roll - The damage roll object containing:
@@ -9613,7 +9491,7 @@ function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
  *     - damageIgnoresWeaknesses: Comma-separated string of damage types that ignore weaknesses
  * @param {boolean} halfDamage - Whether to halve the damage (e.g., successful basic save)
  *
- * PF2e Critical Damage Rules:
+ * Critical Damage Rules:
  * - On a critical hit, damage is normally doubled (roll dice twice or double the total)
  * - Dice from deadly/fatal weapon traits are NOT doubled (they're critical-only bonuses)
  * - Use metadata.criticalOnlyDice to specify which dice shouldn't be doubled
@@ -9626,7 +9504,7 @@ function applyPersistentDamage(persistentDamage, tokenId, tokenName) {
  * - Apply IWR (Immunities, Weaknesses, Resistances) after damage calculation
  * - Round down when halving damage (minimum 1 damage)
  *
- * PF2e Death Rules:
+ * PF1e Death Rules (negative HP, die at -Con):
  * - Massive Damage: Instant death if damage >= 2× max HP (after all reductions)
  * - Death Trait: Instant death if reduced to 0 HP by damage with death trait
  * - Dying Condition: At 0 HP, gain Dying 1 + Wounded value
@@ -9795,7 +9673,7 @@ function applyDamage(
       const precisionModifierIndices =
         roll.metadata?.precisionModifierIndices || [];
 
-      // First, calculate damage with PF2e critical rules
+      // First, calculate critical damage
       // On a critical hit: double all damage EXCEPT dice from deadly/fatal traits
       // If target is immune to critical hits, treat as a normal hit
       const damageByType = {};
@@ -9841,7 +9719,7 @@ function applyDamage(
             damageType = baseDamageType; // Convert precision to base damage type
           }
 
-          // PF2e Critical Rule: Double damage unless it's from deadly/fatal trait
+          // Critical Rule: Double damage unless it's from deadly/fatal trait
           // or target is immune to critical hits
           if (isCritical && !immuneToCritical) {
             damageValue *= 2; // Start by doubling everything
@@ -10030,7 +9908,7 @@ function applyDamage(
         }
       }
 
-      // PF2e: Apply Immunities, Weaknesses, and Resistances
+      // Apply Immunities, Weaknesses, and Resistances
       // These are applied AFTER halving
       // Track final damage per type to ensure each type doesn't go below 0
       const finalDamageByType = {};
@@ -10410,78 +10288,7 @@ function applyDamage(
         }
       }
 
-      // Handle shield damage if shieldDamage is true and shield is raised
-      let shieldAbsorbed = 0;
-      let shieldDamaged = false;
-      let shieldData = null;
-      if (shieldDamage && damage > 0) {
-        // Get the best equipped shield (works for both characters and NPCs)
-        const bestArmor = getBestEquippedArmor(target);
-        const shield = bestArmor?.shield;
-
-        if (shield && shield.shieldId && shield.shieldIndex !== null) {
-          let hardness = shield.hardness || 0;
-
-          // Check for Deflecting trait
-          // Deflecting trait increases shield hardness by 2 against specific damage types
-          const shieldTraits = shield.traits || [];
-          const damageType = (roll.metadata?.damageType || "")
-            .toLowerCase()
-            .trim();
-
-          if (damageType) {
-            // Look for Deflecting traits (e.g., "Deflecting Bludgeoning")
-            const deflectingTrait = shieldTraits.find((trait) => {
-              const traitName = trait.toLowerCase().trim();
-              return traitName.startsWith("deflecting");
-            });
-
-            if (deflectingTrait) {
-              // Extract the damage type from the trait name
-              // e.g., "Deflecting Bludgeoning" -> "bludgeoning"
-              const traitName = deflectingTrait.toLowerCase().trim();
-              const deflectingType = traitName
-                .split(" ")?.[1]
-                ?.toLowerCase()
-                ?.trim();
-
-              // If the deflecting type matches the damage type, add 2 to hardness
-              if (deflectingType === damageType) {
-                hardness += 2;
-              }
-            }
-          }
-
-          const currentShieldHp = shield.hp.value || 0;
-          const maxShieldHp = shield.hp.max || 0;
-
-          // Shield blocks damage equal to its hardness
-          shieldAbsorbed = Math.min(hardness, damage);
-          damage = Math.max(0, damage - hardness);
-
-          // Apply remaining damage to the shield's HP
-          const shieldDamageAmount = damage;
-          const newShieldHp = Math.max(0, currentShieldHp - shieldDamageAmount);
-
-          // Calculate broken threshold (half of max HP)
-          const brokenThreshold = Math.floor(maxShieldHp / 2);
-          const wasShieldBroken = target.data?.shieldBroken === true;
-          const isShieldBroken = newShieldHp <= brokenThreshold;
-
-          if (shieldDamageAmount > 0 || isShieldBroken !== wasShieldBroken) {
-            shieldDamaged = true;
-            shieldData = {
-              shieldIndex: shield.shieldIndex,
-              newShieldHp,
-              isShieldBroken,
-              wasShieldBroken,
-              shieldDamageAmount,
-              brokenThreshold,
-              maxShieldHp,
-            };
-          }
-        }
-      }
+      // PF1e: Shields provide passive AC bonus, no active blocking mechanic
 
       var curhp = target.data?.curhp || 0;
       const maxHp = target.data?.hitpoints || 0;
@@ -10560,33 +10367,6 @@ function applyDamage(
 
       valuesToSet["data.curhp"] = curhp;
 
-      // Apply shield damage updates if shield was damaged
-      if (shieldDamaged && shieldData) {
-        // Get the best equipped shield again to access original values
-        const bestArmor = getBestEquippedArmor(target);
-        const shield = bestArmor?.shield;
-
-        // Update shield HP on both the item and the character/NPC record
-        valuesToSet[`data.inventory.${shieldData.shieldIndex}.data.hp.value`] =
-          shieldData.newShieldHp;
-        valuesToSet["data.shieldHp"] = shieldData.newShieldHp;
-
-        // Update broken status if it changed
-        if (shieldData.isShieldBroken !== shieldData.wasShieldBroken) {
-          valuesToSet["data.shieldBroken"] = shieldData.isShieldBroken;
-        }
-
-        // Store old values for undo
-        if (shield) {
-          oldValues[`data.inventory.${shieldData.shieldIndex}.data.hp.value`] =
-            shield.hp.value;
-          oldValues["data.shieldHp"] = target.data?.shieldHp || 0;
-          if (shieldData.isShieldBroken !== shieldData.wasShieldBroken) {
-            oldValues["data.shieldBroken"] = shieldData.wasShieldBroken;
-          }
-        }
-      }
-
       const unIdentified = target.identified === false;
       const targetName = !unIdentified
         ? target.name || target.record.name
@@ -10609,99 +10389,51 @@ function applyDamage(
         }
       }
 
-      // Add shield damage message if shield was damaged
-      if (shieldDamaged && shieldData) {
-        if (shieldAbsorbed > 0) {
-          message += `\n**Shield blocked ${shieldAbsorbed} damage** (Hardness)`;
-        }
-        if (shieldData.shieldDamageAmount > 0) {
-          message += `\n**Shield took ${shieldData.shieldDamageAmount} damage** (${shieldData.newShieldHp}/${shieldData.maxShieldHp} HP remaining)`;
-        }
-        if (shieldData.isShieldBroken && !shieldData.wasShieldBroken) {
-          message += `\n**[color=orange]Shield is now BROKEN![/color]**`;
-        }
-      }
-
       // Add hardness reduction message if applicable
       if (hardnessReduction > 0) {
         message += `\n**Hardness blocked ${hardnessReduction} damage**`;
       }
 
-      // Handle death conditions
+      // PF1e: Handle death at negative HP equal to Constitution score
       if (instantDeath) {
         message += `\n**[center][color=red]INSTANT DEATH (${deathReason})[/color][/center]**`;
-        // For characters, set dying to 4+ (dead)
-        if (target.recordType === "characters") {
-          oldValues["data.dying"] = parseInt(target.data?.dying || "0", 10);
-          oldValues["data.wounded"] = parseInt(target.data?.wounded || "0", 10);
-          valuesToSet["data.dying"] = 4;
-          valuesToSet["data.wounded"] = 0;
-          api.addEffect("Dead", target);
-        }
-        // For NPCs, add Dead effect
-        if (target.recordType === "npcs") {
-          api.addEffect("Dead", target);
-        }
-      } else if (curhp <= 0 && damage > 0) {
-        // Not instant death, but reduced to 0 HP
+        api.addEffect("Dead", target);
+      } else if (curhp < 0 && damage > 0) {
         const isObject =
           target.recordType === "npcs" &&
           (target.data?.type === "hazard" || target.data?.type === "vehicle");
-        const isCompanion =
-          target.recordType === "npcs" && target.data?.type === "familiar";
-        if (target.recordType === "characters" || isCompanion) {
-          // Characters and their companions gain Dying condition
-          const currentDying = parseInt(target.data?.dying || "0", 10);
-          let wounded = 0;
 
-          // Only add wounded if we're gaining the dying condition (currentDying === 0)
-          if (currentDying === 0) {
-            wounded = parseInt(target.data?.wounded || "0", 10);
-          }
+        if (target.recordType === "characters") {
+          // PF1e: Characters die at negative HP equal to Con score
+          const conScore = parseInt(target.data?.conScore || "10", 10);
+          const deathThreshold = -conScore;
 
-          // Store old values
-          oldValues["data.dying"] = currentDying;
-
-          // Calculate new dying value
-          let newDying = currentDying + 1 + wounded;
-
-          // Check if this is from a critical hit (if isCritical is available)
-          // If target is immune to critical hits, treat as normal hit
-          if (
-            typeof isCritical !== "undefined" &&
-            isCritical &&
-            !immuneToCritical
-          ) {
-            newDying = currentDying + 2 + wounded;
-            message += `\n${targetName} gains Dying ${newDying} (critical hit increases dying by 2).`;
-          } else {
-            message += `\n${targetName} gains Dying ${newDying}.`;
-          }
-
-          // Cap dying at 4 (death)
-          if (newDying > 4) {
-            newDying = 4;
-          }
-
-          valuesToSet["data.dying"] = newDying;
-
-          // Check if dying >= 4 (death)
-          if (newDying >= 4) {
+          if (curhp <= deathThreshold) {
             api.addEffect("Dead", target);
-            message += `\n**[center][color=red]DEAD (Dying ${newDying})[/color][/center]**`;
-          } else {
+            message += `\n**[center][color=red]DEAD (HP ${curhp}, death at ${deathThreshold})[/color][/center]**`;
+          } else if (curhp < 0) {
+            // Unconscious and dying at negative HP
             if (
               target.effects.find((effect) => effect.name === "Unconscious") ===
               undefined
             ) {
               api.addEffects(["Unconscious", "Prone"], target);
             }
+            message += `\n${targetName} is unconscious and dying (HP ${curhp}, death at ${deathThreshold}).`;
           }
         } else if (target.recordType === "npcs") {
-          // NPCs just die at 0 HP
-          api.addEffect("Dead", target);
-          message += `\n${targetName} is ${isObject ? "destroyed" : "dead"}.`;
+          // NPCs die at 0 HP
+          if (curhp <= 0) {
+            api.addEffect("Dead", target);
+            message += `\n${targetName} is ${isObject ? "destroyed" : "dead"}.`;
+          }
         }
+      } else if (curhp <= 0 && damage > 0 && target.recordType === "npcs") {
+        const isObject =
+          target.recordType === "npcs" &&
+          (target.data?.type === "hazard" || target.data?.type === "vehicle");
+        api.addEffect("Dead", target);
+        message += `\n${targetName} is ${isObject ? "destroyed" : "dead"}.`;
       }
 
       // Apply all value changes in a single batch
@@ -11025,543 +10757,4 @@ function updateDamageMacros(description, context = {}) {
   return result;
 }
 
-// Treat Wounds Macro for Pathfinder 2e
-// This function handles the Treat Wounds action from the Medicine skill
-function treatWounds() {
-  let selectedTokens = api.getSelectedOrDroppedToken();
-
-  // If no tokens selected, try to get the current token
-  if (!selectedTokens || selectedTokens.length === 0) {
-    return;
-  }
-
-  // Get the first selected token (the healer)
-  let healer = selectedTokens[0];
-
-  // If healer has a .token property, use that (it's wrapped)
-  if (healer && healer.token) {
-    healer = healer.token;
-  }
-
-  // Ensure we have a valid healer with data
-  if (!healer || !healer.data) {
-    return;
-  }
-
-  // Get Medicine skill information
-  const medicineMod = parseInt(healer.data?.medicineMod || "0", 10);
-  const medicineTraining = parseInt(healer.data?.medicine || "0", 10);
-
-  // Training levels: 0 = Untrained, 1 = Trained, 2 = Expert, 3 = Master, 4 = Legendary
-  const proficiencyNames = [
-    "Untrained",
-    "Trained",
-    "Expert",
-    "Master",
-    "Legendary",
-  ];
-  const proficiencyName = proficiencyNames[medicineTraining] || "Untrained";
-
-  // Check if character is trained in Medicine
-  if (medicineTraining < 1) {
-    api.showNotification(
-      "You must be at least Trained in Medicine to use Treat Wounds",
-      "red",
-      "Notice"
-    );
-    return;
-  }
-
-  // Determine available DC options based on proficiency
-  const dcOptions = [
-    { label: "DC 15 (Trained) - Restore 2d8 HP", value: "15" },
-  ];
-
-  if (medicineTraining >= 2) {
-    dcOptions.push({
-      label: "DC 20 (Expert) - Restore 2d8+10 HP",
-      value: "20",
-    });
-  }
-  if (medicineTraining >= 3) {
-    dcOptions.push({
-      label: "DC 30 (Master) - Restore 2d8+30 HP",
-      value: "30",
-    });
-  }
-  if (medicineTraining >= 4) {
-    dcOptions.push({
-      label: "DC 40 (Legendary) - Restore 2d8+50 HP",
-      value: "40",
-    });
-  }
-
-  // Get targets for healing
-  const targets = api.getTargets();
-  let targetInfo = "";
-  if (targets && targets.length > 0) {
-    targetInfo = `Target${targets.length > 1 ? "s" : ""}: ${targets
-      .map((t) => t.name)
-      .join(", ")}`;
-  }
-
-  // Prompt for DC selection
-  api.showPrompt(
-    "Treat Wounds",
-    `Select the DC for your Medicine check.\n\n${proficiencyName} in Medicine (${
-      medicineMod >= 0 ? "+" : ""
-    }${medicineMod})\n\n${targetInfo}\n\nNote: This takes 10 minutes. Target becomes immune to Treat Wounds for 1 hour.\nTreating for a full hour doubles the healing.`,
-    "Select DC...",
-    dcOptions,
-    null,
-    (selectedDC) => {
-      if (!selectedDC) return;
-
-      const dc = parseInt(selectedDC, 10);
-
-      // Determine healing amounts based on DC
-      let successHealing = "2d8";
-      let critSuccessHealing = "4d8";
-
-      if (dc === 20) {
-        successHealing = "2d8 + 10";
-        critSuccessHealing = "4d8 + 10";
-      } else if (dc === 30) {
-        successHealing = "2d8 + 30";
-        critSuccessHealing = "4d8 + 30";
-      } else if (dc === 40) {
-        successHealing = "2d8 + 50";
-        critSuccessHealing = "4d8 + 50";
-      }
-
-      // Build modifiers array for the Medicine check
-      const modifiers = [];
-
-      if (medicineMod !== 0) {
-        modifiers.push({
-          name: `Medicine (${proficiencyName})`,
-          type: "",
-          value: medicineMod,
-          active: true,
-        });
-      }
-
-      // Get Medicine skill-specific modifiers
-      const additionalModsSet = new Set();
-      const skillMods = getEffectsAndModifiersForToken(
-        healer,
-        ["skillBonus", "skillPenalty"],
-        "medicine"
-      );
-
-      skillMods.forEach((mod) => {
-        const modString = modToString(mod);
-        if (!additionalModsSet.has(modString)) {
-          additionalModsSet.add(modString);
-          modifiers.push(mod);
-        }
-      });
-
-      // Get Wisdom-based all modifiers (Medicine uses Wisdom by default)
-      const wisdomAbility = healer.data?.medicineAbility || "wis";
-      const allMods = getEffectsAndModifiersForToken(
-        healer,
-        ["allBonus", "allPenalty"],
-        wisdomAbility
-      );
-
-      allMods.forEach((mod) => {
-        const modString = modToString(mod);
-        if (!additionalModsSet.has(modString)) {
-          additionalModsSet.add(modString);
-          modifiers.push(mod);
-        }
-      });
-
-      // Get degree of success adjustments
-      const degreeOfSuccessAdjustments = getDegreeOfSuccessAdjustments(healer, [
-        "medicine",
-        wisdomAbility,
-      ]);
-
-      // Prepare metadata for the roll
-      const metadata = {
-        rollName: "Treat Wounds",
-        tooltip: "Treat Wounds (Medicine Check)",
-        skillName: "medicine",
-        dc: dc,
-        degreeOfSuccessAdjustments: degreeOfSuccessAdjustments,
-        action: "Treat Wounds",
-        // Store healing info for the roll handler
-        treatWounds: {
-          successHealing: successHealing,
-          critSuccessHealing: critSuccessHealing,
-          dc: dc,
-        },
-      };
-
-      // Make the Medicine check
-      api.promptRoll(
-        "Treat Wounds (Medicine)",
-        "1d20",
-        modifiers,
-        metadata,
-        "skill"
-      );
-    },
-    "Roll",
-    "Cancel",
-    1
-  );
-}
-
-// Elemental Blast - Kineticist impulse attack
-function elementalBlast() {
-  const record = api.getToken();
-  if (!record) {
-    api.showNotification("No character selected", "red", "Error");
-    return;
-  }
-
-  // Element configuration: damage die, damage types available, and range
-  const elementData = {
-    air: {
-      die: "d6",
-      types: ["electricity", "slashing"],
-      range: 60,
-    },
-    earth: {
-      die: "d8",
-      types: ["bludgeoning", "piercing"],
-      range: 30,
-    },
-    fire: {
-      die: "d6",
-      types: ["fire"],
-      range: 60,
-    },
-    metal: {
-      die: "d8",
-      types: ["piercing", "slashing"],
-      range: 30,
-    },
-    water: {
-      die: "d8",
-      types: ["bludgeoning", "cold"],
-      range: 30,
-    },
-    wood: {
-      die: "d8",
-      types: ["bludgeoning", "vitality"],
-      range: 30,
-    },
-  };
-
-  // Check which elements the character has access to via flags
-  const availableElements = new Set();
-  const flags = record.data?.flags || {};
-
-  // Iterate through all flags and check for any that start with "element"
-  Object.keys(flags).forEach((flagKey) => {
-    if (flagKey.toLowerCase().startsWith("element")) {
-      const element = flags[flagKey];
-      if (element && elementData[element.toLowerCase().replace("-gate", "")]) {
-        availableElements.add(element.toLowerCase().replace("-gate", ""));
-      }
-    }
-  });
-
-  // Helper function to continue with a selected element
-  const continueWithElement = (element) => {
-    const elementKey = element.toLowerCase();
-    if (!elementData[elementKey]) {
-      api.showNotification(
-        `Invalid element: ${element}. Valid options: air, earth, fire, metal, water, wood`,
-        "red",
-        "Error"
-      );
-      return;
-    }
-
-    const chosenElement = elementData[elementKey];
-    const level = record.data?.level || 1;
-
-    // Calculate number of damage dice (base + 1 per 4 levels)
-    const damageDice = 1 + Math.floor(level / 4);
-
-    // Helper function to continue with the selected damage type
-    const continueWithDamageType = (selectedDamageType) => {
-      // Extract from array if needed (api.showPrompt returns arrays)
-      selectedDamageType = Array.isArray(selectedDamageType)
-        ? selectedDamageType[0]
-        : selectedDamageType;
-      if (!selectedDamageType) return;
-
-      // Step 2: Prompt for melee or ranged
-      const attackTypeOptions = [
-        { label: "Melee", value: "melee" },
-        { label: `Ranged (${chosenElement.range} feet)`, value: "ranged" },
-      ];
-
-      api.showPrompt(
-        "Elemental Blast - Attack Type",
-        "Choose melee or ranged attack:",
-        "Select Type...",
-        attackTypeOptions,
-        null,
-        (selectedAttackType) => {
-          // Extract from array if needed (api.showPrompt returns arrays)
-          selectedAttackType = Array.isArray(selectedAttackType)
-            ? selectedAttackType[0]
-            : selectedAttackType;
-          if (!selectedAttackType) return;
-
-          // Step 3: Prompt for action count
-          const actionOptions = [
-            { label: "1 Action", value: "1" },
-            { label: "2 Actions (add Constitution to damage)", value: "2" },
-          ];
-
-          api.showPrompt(
-            "Elemental Blast - Actions",
-            "How many actions are you using?",
-            "Select Actions...",
-            actionOptions,
-            null,
-            (selectedActions) => {
-              // Extract from array if needed (api.showPrompt returns arrays)
-              selectedActions = Array.isArray(selectedActions)
-                ? selectedActions[0]
-                : selectedActions;
-              if (!selectedActions) return;
-
-              const isMelee = selectedAttackType === "melee";
-              const isTwoAction = selectedActions === "2";
-
-              // Build traits array
-              const traits = [
-                "attack",
-                "impulse",
-                "kineticist",
-                "primal",
-                elementKey,
-              ];
-
-              // Add damage type as trait if it's not a physical damage type
-              const physicalTypes = ["bludgeoning", "piercing", "slashing"];
-              if (!physicalTypes.includes(selectedDamageType.toLowerCase())) {
-                traits.push(selectedDamageType.toLowerCase());
-              }
-
-              // Add range trait if ranged
-              if (!isMelee) {
-                traits.push(`range ${chosenElement.range}`);
-              }
-
-              // Build damage formula
-              const damageFormula = `${damageDice}${chosenElement.die}`;
-
-              // If 2-action version, add Constitution modifier directly to damage
-              const conMod = isTwoAction ? record.data?.con || 0 : 0;
-
-              // Build damageRolls array
-              const damageRolls = [
-                {
-                  _id: generateUuid(),
-                  data: {
-                    formula: damageFormula,
-                    type: selectedDamageType,
-                    category: "standard",
-                    modifier: conMod,
-                  },
-                },
-              ];
-
-              // Calculate impulse attack bonus (Class DC - 10)
-              const classDC = record.data?.classDC || 10;
-              const impulseAttackBonus = classDC - 10;
-
-              // For melee impulse attacks, add Strength modifier
-              let meleeMod = 0;
-              if (isMelee) {
-                meleeMod = record.data?.str || 0;
-              }
-
-              // Create synthetic weapon object for the impulse attack
-              const syntheticWeapon = {
-                _id: generateUuid(),
-                name: `Elemental Blast (${
-                  elementKey.charAt(0).toUpperCase() + elementKey.slice(1)
-                })`,
-                recordType: "npc_attacks",
-                data: {
-                  weaponType: isMelee ? "melee" : "ranged",
-                  range: isMelee ? 0 : chosenElement.range,
-                  traits: traits,
-                  damageRolls: damageRolls,
-                  damage: { die: chosenElement.die }, // For @dieSize replacement
-                  bonus: impulseAttackBonus + meleeMod, // Impulse attack bonus + Strength for melee
-                },
-              };
-
-              // Get attack modifiers for elemental-blast (now that weapon exists for context)
-              const seenAttackMods = new Set();
-              const extraAttackModifiers = [];
-
-              // Get elemental-blast specific attack modifiers
-              const blastAttackMods = getEffectsAndModifiersForToken(
-                record,
-                ["attackBonus", "attackPenalty"],
-                "elemental-blast",
-                undefined,
-                undefined,
-                { weapon: syntheticWeapon }
-              );
-              blastAttackMods.forEach((mod) => {
-                const modString = modToString(mod);
-                if (!seenAttackMods.has(modString)) {
-                  seenAttackMods.add(modString);
-                  extraAttackModifiers.push(mod);
-                }
-              });
-
-              // Also get general all bonuses/penalties for elemental-blast
-              const allAttackMods = getEffectsAndModifiersForToken(
-                record,
-                ["allBonus", "allPenalty"],
-                "elemental-blast",
-                undefined,
-                undefined,
-                { weapon: syntheticWeapon }
-              );
-              allAttackMods.forEach((mod) => {
-                const modString = modToString(mod);
-                if (!seenAttackMods.has(modString)) {
-                  seenAttackMods.add(modString);
-                  extraAttackModifiers.push(mod);
-                }
-              });
-
-              // Get damage modifiers for elemental-blast
-              const seenDamageMods = new Set();
-              const extraDamageModifiers = [];
-
-              // Get elemental-blast specific damage modifiers
-              const blastDamageMods = getEffectsAndModifiersForToken(
-                record,
-                ["damageBonus", "damagePenalty"],
-                "elemental-blast",
-                undefined,
-                undefined,
-                { weapon: syntheticWeapon }
-              );
-              blastDamageMods.forEach((mod) => {
-                const modString = modToString(mod);
-                if (!seenDamageMods.has(modString)) {
-                  seenDamageMods.add(modString);
-                  extraDamageModifiers.push(mod);
-                }
-              });
-
-              // Add the collected modifiers to the weapon
-              syntheticWeapon.data.extraAttackModifiers = extraAttackModifiers;
-              syntheticWeapon.data.extraDamageModifiers = extraDamageModifiers;
-
-              // Perform the attack roll using the existing function
-              performAttackRoll(record, syntheticWeapon, null, 1);
-            },
-            "Roll Attack",
-            "Cancel",
-            1
-          );
-        },
-        "Continue",
-        "Cancel",
-        1
-      );
-    };
-
-    // Step 1: Prompt for damage type (if element has multiple options)
-    const damageTypeOptions = chosenElement.types.map((type) => ({
-      label: type.charAt(0).toUpperCase() + type.slice(1),
-      value: type,
-    }));
-
-    if (damageTypeOptions.length === 1) {
-      // Only one option, use it directly
-      continueWithDamageType(damageTypeOptions[0].value);
-    } else {
-      api.showPrompt(
-        "Elemental Blast - Damage Type",
-        `Choose the damage type for your ${elementKey} blast:`,
-        "Select Type...",
-        damageTypeOptions,
-        null,
-        (selectedDamageType) => {
-          continueWithDamageType(selectedDamageType);
-        },
-        "Continue",
-        "Cancel",
-        1
-      );
-    }
-  }; // End of continueWithElement
-
-  // Determine which elements to offer based on character flags
-  const elementArray = Array.from(availableElements);
-
-  if (elementArray.length === 0) {
-    // No elements in flags, prompt for all elements
-    const allElementOptions = Object.keys(elementData).map((key) => ({
-      label: key.charAt(0).toUpperCase() + key.slice(1),
-      value: key,
-    }));
-
-    api.showPrompt(
-      "Elemental Blast - Choose Element",
-      "Choose your element:",
-      "Select Element...",
-      allElementOptions,
-      null,
-      (selectedElement) => {
-        selectedElement = Array.isArray(selectedElement)
-          ? selectedElement[0]
-          : selectedElement;
-        if (selectedElement) {
-          continueWithElement(selectedElement);
-        }
-      },
-      "Continue",
-      "Cancel",
-      1
-    );
-  } else if (elementArray.length === 1) {
-    // Only one element available, use it directly
-    continueWithElement(elementArray[0]);
-  } else {
-    // Multiple elements available, prompt for selection
-    const elementOptions = elementArray.map((key) => ({
-      label: key.charAt(0).toUpperCase() + key.slice(1),
-      value: key,
-    }));
-
-    api.showPrompt(
-      "Elemental Blast - Choose Element",
-      "Choose your element:",
-      "Select Element...",
-      elementOptions,
-      null,
-      (selectedElement) => {
-        selectedElement = Array.isArray(selectedElement)
-          ? selectedElement[0]
-          : selectedElement;
-        if (selectedElement) {
-          continueWithElement(selectedElement);
-        }
-      },
-      "Continue",
-      "Cancel",
-      1
-    );
-  }
-}
+// PF2e Treat Wounds and Elemental Blast removed — not applicable to PF1e

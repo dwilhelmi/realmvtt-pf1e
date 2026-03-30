@@ -43,7 +43,7 @@
       valuesToSet[`${dataPrefix}.attackEffectsLabel`] = attackEffectsString;
     }
 
-    // Calculate strike values with MAP
+    // Calculate strike values with PF1e iterative attacks (-5/-10)
     const hasAttackBonus =
       action.data?.bonus !== undefined &&
       action.data?.bonus !== null &&
@@ -54,21 +54,15 @@
       const bonusString =
         attackBonus >= 0 ? `+${attackBonus}` : `${attackBonus}`;
 
-      // Check if attack has agile trait
-      const traits = action.data?.traits || [];
-      const isAgile = traits.some((trait) => trait.toLowerCase() === "agile");
-      const mapPenalty1 = isAgile ? 4 : 5;
-      const mapPenalty2 = isAgile ? 8 : 10;
-
       const strike1 = `Strike ${bonusString}`;
-      const strike2Bonus = attackBonus - mapPenalty1;
+      const strike2Bonus = attackBonus - 5;
       const strike2BonusString =
         strike2Bonus >= 0 ? `+${strike2Bonus}` : `${strike2Bonus}`;
-      const strike2 = `${strike2BonusString} (MAP -${mapPenalty1})`;
-      const strike3Bonus = attackBonus - mapPenalty2;
+      const strike2 = `${strike2BonusString} (iterative -5)`;
+      const strike3Bonus = attackBonus - 10;
       const strike3BonusString =
         strike3Bonus >= 0 ? `+${strike3Bonus}` : `${strike3Bonus}`;
-      const strike3 = `${strike3BonusString} (MAP -${mapPenalty2})`;
+      const strike3 = `${strike3BonusString} (iterative -10)`;
 
       if (action.data?.strike1 !== strike1) {
         valuesToSet[`${dataPrefix}.strike1`] = strike1;
@@ -160,14 +154,12 @@
     disablediflocked="true"
     hidden="true"
     width="max-content"
-    options='[{"label": "Free Action", "value": "free", "icon": "free-action"},
-  {"label": "One Action", "value": "oneAction", "icon": "one-action"},
-  {"label": "Two Actions", "value": "twoActions", "icon": "two-actions"},
-  {"label": "Three Actions", "value": "threeActions", "icon": "three-actions"},
-  {"label": "1 to 2 Actions", "value": "oneToTwoActions", "icon": "1-to-2"},
-  {"label": "1 to 3 Actions", "value": "oneToThreeActions", "icon": "1-to-3"},
-  {"label": "2 to 3 Actions", "value": "twoToThreeActions", "icon": "2-to-3"},
-  {"label": "Reaction", "value": "reaction", "icon": "reaction"}]'
+    options='[{"label": "Standard", "value": "standard"},
+  {"label": "Move", "value": "move"},
+  {"label": "Full-Round", "value": "fullRound"},
+  {"label": "Swift", "value": "swift"},
+  {"label": "Free", "value": "free"},
+  {"label": "Immediate", "value": "immediate"}]'
   ></iconbutton>
   <div style="margin-left: auto">
     <label hidden="true" field="levelLabel" size="lg" variant="bold"></label>

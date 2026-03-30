@@ -47,7 +47,7 @@ if (dc > 0) {
   }
 
   // Calculate the degree of success or failure
-  // PF2e Critical Success/Failure rules:
+  // Critical Success/Failure rules:
   // - Critical Success: Beat DC by 10+ OR natural 20 (upgrades success to crit success)
   // - Success: Meet or beat DC
   // - Failure: Miss DC
