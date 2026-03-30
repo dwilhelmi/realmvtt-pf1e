@@ -27,18 +27,6 @@
       <portrait width="30px" height="30px" field="portrait"></portrait>
     </div>
     <label size="xs" variant="bold" field="weaponType"></label>
-    <div min-width="10px; margin-left: 4px;">
-      <iconbutton
-        field="actions"
-        size="sm"
-        variant="subtle"
-        color="default"
-        disabled="true"
-        defaultvalue="one-action"
-        width="fit-content"
-        options='[{"label": "One Action", "value": "oneAction", "icon": "one-action"}]'
-      ></iconbutton>
-    </div>
     <div style="width: 100%">
       <namefield
         field="namefield"
@@ -72,7 +60,7 @@
       field="strike2"
       size="xxs"
       radius="xs"
-      tooltip="Roll 2nd Attack with MAP"
+      tooltip="Roll 2nd Attack (iterative -5)"
       onclick="handleRoll(2);"
       color="blue"
       hidden="true"
@@ -81,7 +69,7 @@
       field="strike3"
       size="xxs"
       radius="xs"
-      tooltip="Roll 3rd Attack with MAP"
+      tooltip="Roll 3rd Attack (iterative -10)"
       onclick="handleRoll(3);"
       color="blue"
       hidden="true"
