@@ -114,7 +114,7 @@
               multiselect="12"
               onchange="onChangeValue();"
               label="Spells to Show"
-              options='[{"label": "Cantrips", "value": "cantrips"}, {"label": "1st Rank", "value": "spells1"}, {"label": "2nd Rank", "value": "spells2"}, {"label": "3rd Rank", "value": "spells3"}, {"label": "4th Rank", "value": "spells4"}, {"label": "5th Rank", "value": "spells5"}, {"label": "6th Rank", "value": "spells6"}, {"label": "7th Rank", "value": "spells7"}, {"label": "8th Rank", "value": "spells8"}, {"label": "9th Rank", "value": "spells9"}, {"label": "10th Rank", "value": "spells10"}]'
+              options='[{"label": "Cantrips", "value": "cantrips"}, {"label": "1st Level", "value": "spells1"}, {"label": "2nd Level", "value": "spells2"}, {"label": "3rd Level", "value": "spells3"}, {"label": "4th Level", "value": "spells4"}, {"label": "5th Level", "value": "spells5"}, {"label": "6th Level", "value": "spells6"}, {"label": "7th Level", "value": "spells7"}, {"label": "8th Level", "value": "spells8"}, {"label": "9th Level", "value": "spells9"}]'
             ></dropdown>
             <divider></divider>
             <dropdown
@@ -127,45 +127,17 @@
               label="Spellcasting Type"
               options='[{"label": "Prepared", "value": "prepared"},
               {"label": "Spontaneous", "value": "spontaneous"},
-              {"label": "Innate", "value": "innate"},
-              {"label": "Focus", "value": "focus"},
-              {"label": "Item Only", "value": "item"}]'
+              {"label": "Spell-Like Abilities", "value": "innate"}]'
             ></dropdown>
-            <numberfield
-              size="xs"
-              field="focusPoolMax"
-              hidden="true"
-              placeholder="1"
-              updateonblur="true"
-              minvalue="1"
-              maxvalue="3"
-              width="100%"
-              label="Focus Pool Max"
-            ></numberfield>
             <divider></divider>
-            <dropdown
-              size="xs"
-              field="tradition"
-              placeholder="Select Magic Tradition..."
-              width="100%"
-              onchange="onChangeValue();"
-              label="Magic Tradition"
-              options='[{"label": "Arcane", "value": "Arcane"},
-            {"label": "Divine", "value": "Divine"},
-            {"label": "Occult", "value": "Occult"},
-            {"label": "Primal", "value": "Primal"}]'
-            ></dropdown>
             <dropdown
               size="xs"
               field="attribute"
               onchange="onChangeValue();"
               placeholder="Select Attribute..."
               width="100%"
-              label="Key Attribute"
-              options='[{"label": "Strength", "value": "str"},
-            {"label": "Dexterity", "value": "dex"},
-            {"label": "Constitution", "value": "con"},
-            {"label": "Intelligence", "value": "int"},
+              label="Casting Ability"
+              options='[{"label": "Intelligence", "value": "int"},
             {"label": "Wisdom", "value": "wis"},
             {"label": "Charisma", "value": "cha"}]'
             ></dropdown>
@@ -230,20 +202,6 @@
       size="xxs"
     ></numberfield>
   </div>
-  <label
-    field="focusPoolLabel"
-    hidden="true"
-    label="Focus Pool"
-    size="xs"
-    variant="bold"
-  ></label>
-  <counter
-    hidden="true"
-    field="focusPool"
-    size="xs"
-    maxvaluefield="focusPoolMax"
-    editable="true"
-  ></counter>
 </div>
 
 <!-- Cantrips List -->
@@ -301,7 +259,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -329,7 +287,7 @@
   ></list>
 </box>
 
-<!-- Rank 1 Spells List -->
+<!-- Level 1 Spells List -->
 <box field="spells1Box" hidden="true">
   <div
     style="
@@ -353,7 +311,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="1st Rank"
+          label="1st Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -403,7 +361,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -431,7 +389,7 @@
   ></list>
 </box>
 
-<!-- Rank 2 Spells List -->
+<!-- Level 2 Spells List -->
 <box field="spells2Box" hidden="true">
   <div
     style="
@@ -455,7 +413,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="2nd Rank"
+          label="2nd Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -505,7 +463,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -533,7 +491,7 @@
   ></list>
 </box>
 
-<!-- Rank 3 Spells List -->
+<!-- Level 3 Spells List -->
 <box field="spells3Box" hidden="true">
   <div
     style="
@@ -557,7 +515,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="3rd Rank"
+          label="3rd Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -607,7 +565,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -635,7 +593,7 @@
   ></list>
 </box>
 
-<!-- Rank 4 Spells List -->
+<!-- Level 4 Spells List -->
 <box field="spells4Box" hidden="true">
   <div
     style="
@@ -659,7 +617,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="4th Rank"
+          label="4th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -709,7 +667,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -737,7 +695,7 @@
   ></list>
 </box>
 
-<!-- Rank 5 Spells List -->
+<!-- Level 5 Spells List -->
 <box field="spells5Box" hidden="true">
   <div
     style="
@@ -761,7 +719,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="5th Rank"
+          label="5th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -811,7 +769,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -839,7 +797,7 @@
   ></list>
 </box>
 
-<!-- Rank 6 Spells List -->
+<!-- Level 6 Spells List -->
 <box field="spells6Box" hidden="true">
   <div
     style="
@@ -863,7 +821,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="6th Rank"
+          label="6th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -913,7 +871,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -941,7 +899,7 @@
   ></list>
 </box>
 
-<!-- Rank 7 Spells List -->
+<!-- Level 7 Spells List -->
 <box field="spells7Box" hidden="true">
   <div
     style="
@@ -965,7 +923,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="7th Rank"
+          label="7th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -1015,7 +973,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -1043,7 +1001,7 @@
   ></list>
 </box>
 
-<!-- Rank 8 Spells List -->
+<!-- Level 8 Spells List -->
 <box field="spells8Box" hidden="true">
   <div
     style="
@@ -1067,7 +1025,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="8th Rank"
+          label="8th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -1117,7 +1075,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -1145,7 +1103,7 @@
   ></list>
 </box>
 
-<!-- Rank 9 Spells List -->
+<!-- Level 9 Spells List -->
 <box field="spells9Box" hidden="true">
   <div
     style="
@@ -1169,7 +1127,7 @@
     >
       <div style="min-width: 70px; width: 70px">
         <label
-          label="9th Rank"
+          label="9th Level"
           width="100%"
           size="xs"
           variant="bold"
@@ -1219,7 +1177,7 @@
       </div>
     </div>
     <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
+      <label label="Save" size="xs" variant="bold"></label>
     </div>
     <div style="min-width: 70px; width: 70px; margin-left: 16px">
       <label label="Range" size="xs" variant="bold"></label>
@@ -1247,104 +1205,4 @@
   ></list>
 </box>
 
-<!-- Rank 10 Spells List -->
-<box field="spells10Box" hidden="true">
-  <div
-    style="
-      width: 100%;
-      background-color: var(--mantine-color-dark-light);
-      border: 1px solid var(--mantine-color-default-border);
-      padding: 4px;
-      margin-top: 4px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    "
-  >
-    <div
-      style="
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        flex-grow: 1;
-      "
-    >
-      <div style="min-width: 70px; width: 70px">
-        <label
-          label="10th Rank"
-          width="100%"
-          size="xs"
-          variant="bold"
-          textalign="left"
-        ></label>
-      </div>
-      <box field="spontaneousBox" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            margin-right: 4px;
-          "
-        >
-          <div style="min-width: 40px; width: 40px">
-            <numberfield
-              field="usedSpells10"
-              maxvaluefield="numSpells10"
-              width="100%"
-              placeholder="0"
-              minvalue="0"
-              bold="true"
-              hidecontrols="true"
-              textalign="center"
-              size="xs"
-            ></numberfield>
-          </div>
-          <label label="/" size="xs" variant="bold"></label>
-        </div>
-      </box>
-      <div style="min-width: 40px; width: 40px">
-        <numberfield
-          field="numSpells10"
-          updateonblur="true"
-          onchange="onChangeValue();"
-          width="100%"
-          placeholder="0"
-          minvalue="0"
-          maxvalue="20"
-          bold="true"
-          hidecontrols="true"
-          textalign="center"
-          size="xs"
-        ></numberfield>
-      </div>
-    </div>
-    <div style="min-width: 96px; width: 96px; margin-left: 16px">
-      <label label="Defense" size="xs" variant="bold"></label>
-    </div>
-    <div style="min-width: 70px; width: 70px; margin-left: 16px">
-      <label label="Range" size="xs" variant="bold"></label>
-    </div>
-    <box field="spacer" hideonlocked="true">
-      <div style="min-width: 20px; width: 20px"></div>
-    </box>
-    <div style="min-width: 56px; width: 56px; margin-left: 16px"></div>
-    <iconbutton
-      field="addBtn"
-      hidden="true"
-      size="sm"
-      variant="subtle"
-      color="default"
-      options='[{"icon": "IconPlus", "label": "Add Spell", "value": "add"}]'
-      onclick="onAddSpell('spells10');"
-    ></iconbutton>
-  </div>
-
-  <list
-    lazy="true"
-    field="spells10"
-    variant="striped"
-    listtype="spell_list"
-  ></list>
-</box>
+<!-- PF1e: No 10th level spells -->

@@ -10,12 +10,7 @@
 
     const valuesToSet = {};
 
-    // Set default initiative skill to Perception if not set
-    if (!npc.data?.initiativeSkill) {
-      valuesToSet[`${dataPrefix}.initiativeSkill`] = "Perception";
-      const perceptionMod = parseInt(npc.data?.perceptionMod || "0", 10);
-      valuesToSet[`${dataPrefix}.initiativeMod`] = perceptionMod;
-    }
+    // PF1e: Initiative uses Dex modifier by default
 
     // Check if traits is set
     if (
@@ -714,7 +709,7 @@
     dataPrefix,
     valuesToSet
   ) {
-    // Update strike1, strike2, strike3 fields based on attack bonus and traits
+    // PF1e: Update iterative attack fields based on BAB
     if (newBonus === undefined || newBonus === null || newBonus === "") {
       return;
     }
@@ -722,21 +717,16 @@
     const attackBonus = parseInt(newBonus, 10);
     const bonusString = attackBonus >= 0 ? `+${attackBonus}` : `${attackBonus}`;
 
-    // Check if attack has agile trait
-    const traits = attack.data?.traits || [];
-    const isAgile = traits.some((trait) => trait.toLowerCase() === "agile");
-    const mapPenalty1 = isAgile ? 4 : 5;
-    const mapPenalty2 = isAgile ? 8 : 10;
-
-    const strike1 = `Strike ${bonusString}`;
-    const strike2Bonus = attackBonus - mapPenalty1;
+    // PF1e iterative attacks: -5 per additional attack
+    const strike1 = `Attack ${bonusString}`;
+    const strike2Bonus = attackBonus - 5;
     const strike2BonusString =
       strike2Bonus >= 0 ? `+${strike2Bonus}` : `${strike2Bonus}`;
-    const strike2 = `${strike2BonusString} (MAP -${mapPenalty1})`;
-    const strike3Bonus = attackBonus - mapPenalty2;
+    const strike2 = `${strike2BonusString} (iterative)`;
+    const strike3Bonus = attackBonus - 10;
     const strike3BonusString =
       strike3Bonus >= 0 ? `+${strike3Bonus}` : `${strike3Bonus}`;
-    const strike3 = `${strike3BonusString} (MAP -${mapPenalty2})`;
+    const strike3 = `${strike3BonusString} (iterative)`;
 
     if (attack.data?.strike1 !== strike1) {
       valuesToSet[`${dataPrefix}.attacks.${attackIndex}.data.strike1`] =
@@ -775,25 +765,8 @@
   }
 
   function updateInitiativeSkill(skillName) {
-    // Get the skill modifier for the selected skill
+    // PF1e: Initiative modifier is set directly, no skill mapping needed
     const valuesToSet = {};
-
-    if (skillName?.toLowerCase() === "perception") {
-      valuesToSet["data.initiativeMod"] = parseInt(
-        record.data?.perceptionMod || "0",
-        10
-      );
-    } else {
-      const skills = record.data?.skills || [];
-      const skill = skills.find(
-        (s) => s.name?.toLowerCase() === skillName?.toLowerCase()
-      );
-      if (skill) {
-        valuesToSet["data.initiativeMod"] = skill.data?.mod || 0;
-      } else {
-        valuesToSet["data.initiativeMod"] = 0;
-      }
-    }
 
     if (Object.keys(valuesToSet).length > 0) {
       api.setValues(valuesToSet);
@@ -934,70 +907,15 @@
       icon: "IconRun",
       data: {
         actionType: type,
-        actions: type === "action" ? "oneAction" : undefined,
         description: "",
       },
-      fields: {
-        actions: {
-          hidden: type === "action" ? false : true,
-        },
-      },
+      fields: {},
     };
 
     api.addValue("data.actions", newAction);
   }
 
-  function raiseShield(value) {
-    if (value === "true") {
-      const ourToken = api.getToken();
-      if (ourToken) {
-        api.floatText(ourToken, "Raising a Shield", "#0000ff");
-      }
-      api.sendMessage(
-        "**[center]Raising a Shield[/center]**",
-        undefined,
-        [],
-        [],
-        ourToken
-      );
-    }
-    if (value === "false") {
-      const ourToken = api.getToken();
-      if (ourToken) {
-        api.floatText(ourToken, "Lowering a Shield", "#0000ff");
-      }
-      api.sendMessage(
-        "**[center]Lowering a Shield[/center]**",
-        undefined,
-        [],
-        [],
-        ourToken
-      );
-    }
-
-    // Check for a shield in the inventory and use this AC, else default to 2
-    const inventory = record.data?.inventory || [];
-    const shield = inventory.find((item) => item.data?.type === "shield");
-    const equippedShield = inventory.find(
-      (item) =>
-        item.data?.carried === "equipped" && item.data?.type === "shield"
-    );
-    let shieldAc = 2;
-    if (equippedShield || shield) {
-      // Use equipped shield first, else the other one we find
-      shieldAc = equippedShield?.data?.acBonus || shield?.data?.acBonus || 0;
-    }
-
-    // If raising, add to AC, else subtract
-    let newAC = record.data?.ac || 0;
-    if (value === "true") {
-      newAC += shieldAc;
-    } else {
-      newAC -= shieldAc;
-    }
-
-    api.setValues({ "data.ac": newAC });
-  }
+  // PF1e: No shield raising mechanic (shields provide passive AC bonus)
 
   function onSelectMaster() {
     const master = record.data?.master;
@@ -1272,40 +1190,7 @@
           placeholder="HP details..."
         ></stringfield>
       </div>
-      <!-- Familiars have a dying value -->
-      <box field="familiarProperties" hidden="true">
-        <div
-          style="
-            display: flex;
-            flex-direction: row;
-            align-items: left;
-            justify-content: space-between;
-            margin-bottom: 4px;
-          "
-        >
-          <counter
-            field="dying"
-            size="xs"
-            label="Dying"
-            color="red"
-            icon="IconSkull"
-            maxvalue="4"
-            textalign="left"
-            minvalue="0"
-          ></counter>
-          <counter
-            field="wounded"
-            size="xs"
-            label="Wounded"
-            color="red"
-            icon="IconDroplet"
-            maxvalue="3"
-            textalign="left"
-            minvalue="0"
-          ></counter>
-        </div>
-        <divider></divider>
-      </box>
+      <!-- PF1e: Familiars use standard HP, no dying/wounded counters -->
     </box>
 
     <!-- Vehicle HP Section -->
@@ -1470,13 +1355,6 @@
               field="ac"
             ></numberfield>
           </div>
-          <iconbutton
-            size="md"
-            variant="default"
-            options='[{"icon": "IconShield", "label": "Raise Shield", "value": "false"}, {"icon": "IconShieldFilled", "label": "Lower Shield", "value": "true"}]'
-            field="shieldRaised"
-            onchange="raiseShield(value)"
-          ></iconbutton>
         </div>
         <stringfield
           width="100%"
@@ -1570,15 +1448,6 @@
             ></numberfield>
           </div>
         </div>
-        <dropdown
-          size="xs"
-          field="initiativeSkill"
-          width="100%"
-          placeholder="Perception"
-          defaultvalue="Perception"
-          onchange="updateInitiativeSkill(value)"
-          options='[{"label": "Perception", "value": "Perception"}, {"label": "Acrobatics", "value": "Acrobatics"}, {"label": "Arcana", "value": "Arcana"}, {"label": "Athletics", "value": "Athletics"}, {"label": "Crafting", "value": "Crafting"}, {"label": "Deception", "value": "Deception"}, {"label": "Diplomacy", "value": "Diplomacy"}, {"label": "Intimidation", "value": "Intimidation"}, {"label": "Medicine", "value": "Medicine"}, {"label": "Nature", "value": "Nature"}, {"label": "Occultism", "value": "Occultism"}, {"label": "Performance", "value": "Performance"}, {"label": "Religion", "value": "Religion"}, {"label": "Society", "value": "Society"}, {"label": "Stealth", "value": "Stealth"}, {"label": "Survival", "value": "Survival"}, {"label": "Thievery", "value": "Thievery"}]'
-        ></dropdown>
       </div>
 
       <div style="margin-top: 4px">

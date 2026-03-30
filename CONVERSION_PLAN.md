@@ -326,19 +326,16 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 **Dependency**: All above
 
 ### npcs-main.html — Redesign
-- [ ] PF1e stat block format: CR, XP, alignment, type/subtype, Init, Senses
-- [ ] AC/Touch/Flat-Footed display
-- [ ] HP with HD breakdown
-- [ ] Fort/Ref/Will saves
-- [ ] Speed, Melee/Ranged attacks, Space/Reach
-- [ ] Str/Dex/Con/Int/Wis/Cha
-- [ ] BAB/CMB/CMD
-- [ ] Feats, Skills, Special Qualities
+- [x] Remove dying/wounded counters (PF1e uses negative HP)
+- [x] Remove shield raising mechanic (PF1e shields are passive)
+- [x] Remove PF2e initiative skill dropdown (NPC uses initiative modifier directly)
+- [x] Replace MAP (Multiple Attack Penalty) with PF1e iterative attacks (-5/-10)
+- [x] Remove PF2e action icon from new action creation
 
 ### NPC Support Files
-- [ ] npc-attack-list.html — PF1e attack format
-- [ ] npc-skill-list.html / npc-skill-edit-list.html — PF1e skills
-- [ ] npcs-spells.html / npc-spellcasting-entry-list.html — PF1e spell-like abilities and casting
+- [x] npc-attack-list.html — Remove PF2e action icon, update iterative attack tooltips
+- [x] npcs-spells.html — Remove focus type, traditions; add Spell-Like Abilities
+- [x] npc-spellcasting-entry-list.html — Remove focus pool, 10th rank, traditions; Rank→Level labels; Defense→Save headers
 
 ### Documentation
 - [ ] Update CLAUDE.md to reflect PF1e ruleset
