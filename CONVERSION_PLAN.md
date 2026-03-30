@@ -286,29 +286,36 @@ The engine in `common.js` (`getEffectsAndModifiersForToken`, predicate evaluatio
 **Dependency**: Phase 4
 
 ### recovery.js — Full Rewrite
-- [ ] PF1e death: die at negative HP equal to Con score
-- [ ] At negative HP but alive: DC 10 Constitution check each round to stabilize
-- [ ] Stable but unconscious: no further checks needed
-- [ ] Healing to 0+ HP: conscious again
+- [x] PF1e death: die at negative HP equal to Con score
+- [x] At negative HP but alive: DC 10 Constitution check each round to stabilize
+- [x] Stable but unconscious: no further checks needed
+- [x] Healing to 0+ HP: conscious again
 
 ### characters-main.html
-- [ ] Remove dying/wounded counters
-- [ ] Allow HP to go negative (down to -Con score)
-- [ ] Add stabilization check button when HP < 0
+- [x] Remove dying/wounded counters (replaced with stabilization check)
+- [x] Remove shield raising mechanic (PF1e shields are passive)
+- [x] Remove PF2e short rest / focus pool recovery
+- [x] Simplify rest() — remove innate/focus/alchemist/versatile vials/doomed/drained
 
 ### onTurnStart.js / onTurnEnd.js
-- [ ] Remove shield lowering on turn start
-- [ ] Add stabilization check prompt on turn when HP < 0
+- [x] Remove shield lowering on turn start
+- [x] Add stabilization check notification on turn when HP < 0
+- [x] Keep persistent damage on turn end (works for PF1e bleed)
 
 ### actions-main.html / actions-rules.html
-- [ ] Remove PF2e action icons (oneAction, twoActions, threeActions, reaction)
-- [ ] Replace with PF1e action types: Standard, Move, Full-Round, Swift, Free, Immediate
+- [x] Remove PF2e action icons (oneAction, twoActions, threeActions, reaction)
+- [x] Replace with PF1e action types: Standard, Move, Full-Round, Swift, Free, Immediate
 
 ### characters-actions.html / character-action-list.html
-- [ ] Redesign for PF1e action types
+- [x] Replace PF2e initiative skill dropdown with Dex-based initiative
+- [x] Remove innate/focus/item spellcasting types and traditions from popover
+- [x] Simplify casting ability to Int/Wis/Cha only
 
-### flatCheck.js
-- [ ] Remove — PF2e flat checks have no PF1e equivalent (or repurpose for percentile miss chance: concealment/blur/displacement)
+### common.js
+- [x] Rewrite performInitiativeRoll() for PF1e Dex-based initiative
+
+### flatCheck.js — Repurposed
+- [x] Repurposed as miss chance handler for concealment/blur/displacement
 
 ---
 

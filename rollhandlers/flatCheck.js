@@ -1,7 +1,9 @@
+// Miss Chance handler for PF1e
+// Used for concealment (20%), blur/displacement (20%/50%), etc.
+// Roll d100 — if roll is at or below the miss chance percentage, the attack misses.
+
 const rollName = data?.roll?.metadata?.rollName;
 const tooltip = data?.roll?.metadata?.tooltip;
-const isPersistent = data?.roll?.metadata?.isPersistent === true;
-const persistentPartIndex = data?.roll?.metadata?.persistentPartIndex;
 
 const roll = {
   ...data.roll,
@@ -17,49 +19,20 @@ if (isNaN(dc)) {
   dc = 0;
 }
 
-// Flat checks auto-succeed on DC 1 or lower, auto-fail on DC 21 or higher
-if (dc <= 1) {
-  message = `**[center][color=green]AUTOMATIC SUCCESS[/color] [gm](DC ${dc})[/gm][/center]**`;
-} else if (dc >= 21) {
-  message = `**[center][color=red]AUTOMATIC FAILURE[/color] [gm](DC ${dc})[/gm][/center]**`;
-} else if (dc > 0) {
+if (dc <= 0) {
+  message = `**[center][color=green]NO MISS CHANCE[/color][/center]**`;
+} else if (dc >= 100) {
+  message = `**[center][color=red]AUTOMATIC MISS[/color] [gm](${dc}% miss chance)[/gm][/center]**`;
+} else {
   const total = roll.total || 0;
 
-  // Find the d20 roll (flat checks are just d20, no modifiers)
-  let naturalRoll = 0;
-  if (roll.dice) {
-    const d20 = roll.dice.find((d) => d.type === 20 && d.reason !== "dropped");
-    if (d20) {
-      naturalRoll = parseInt(d20.value, 10);
-    }
-  }
-
-  // Flat checks are simple: meet or beat the DC to succeed
-  const success = total >= dc;
+  // Meet or beat the miss chance to hit
+  const success = total > dc;
 
   if (success) {
-    message = `**[center][color=lime]SUCCESS[/color] [gm]vs DC ${dc}[/gm][/center]**`;
-
-    // Handle persistent damage recovery
-    if (isPersistent && persistentPartIndex !== undefined) {
-      const token = api.getToken();
-      if (token) {
-        const effects = token?.effects || [];
-        const persistentDamageEffect = effects.find(
-          (effect) => effect.name === "Persistent Damage"
-        );
-
-        if (persistentDamageEffect) {
-          // Remove the specific instance
-          api.removeEffectById(persistentDamageEffect?._id, token, undefined, {
-            instanceIndex: persistentPartIndex,
-          });
-          message += `\n\n**Recovered from persistent damage!**`;
-        }
-      }
-    }
+    message = `**[center][color=lime]HIT[/color] [gm](rolled ${total} vs ${dc}% miss chance)[/gm][/center]**`;
   } else {
-    message = `**[center][color=pink]FAILURE[/color] [gm]vs DC ${dc}[/gm][/center]**`;
+    message = `**[center][color=pink]MISS[/color] [gm](rolled ${total} vs ${dc}% miss chance)[/gm][/center]**`;
   }
 }
 
@@ -69,8 +42,8 @@ api.sendMessage(
   [],
   [
     {
-      name: rollName || "Flat Check",
-      tooltip: tooltip || `${rollName || ""} Flat Check`,
+      name: rollName || "Miss Chance",
+      tooltip: tooltip || `${rollName || ""} Miss Chance`,
     },
   ]
 );

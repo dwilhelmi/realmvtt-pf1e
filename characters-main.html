@@ -414,90 +414,25 @@
     rollSkill(record, "perception");
   }
 
-  function rollRecoveryCheck() {
-    api.promptRoll("Recovery Check", "1d20", [], {}, "recovery");
+  function rollStabilizationCheck() {
+    const conMod = parseInt(record.data?.con || "0", 10);
+    api.promptRoll(
+      "Stabilization Check",
+      "1d20",
+      [{ name: "Con Mod", type: "", value: String(conMod), active: true }],
+      {},
+      "recovery"
+    );
   }
 
-  function raiseShield(value) {
-    if (value === "true") {
-      const ourToken = api.getToken();
-      if (ourToken) {
-        api.floatText(ourToken, "Raising a Shield", "#0000ff");
-      }
-      api.sendMessage(
-        "**[center]Raising a Shield[/center]**",
-        undefined,
-        [],
-        [],
-        ourToken
-      );
-    }
-    if (value === "false") {
-      const ourToken = api.getToken();
-      if (ourToken) {
-        api.floatText(ourToken, "Lowering a Shield", "#0000ff");
-      }
-      api.sendMessage(
-        "**[center]Lowering a Shield[/center]**",
-        undefined,
-        [],
-        [],
-        ourToken
-      );
-    }
+  // PF1e: No shield raising mechanic (shields provide passive AC bonus)
 
-    onAddEditFeature(record, undefined, true);
-  }
-
-  function shortRest() {
-    // Recover 1 focus point for all focus spellcasting entries
-    const valuesToSet = {};
-    let focusPointsRecovered = 0;
-
-    const spellcastingEntries = record.data?.spells || [];
-    spellcastingEntries.forEach((spellcastingEntry, spellListIndex) => {
-      const isFocus = spellcastingEntry.data?.type === "focus";
-
-      if (isFocus) {
-        const currentFocusPool = spellcastingEntry.data?.focusPool || 0;
-        // Reduce focus pool by 1 (minimum 0)
-        const newFocusPool = Math.max(0, currentFocusPool - 1);
-        if (newFocusPool < currentFocusPool) {
-          valuesToSet[`data.spells.${spellListIndex}.data.focusPool`] =
-            newFocusPool;
-          focusPointsRecovered++;
-        }
-      }
-    });
-
-    if (Object.keys(valuesToSet).length > 0) {
-      api.setValues(valuesToSet, () => {
-        api.sendMessage(
-          `Refocusing (10 minutes). Recovered ${focusPointsRecovered} Focus Point${
-            focusPointsRecovered !== 1 ? "s" : ""
-          }.`,
-          undefined,
-          [],
-          []
-        );
-      });
-    } else {
-      api.sendMessage(
-        "Refocusing (10 minutes). No Focus Points to recover.",
-        undefined,
-        [],
-        []
-      );
-    }
-  }
-
-  // Resets spells, alchemy for alchemists, and provides healing
+  // PF1e rest: recover HP and reset spells
   function rest() {
     const valuesToSet = {};
 
-    // Add HP per resting rules
-    // - The character regains Hit Points equal to their Constitution modifier (minimum 1) multiplied by their level.
-    const level = record.data?.level || 0;
+    // PF1e: recover character level * Constitution modifier HP (minimum 1 per level)
+    const level = record.data?.level || 1;
     const constitution = record.data?.con || 0;
     const constitutionModifier = Math.max(1, constitution);
     const curHp = record.data?.curhp || 0;
@@ -508,22 +443,16 @@
 
     valuesToSet["data.curhp"] = newHp;
 
-    let message = `Resting for the day.`;
+    let message = `Resting for 8 hours.`;
     if (healedBy > 0) {
       message += ` Recovered ${healedBy} HP.`;
     }
 
-    // Detemine if any spells need to be reset
+    // Reset spells
     const spellcastingEntries = record.data?.spells || [];
     spellcastingEntries.forEach((spellcastingEntry, spellListIndex) => {
-      const isInnate =
-        spellcastingEntry.data?.type === "innate" ||
-        spellcastingEntry.data?.type === "item";
-      const isFocus = spellcastingEntry.data?.type === "focus";
       const isSpontaneous = spellcastingEntry.data?.type === "spontaneous";
-      const isPrepared =
-        spellcastingEntry.data?.type === "prepared" ||
-        (!isInnate && !isFocus && !isSpontaneous);
+      const isPrepared = spellcastingEntry.data?.type === "prepared" || !isSpontaneous;
 
       const spellLists = [
         "cantrips",
@@ -538,268 +467,46 @@
         "spells9",
       ];
 
-      // If it's not a focus spell entry we go through each spell list of the entry
-      if (!isFocus) {
-        spellLists.forEach((spellList) => {
-          const spells =
-            api.getValue(`data.spells.${spellListIndex}.data.${spellList}`) ||
-            [];
-          // Go through each spell if it's innate or praepared
-          if (isInnate || isPrepared) {
-            spells.forEach((spell, index) => {
-              const dataPathToSpell = `data.spells.${spellListIndex}.data.${spellList}.${index}`;
-              if (isInnate) {
-                // If this is innate, we reset uses of the spell
-                const maxUses = spell.data?.maxUses || 0;
-                valuesToSet[`${dataPathToSpell}.data.uses`] = maxUses;
-              } else if (isPrepared) {
-                // If it's a prepared spell, we need to mark the spell as not used
-                valuesToSet[`${dataPathToSpell}.data.used`] = false;
-                valuesToSet[
-                  `${dataPathToSpell}.fields.nameUsedBox.hidden`
-                ] = true;
-                valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = false;
-              }
-            });
-          } else if (isSpontaneous && spellList !== "cantrips") {
-            // If this is a spontaneous spell, we need to reset the used spells
-            const numSpellsField = `num${capitalize(spellList)}`;
-            const usedSpellsField = `used${capitalize(spellList)}`;
-            const numSpells =
-              api.getValue(
-                `data.spells.${spellListIndex}.data.${numSpellsField}`
-              ) || 0;
-            valuesToSet[
-              `data.spells.${spellListIndex}.data.${usedSpellsField}`
-            ] = numSpells;
-          }
-        });
-      } else {
-        // If this is a focus spell entry we just reset the focus pool
-        valuesToSet[`data.spells.${spellListIndex}.data.focusPool`] = 0;
-      }
+      spellLists.forEach((spellList) => {
+        const spells =
+          api.getValue(`data.spells.${spellListIndex}.data.${spellList}`) ||
+          [];
+        if (isPrepared) {
+          spells.forEach((spell, index) => {
+            const dataPathToSpell = `data.spells.${spellListIndex}.data.${spellList}.${index}`;
+            valuesToSet[`${dataPathToSpell}.data.used`] = false;
+            valuesToSet[`${dataPathToSpell}.fields.nameUsedBox.hidden`] = true;
+            valuesToSet[`${dataPathToSpell}.fields.nameBox.hidden`] = false;
+          });
+        } else if (isSpontaneous && spellList !== "cantrips") {
+          const numSpellsField = `num${capitalize(spellList)}`;
+          const usedSpellsField = `used${capitalize(spellList)}`;
+          const numSpells =
+            api.getValue(
+              `data.spells.${spellListIndex}.data.${numSpellsField}`
+            ) || 0;
+          valuesToSet[
+            `data.spells.${spellListIndex}.data.${usedSpellsField}`
+          ] = numSpells;
+        }
+      });
     });
 
-    // Reset advanced alchemy items (for Alchemist class)
-    const advancedAlchemyItems = record.data?.advancedAlchemyItems || [];
-    advancedAlchemyItems.forEach((item, index) => {
-      const itemFieldsPath = `data.advancedAlchemyItems.${index}.fields`;
-      const itemDataPath = `data.advancedAlchemyItems.${index}.data`;
-      valuesToSet[`${itemDataPath}.craftingDeleteBtn`] = "markCrafted";
-      valuesToSet[`${itemFieldsPath}.markedNameBox.hidden`] = true;
-      valuesToSet[`${itemFieldsPath}.unmarkedNameBox.hidden`] = false;
-    });
-
-    let hasAlchemistClass = false;
-    const classObjs = record.data?.classes || [];
-    for (const classObj of classObjs) {
-      if (classObj?.name.toLowerCase().startsWith("alchemist")) {
-        hasAlchemistClass = true;
-      }
-    }
-
-    // Remove all infused items
-    const inventory = record.data?.inventory || [];
-    const itemsToRemove = [];
-    inventory.forEach((item, index) => {
-      // Ignore versatile vials since we handle it separately
-      const traits = item?.data?.traits || [];
-      const hasInfusedTrait = traits
-        .map((trait) => trait.toLowerCase())
-        .includes("infused");
-      if (
-        hasInfusedTrait &&
-        !item?.name.toLowerCase().startsWith("versatile vial")
-      ) {
-        itemsToRemove.push(item._id);
-      }
-    });
-    if (itemsToRemove.length > 0) {
-      message += " Removed all infused items.";
-    }
-
-    let needToAddVials = false;
-    let numVersatileVials = 0;
-    if (hasAlchemistClass) {
-      // Make sure versatilie vials is refreshed
-      // During your daily preparations, you can create a number of versatile vials up to 2 + your Intelligence modifier
-      const int = record.data?.int || 0;
-      numVersatileVials = 2 + int;
-      const versatileVials = inventory.find((item) =>
-        item?.name.toLowerCase().startsWith("versatile vial")
-      );
-      if (versatileVials) {
-        const versatileVialsIndex = inventory.findIndex(
-          (item) => item._id === versatileVials._id
-        );
-        const itemDataPath = `data.inventory.${versatileVialsIndex}.data`;
-        valuesToSet[`${itemDataPath}.count`] = numVersatileVials;
-      } else {
-        needToAddVials = true;
-      }
-      message += " Refreshed Versatile Vials.";
-    }
-
-    // Find effects that need to be modified
+    // Remove fatigued condition if present
     const effects = record?.effects || [];
     const fatiguedEffect = effects.find((effect) =>
       effect.name.toLowerCase().startsWith("fatigued")
     );
-    const doomedEffect = effects.find((effect) =>
-      effect.name.toLowerCase().startsWith("doomed")
-    );
-    const drainedEffect = effects.find((effect) =>
-      effect.name.toLowerCase().startsWith("drained")
-    );
 
-    // Process effects after all item operations complete
-    const processEffects = () => {
-      // The character loses the fatigued condition
+    api.setValues(valuesToSet, () => {
       if (fatiguedEffect) {
         message += " Lost the fatigued condition.";
         api.deductEffectById(fatiguedEffect._id, record, () => {
-          // The character reduces the severity of the doomed condition by 1
-          if (doomedEffect) {
-            message += " Doomed condition reduced by 1.";
-            api.deductEffectById(doomedEffect._id, record, () => {
-              // The character reduces the severity of the drained condition by 1
-              if (drainedEffect) {
-                message += " Drained condition reduced by 1.";
-                api.deductEffectById(drainedEffect._id, record, () => {
-                  api.sendMessage(message, undefined, [], []);
-                });
-              } else {
-                api.sendMessage(message, undefined, [], []);
-              }
-            });
-          } else if (drainedEffect) {
-            message += " Drained condition reduced by 1.";
-            api.deductEffectById(drainedEffect._id, record, () => {
-              api.sendMessage(message, undefined, [], []);
-            });
-          } else {
-            api.sendMessage(message, undefined, [], []);
-          }
+          api.sendMessage(message, undefined, [], []);
         });
       } else {
-        // No fatigued effect, check for doomed
-        if (doomedEffect) {
-          message += " Doomed condition reduced by 1.";
-          api.deductEffectById(doomedEffect._id, record, () => {
-            if (drainedEffect) {
-              message += " Drained condition reduced by 1.";
-              api.deductEffectById(drainedEffect._id, record, () => {
-                api.sendMessage(message, undefined, [], []);
-              });
-            } else {
-              api.sendMessage(message, undefined, [], []);
-            }
-          });
-        } else if (drainedEffect) {
-          message += " Drained condition reduced by 1.";
-          api.deductEffectById(drainedEffect._id, record, () => {
-            api.sendMessage(message, undefined, [], []);
-          });
-        } else {
-          api.sendMessage(message, undefined, [], []);
-        }
+        api.sendMessage(message, undefined, [], []);
       }
-    };
-
-    const queryAndAddVials = () => {
-      // Look for an item call "Versatile Vial"
-      api.getRecordByTypeAndName("items", "Versatile Vial", (item) => {
-        if (item) {
-          api.addValue(
-            "data.inventory",
-            {
-              ...item,
-              data: {
-                ...item.data,
-                carried: "carried",
-                ammo: numVersatileVials,
-                count: numVersatileVials,
-              },
-              fields: {
-                ...(item.fields || {}),
-                ...getItemFields(item),
-              },
-            },
-            () => {
-              if (itemsToRemove.length > 0) {
-                removeValuesSequentially(itemsToRemove, processEffects);
-              } else {
-                processEffects();
-              }
-            }
-          );
-        } else if (itemsToRemove.length > 0) {
-          removeValuesSequentially(itemsToRemove, processEffects);
-        } else {
-          processEffects();
-        }
-      });
-    };
-
-    // Chain effect changes synchronously through callbacks
-    api.setValues(valuesToSet, () => {
-      if (needToAddVials) {
-        queryAndAddVials();
-      } else {
-        if (itemsToRemove.length > 0) {
-          removeValuesSequentially(itemsToRemove, processEffects);
-        } else {
-          processEffects();
-        }
-      }
-    });
-  }
-
-  function removeValuesSequentially(itemIds, callback) {
-    // Remove items by ID using removeValueFromRecord to maintain updated record state
-    // Start by getting the initial record
-    api.getRecord(record.recordType, record._id, (currentRecord) => {
-      function removeNext(idIndex, workingRecord) {
-        if (idIndex >= itemIds.length) {
-          // All items removed, call the callback
-          if (callback) {
-            callback();
-          }
-          return;
-        }
-
-        const itemIdToRemove = itemIds[idIndex];
-        const currentInventory = workingRecord.data?.inventory || [];
-        const itemIndex = currentInventory.findIndex(
-          (item) => item._id === itemIdToRemove
-        );
-
-        if (itemIndex === -1) {
-          // Item not found, move to next
-          removeNext(idIndex + 1, workingRecord);
-          return;
-        }
-
-        api.removeValueFromRecord(
-          workingRecord,
-          `data.inventory`,
-          itemIndex,
-          (updatedRecord) => {
-            // Move to the next item with the updated record
-            removeNext(idIndex + 1, updatedRecord);
-          }
-        );
-      }
-
-      // Start removing from the first item
-      if (itemIds.length === 0) {
-        if (callback) {
-          callback();
-        }
-        return;
-      }
-
-      removeNext(0, currentRecord);
     });
   }
 </script>
