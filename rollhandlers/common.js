@@ -10772,21 +10772,31 @@ function applyDamage(
 }
 
 function performInitiativeRoll(record) {
-  const initiativeSkill = record.data?.initiativeSkill || "Perception";
-  rollSkill(
+  // PF1e: Initiative = 1d20 + Dex modifier + misc modifiers
+  const dexMod = parseInt(record.data?.dex || "0", 10);
+  const initMisc = parseInt(record.data?.initMisc || "0", 10);
+
+  const modifiers = [
+    { name: "Dex", type: "", value: String(dexMod), active: true },
+  ];
+  if (initMisc !== 0) {
+    modifiers.push({ name: "Misc", type: "", value: String(initMisc), active: true });
+  }
+
+  // Check for initiative modifiers from effects
+  const initMods = getEffectsAndModifiersForToken(
     record,
-    initiativeSkill.toLowerCase(),
-    null,
-    false,
-    0,
-    1,
-    "int",
-    false,
-    true,
-    undefined,
-    {
-      initiativeSkill: initiativeSkill,
-    }
+    ["initiativeBonus", "initiativePenalty"],
+    ""
+  );
+  modifiers.push(...initMods);
+
+  api.promptRoll(
+    "Initiative",
+    "1d20",
+    modifiers,
+    { rollName: "Initiative" },
+    "initiative"
   );
 }
 

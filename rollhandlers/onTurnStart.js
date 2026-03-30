@@ -1,43 +1,22 @@
 const token = data?.token;
 
-// Check if the target's shield is up and is a character
-const shieldUp = token?.data?.shieldRaised === "true";
-const isCharacter = token?.recordType === "characters";
-if (shieldUp && token?.recordId) {
-  if (isCharacter) {
-    api.getRecord("characters", token?.recordId, (record) => {
-      if (record) {
-        const valuesToSet = {
-          "data.shieldRaised": "false",
-        };
-        api.setValuesOnRecord(record, valuesToSet, (updatedRecord) => {
-          // If update was successful, then recalc AC and  bonuses
-          onAddEditFeature(updatedRecord, undefined, true);
-        });
+// PF1e: On turn start, check if the character is at negative HP and needs a stabilization check
+if (token?.recordType === "characters" && token?.recordId) {
+  api.getRecord("characters", token?.recordId, (record) => {
+    if (!record) return;
+
+    const currentHP = parseInt(record?.data?.curhp || "0", 10);
+    if (currentHP < 0) {
+      const conScore = parseInt(record?.data?.conScore || "10", 10);
+      const deathThreshold = -conScore;
+
+      if (currentHP > deathThreshold) {
+        api.showNotification(
+          `${record.name} is at ${currentHP} HP and must make a DC 10 stabilization check (death at ${deathThreshold} HP).`,
+          "yellow",
+          "Stabilization Required"
+        );
       }
-    });
-  } else if (token?.recordType === "npcs" && token?.recordId) {
-    // NPCs don't use onAddEditFeature, so we need to set the values directly
-
-    // Check for a shield in the inventory and use this AC, else default to 2
-    const inventory = token?.data?.inventory || [];
-    const shield = inventory.find((item) => item.data?.type === "shield");
-    const equippedShield = inventory.find(
-      (item) =>
-        item.data?.carried === "equipped" && item.data?.type === "shield"
-    );
-    let shieldAc = 2;
-    if (equippedShield || shield) {
-      // Use equipped shield first, else the other one we find
-      shieldAc = equippedShield?.data?.acBonus || shield?.data?.acBonus || 0;
     }
-
-    // If raising, add to AC, else subtract
-    const newAC = token?.data?.ac - shieldAc;
-
-    api.setValuesOnTokenById(token?._id, token?.recordType, {
-      "data.shieldRaised": "false",
-      "data.ac": newAC,
-    });
-  }
+  });
 }
