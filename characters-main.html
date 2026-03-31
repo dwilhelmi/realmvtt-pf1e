@@ -38,6 +38,17 @@
         self.findIndex((t) => t.name === trait.name) === index
     );
 
+    // Apply racial ability modifiers to current ability scores
+    const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+    const abilityScoreUpdates = {};
+    attributes.forEach((attr) => {
+      const racialMod = parseInt(raceObj.data?.[attr + "Mod"] || "0", 10);
+      if (racialMod !== 0) {
+        const curScore = parseInt(record.data?.abilityScores?.[attr] || "10", 10);
+        abilityScoreUpdates[`data.abilityScores.${attr}`] = curScore + racialMod;
+      }
+    });
+
     api.setValues(
       {
         "data.races": [raceObj],
@@ -48,6 +59,7 @@
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
         "data.reach": raceObj.data?.reach,
+        ...abilityScoreUpdates,
       },
       (updatedRecord) => {
         api.setHidden("races", false, () => {
@@ -167,15 +179,32 @@
   }
 
   function onDeleteRace() {
-    onAddEditFeature(
-      record,
-      () => {
-        api.setHidden("races", true, () => {
-          api.setHidden("raceDetailsLabel", false);
-        });
-      },
-      true
-    );
+    // Reverse racial ability modifiers before removing the race
+    const races = record.data?.races || [];
+    const race = races[0];
+    const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+    const abilityScoreUpdates = {};
+    if (race) {
+      attributes.forEach((attr) => {
+        const racialMod = parseInt(race.data?.[attr + "Mod"] || "0", 10);
+        if (racialMod !== 0) {
+          const curScore = parseInt(record.data?.abilityScores?.[attr] || "10", 10);
+          abilityScoreUpdates[`data.abilityScores.${attr}`] = curScore - racialMod;
+        }
+      });
+    }
+
+    api.setValues(abilityScoreUpdates, (updatedRecord) => {
+      onAddEditFeature(
+        updatedRecord,
+        () => {
+          api.setHidden("races", true, () => {
+            api.setHidden("raceDetailsLabel", false);
+          });
+        },
+        true
+      );
+    });
   }
 
   function onDeleteClass() {
@@ -872,43 +901,78 @@
   style="
     display: flex;
     flex-direction: row;
-    gap: 8px;
+    gap: 4px;
     margin-top: 4px;
     justify-content: center;
-    align-items: flex-end;
     width: 100%;
     margin-bottom: 4px;
   "
 >
-  <attribute field="abilityScores.str" modifierfield="strMod" label="STR"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('str')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.str"
+      label="STR" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="strMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "STR Check", "value": "roll"}]'
+      field="Roll STR" onclick="rollAbilityCheck('str')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.dex" modifierfield="dexMod" label="DEX"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('dex')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.dex"
+      label="DEX" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="dexMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "DEX Check", "value": "roll"}]'
+      field="Roll DEX" onclick="rollAbilityCheck('dex')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.con" modifierfield="conMod" label="CON"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('con')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.con"
+      label="CON" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="conMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "CON Check", "value": "roll"}]'
+      field="Roll CON" onclick="rollAbilityCheck('con')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.int" modifierfield="intMod" label="INT"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('int')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.int"
+      label="INT" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="intMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "INT Check", "value": "roll"}]'
+      field="Roll INT" onclick="rollAbilityCheck('int')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.wis" modifierfield="wisMod" label="WIS"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('wis')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.wis"
+      label="WIS" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="wisMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "WIS Check", "value": "roll"}]'
+      field="Roll WIS" onclick="rollAbilityCheck('wis')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.cha" modifierfield="chaMod" label="CHA"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('cha')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.cha"
+      label="CHA" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="chaMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "CHA Check", "value": "roll"}]'
+      field="Roll CHA" onclick="rollAbilityCheck('cha')"></iconbutton>
+  </div>
 </div>
 
 <!-- SAVING THROWS -->

@@ -4795,33 +4795,19 @@ function updateProficiencies(record, valuesToSet) {
   }
 }
 
-// Calculate PF1e ability scores from base scores + racial modifiers
+// Calculate PF1e ability scores and modifiers
+// Racial modifiers are baked into the score at race selection time,
+// so the stored score IS the final score.
 function calculateAbilityScores(record) {
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];
   const results = {};
 
-  // Get racial ability modifiers from the race record
-  const races = record.data?.races || [];
-  const race = races[0];
-  const racialMods = race?.data?.abilityModifiers || {};
-
   attributes.forEach((attribute) => {
-    // Base score: the raw value entered by the player (default 10)
-    const baseScore = parseInt(record.data?.abilityScores?.[attribute] || "10", 10);
-
-    // Racial modifier (e.g., +2 Str, -2 Cha for Half-Orc)
-    const racialMod = parseInt(racialMods[attribute] || "0", 10);
-
-    // Total ability score
-    const totalScore = baseScore + racialMod;
-
-    // Ability modifier = floor((score - 10) / 2)
-    const modifier = calculateAbilityModifier(totalScore);
+    const score = parseInt(record.data?.abilityScores?.[attribute] || "10", 10);
+    const modifier = calculateAbilityModifier(score);
 
     results[attribute] = {
-      baseScore: baseScore,
-      racialMod: racialMod,
-      totalScore: totalScore,
+      score: score,
       modifier: modifier,
     };
   });
@@ -5301,18 +5287,12 @@ function onAddEditFeature(
 
   const attributes = ["str", "dex", "con", "int", "wis", "cha"];
 
-  // Set base ability scores and modifiers from race + base scores
+  // Set ability scores and modifiers (racial mods already baked into score)
   attributes.forEach((attribute) => {
     const result = abilityResults[attribute];
-    let totalScore = result.totalScore;
 
-    // Store the base score and racial mod for display
-    valuesToSet[`data.abilityScores.${attribute}`] = result.baseScore;
-    valuesToSet[`data.racialMods.${attribute}`] = result.racialMod;
-
-    // Start with the racial-adjusted modifier
     valuesToSet[`data.total${capitalize(attribute)}Mod`] = result.modifier;
-    valuesToSet[`data.${attribute}Score`] = totalScore;
+    valuesToSet[`data.${attribute}Score`] = result.score;
   });
 
   // Apply ability score bonuses/penalties from effects (enhancement bonuses, etc.)

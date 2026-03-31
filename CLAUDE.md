@@ -48,7 +48,7 @@ This is a **Pathfinder 1st Edition** ruleset implementation for Realm VTT. The c
 The ruleset is organized by game entity types and UI components:
 
 - **Character sheets**: `characters-*.html` - Main character sheet and its tabs (skills, features, notes)
-- **Entity definitions**: `ancestry-*.html` (races), `class-*.html`, `backgrounds-*.html` (campaign traits), `feats-*.html`, `features-*.html`, `items-*.html`
+- **Entity definitions**: `race-*.html` (races), `class-*.html`, `backgrounds-*.html` (campaign traits), `feats-*.html`, `features-*.html`, `items-*.html`
 - **List components**: `*-list.html` files - Reusable list components for various data types
 - **Rules**: `*-rules.html` files - Rule-specific UI and logic
 - **NPC sheets**: `npcs-main.html`, `npc-*.html` - NPC/monster stat blocks
@@ -140,7 +140,7 @@ The Realm VTT API provides these core functions used throughout:
 - `dataPath` - Current field's data path context
 - `getNearestParentDataPath(dataPath)` - Navigate to parent object in data hierarchy
 - `record` - The current record being edited
-- Field paths use dot notation: `data.ancestries`, `fields.levelLabel.hidden`
+- Field paths use dot notation: `data.races`, `fields.levelLabel.hidden`
 
 ### Common Functions
 

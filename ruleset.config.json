@@ -157,19 +157,19 @@
     },
     {
       "name": "Races",
-      "type": "ancestry",
+      "type": "races",
       "isList": false,
       "minX": 500,
       "minY": 500,
       "tabs": [
         {
           "name": "Main",
-          "file": "ancestry-main.html",
+          "file": "race-main.html",
           "fields": []
         },
         {
           "name": "Features",
-          "file": "ancestry-features.html"
+          "file": "race-features.html"
         }
       ],
       "icon": "IconMan",
@@ -485,15 +485,15 @@
       "singleRow": false
     },
     {
-      "name": "Ancestry Feature List",
-      "type": "ancestry_feature_list",
+      "name": "Race Feature List",
+      "type": "race_feature_list",
       "isList": true,
       "minX": 500,
       "minY": 300,
       "tabs": [
         {
           "name": "Main",
-          "file": "ancestry-feature-list.html",
+          "file": "race-feature-list.html",
           "fields": []
         }
       ],
@@ -2236,7 +2236,7 @@
           "maxField": ""
         },
         {
-          "field": "ancestryName",
+          "field": "raceName",
           "label": "Race",
           "type": "string",
           "width": 100
