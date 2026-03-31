@@ -38,6 +38,17 @@
         self.findIndex((t) => t.name === trait.name) === index
     );
 
+    // Apply racial ability modifiers to current ability scores
+    const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+    const abilityScoreUpdates = {};
+    attributes.forEach((attr) => {
+      const racialMod = parseInt(raceObj.data?.[attr + "Mod"] || "0", 10);
+      if (racialMod !== 0) {
+        const curScore = parseInt(record.data?.abilityScores?.[attr] || "10", 10);
+        abilityScoreUpdates[`data.abilityScores.${attr}`] = curScore + racialMod;
+      }
+    });
+
     api.setValues(
       {
         "data.races": [raceObj],
@@ -48,6 +59,7 @@
         "data.traitsList": newTraitsList,
         "data.traits": newTraits,
         "data.reach": raceObj.data?.reach,
+        ...abilityScoreUpdates,
       },
       (updatedRecord) => {
         api.setHidden("races", false, () => {
@@ -63,56 +75,102 @@
   }
 
 
+  function buildClassLabel(classes) {
+    return classes
+      .map((c) => `${c.name} ${c.data?.classLevel || 1}`)
+      .join(" / ");
+  }
+
+  function computeTotalLevel(classes) {
+    return classes.reduce(
+      (sum, c) => sum + (parseInt(c.data?.classLevel, 10) || 1),
+      0
+    );
+  }
+
   function onDropClass(recordLink) {
-    // Check if already on Character
-    const classes = record?.data?.classes || [];
+    const existingClasses = record?.data?.classes || [];
     const className = recordLink.tooltip;
     const classObj = { ...recordLink.value };
+    classObj.data = classObj.data || {};
 
-    // Add all non-rarity traits to the character
-    const traits = classObj.data?.traits || [];
-    const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
-    classObj.data.traits = nonRarityTraits;
+    // Check if this class already exists
+    const existingIndex = existingClasses.findIndex((c) => c.name === className);
+    const newClasses = [...existingClasses];
+    let classIndex;
 
-    // Set traits list
-    const traitsObjects = [];
-    for (const trait of nonRarityTraits) {
-      traitsObjects.push({
+    if (existingIndex >= 0) {
+      // Class exists — increment its level
+      classIndex = existingIndex;
+      newClasses[existingIndex] = {
+        ...newClasses[existingIndex],
+        data: {
+          ...newClasses[existingIndex].data,
+          classLevel: (parseInt(newClasses[existingIndex].data?.classLevel, 10) || 0) + 1,
+        },
+      };
+    } else {
+      // New class
+      classIndex = newClasses.length;
+      classObj.data.classLevel = 1;
+
+      const traits = classObj.data?.traits || [];
+      const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+      classObj.data.traits = nonRarityTraits;
+      newClasses.push(classObj);
+    }
+
+    // Add traits for new classes
+    const valuesToSet = {};
+    if (existingIndex < 0) {
+      const traits = classObj.data?.traits || [];
+      const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+      const traitsObjects = nonRarityTraits.map((trait) => ({
         _id: generateUuid(),
         name: trait,
         identified: true,
         data: {},
-      });
+      }));
+      const curTraits = record.data?.traits || [];
+      valuesToSet["data.traits"] = [...new Set([...curTraits, ...nonRarityTraits])];
+      const curTraitsList = record.data?.traitsList || [];
+      valuesToSet["data.traitsList"] = [...curTraitsList, ...traitsObjects].filter(
+        (trait, index, self) =>
+          self.findIndex((t) => t.name === trait.name) === index
+      );
     }
 
-    const curTraits = record.data?.traits || [];
-    // Ensure uniqueness by using a Set for better deduplication
-    const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+    // Create a classLevels entry
+    const hitDie = parseInt(newClasses[classIndex]?.data?.hitDie || "8", 10);
+    const classLevels = record.data?.classLevels || [];
+    const isFirstLevel = classLevels.length === 0;
+    const hp = isFirstLevel ? hitDie : Math.floor(hitDie / 2) + 1;
 
-    const curTraitsList = record.data?.traitsList || [];
-    // Ensure uniqueness by name, keeping the first occurrence of each trait name
-    const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
-      (trait, index, self) =>
-        self.findIndex((t) => t.name === trait.name) === index
-    );
-
-    api.setValues(
-      {
-        "data.level": record.data?.level || 1, // Set level to 1 if not set
-        "data.classes": [classObj],
-        "data.className": className,
-        "data.traitsList": newTraitsList,
-        "data.traits": newTraits,
+    const newLevelEntry = {
+      _id: generateUuid(),
+      name: `${className} ${newClasses[classIndex].data.classLevel}`,
+      identified: true,
+      data: {
+        charLevel: classLevels.length + 1,
+        className: className,
+        classIndex: classIndex,
+        hitDie: hitDie,
+        hitDieLabel: `d${hitDie}`,
+        hp: hp,
+        favoredBonus: "none",
       },
-      (updatedRecord) => {
-        // Recalculate ability scores for bonuses and such
-        onAddEditFeature(updatedRecord, () => {
-          api.setHidden("classes", false, () => {
-            api.setHidden("classDetailsLabel", true);
-          });
-        });
-      }
-    );
+    };
+
+    valuesToSet["data.classes"] = newClasses;
+    valuesToSet["data.classLevels"] = [...classLevels, newLevelEntry];
+    valuesToSet["data.className"] = buildClassLabel(newClasses);
+    valuesToSet["data.level"] = classLevels.length + 1;
+
+    api.setValues(valuesToSet, (updatedRecord) => {
+      onAddEditFeature(updatedRecord, () => {
+        api.setHidden("classDetailsLabel", true);
+      });
+    });
   }
 
   function onDropBackground(recordLink) {
@@ -167,39 +225,128 @@
   }
 
   function onDeleteRace() {
-    onAddEditFeature(
-      record,
-      () => {
-        api.setHidden("races", true, () => {
-          api.setHidden("raceDetailsLabel", false);
-        });
+    // Reverse racial ability modifiers before removing the race
+    const races = record.data?.races || [];
+    const race = races[0];
+    const attributes = ["str", "dex", "con", "int", "wis", "cha"];
+    const abilityScoreUpdates = {};
+    if (race) {
+      attributes.forEach((attr) => {
+        const racialMod = parseInt(race.data?.[attr + "Mod"] || "0", 10);
+        if (racialMod !== 0) {
+          const curScore = parseInt(record.data?.abilityScores?.[attr] || "10", 10);
+          abilityScoreUpdates[`data.abilityScores.${attr}`] = curScore - racialMod;
+        }
+      });
+    }
+
+    api.setValues(abilityScoreUpdates, (updatedRecord) => {
+      onAddEditFeature(
+        updatedRecord,
+        () => {
+          api.setHidden("races", true, () => {
+            api.setHidden("raceDetailsLabel", false);
+          });
+        },
+        true
+      );
+    });
+  }
+
+  function onClassListChanged() {
+    // Called when a class is removed via the record_link_list X button
+    // The engine has already updated data.classes, so just recalculate
+    const classes = record?.data?.classes || [];
+    const classNames = classes.map((c) => c.name);
+
+    // Remove classLevels entries for removed classes
+    const classLevels = record.data?.classLevels || [];
+    const newClassLevels = classLevels.filter(
+      (lvl) => classNames.includes(lvl.data?.className)
+    );
+    // Re-number charLevel
+    newClassLevels.forEach((lvl, i) => {
+      lvl.data.charLevel = i + 1;
+    });
+
+    // Recalculate class levels from remaining classLevels
+    classes.forEach((c) => {
+      c.data.classLevel = newClassLevels.filter(
+        (lvl) => lvl.data?.className === c.name
+      ).length;
+    });
+
+    // Remove unused feat slots
+    const feats = record.data?.feats || [];
+    const remainingFeats = feats.filter((feat) => feat.data?.type !== "slot");
+
+    const valuesToSet = {
+      "data.classes": classes,
+      "data.classLevels": newClassLevels,
+      "data.className": classes.length > 0 ? buildClassLabel(classes) : "",
+      "data.level": newClassLevels.length,
+      "data.feats": remainingFeats,
+    };
+
+    api.setValues(valuesToSet, (updatedRecord) => {
+      onAddEditFeature(
+        updatedRecord,
+        () => {
+          if (classes.length === 0) {
+            api.setHidden("classes", true);
+          }
+        },
+        true
+      );
+    });
+  }
+
+  function onClassLevelChange(index, value) {
+    const classes = record?.data?.classes || [];
+    const newLevel = Math.max(1, parseInt(value, 10) || 1);
+    classes[index].data.classLevel = newLevel;
+
+    const totalLevel = computeTotalLevel(classes);
+    api.setValues(
+      {
+        "data.classes": classes,
+        "data.className": buildClassLabel(classes),
+        "data.level": totalLevel,
       },
-      true
+      (updatedRecord) => {
+        onAddEditFeature(updatedRecord);
+      }
     );
   }
 
-  function onDeleteClass() {
-    // Remove all unused feat slots
-    const feats = record.data?.feats || [];
-    const remainingFeats = feats.filter((feat) => feat.data?.type !== "slot");
-    api.setValues(
-      {
-        "data.feats": remainingFeats,
-      },
-      (updatedRecord) => {
-        // Recalculate ability scores for bonuses and such
-        onAddEditFeature(
-          updatedRecord,
-          () => {
-            api.setHidden("classes", true, () => {
-              api.setHidden("classDetailsLabel", false);
-            });
-          },
-          // Skip choice processing
-          true
-        );
+  function editClassLevels() {
+    const classes = record?.data?.classes || [];
+    if (classes.length === 0) {
+      api.showNotification("No classes to edit. Drag and drop a class first.");
+      return;
+    }
+
+    // Prompt for which class to edit
+    const options = classes.map((c, i) => ({
+      label: `${c.name} (Level ${c.data?.classLevel || 1})`,
+      value: String(i),
+    }));
+    api.showPrompt("Edit Class Levels", "Select a class to change its level:", options, (selected) => {
+      if (selected === undefined || selected === null) return;
+      const classIndex = parseInt(selected, 10);
+      const classObj = classes[classIndex];
+      if (!classObj) return;
+
+      // Prompt for the new level
+      const levelOptions = [];
+      for (let i = 1; i <= 20; i++) {
+        levelOptions.push({ label: String(i), value: String(i) });
       }
-    );
+      api.showPrompt("Set Level", `Set level for ${classObj.name}:`, levelOptions, (levelSelected) => {
+        if (levelSelected === undefined || levelSelected === null) return;
+        onClassLevelChange(classIndex, levelSelected);
+      });
+    });
   }
 
   function onDeleteBackground() {
@@ -354,20 +501,72 @@
   }
 
   function onLevelUp() {
-    // Increase level by 1, max 20
-    const newLevel = Math.min(20, record.data?.level + 1);
+    const classes = record?.data?.classes || [];
+    if (classes.length === 0) {
+      api.showNotification("Add a class before leveling up.");
+      return;
+    }
+
+    // If only one class, level it directly
+    if (classes.length === 1) {
+      applyLevelUp(0);
+      return;
+    }
+
+    // Multiple classes — prompt for which to level
+    const options = classes.map((c, i) => ({
+      label: `${c.name} (currently ${c.data?.classLevel || 1})`,
+      value: String(i),
+    }));
+    api.showPrompt("Level Up", "Which class?", options, (selected) => {
+      if (selected !== undefined && selected !== null) {
+        applyLevelUp(parseInt(selected, 10));
+      }
+    });
+  }
+
+  function applyLevelUp(classIndex) {
+    const classes = record?.data?.classes || [];
+    const classObj = classes[classIndex];
+    if (!classObj) return;
+
+    classObj.data.classLevel = (parseInt(classObj.data?.classLevel, 10) || 1) + 1;
+
+    // Create a classLevels entry
+    const hitDie = parseInt(classObj.data?.hitDie || "8", 10);
+    const classLevels = record.data?.classLevels || [];
+    const isFirstLevel = classLevels.length === 0;
+    const hp = isFirstLevel ? hitDie : Math.floor(hitDie / 2) + 1;
+
+    const newLevelEntry = {
+      _id: generateUuid(),
+      name: `${classObj.name} ${classObj.data.classLevel}`,
+      identified: true,
+      data: {
+        charLevel: classLevels.length + 1,
+        className: classObj.name,
+        classIndex: classIndex,
+        hitDie: hitDie,
+        hitDieLabel: `d${hitDie}`,
+        hp: hp,
+        favoredBonus: "none",
+      },
+    };
+
+    const newTotalLevel = computeTotalLevel(classes);
     const newXp = Math.max(0, record.data?.xp - 1000);
-    const showLevelUpBtn = newXp >= 1000 && newLevel < 20;
+    const showLevelUpBtn = newXp >= 1000 && newTotalLevel < 20;
+
     api.setValues(
       {
-        "data.level": newLevel,
-        // Decrease XP by 1000
+        "data.classes": classes,
+        "data.classLevels": [...classLevels, newLevelEntry],
+        "data.className": buildClassLabel(classes),
+        "data.level": newTotalLevel,
         "data.xp": newXp,
-        // Hide the level up button if XP needed
         "fields.levelUpBtn.hidden": !showLevelUpBtn,
       },
       (recordUpdated) => {
-        // Recalculate features including any choices we need to now make
         onAddEditFeature(recordUpdated);
       }
     );
@@ -545,7 +744,7 @@
         label="Level"
         minvalue="0"
         defaultvalue="0"
-        onchange="onLevelChange(value)"
+        editable="false"
         onload="onLoadCharacter()"
       >
       </numberfield>
@@ -821,25 +1020,35 @@
   </div>
 </div>
 
+<!-- Classes (multiclass support) -->
 <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
-  <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
-    <stringfield
-      placeholder="Drag and drop a Class"
-      field="className"
-      width="100%"
-      label="Class"
-      size="sm"
-    ></stringfield>
-    <list
-      width="fit-content"
-      height="32px"
-      hidden="true"
-      listtype="record_link_list"
-      field="classes"
-      onchange="onDeleteClass();"
-    >
-    </list>
-  </div>
+  <stringfield
+    placeholder="Drag and drop a Class"
+    field="className"
+    width="100%"
+    label="Classes"
+    size="sm"
+    editable="false"
+  ></stringfield>
+  <iconbutton
+    size="sm"
+    variant="light"
+    hideonlocked="true"
+    options='[{"icon": "IconEdit", "label": "Edit Class Levels", "value": "edit"}]'
+    field="Edit Class Levels"
+    onclick="editClassLevels()"
+  ></iconbutton>
+  <list
+    width="fit-content"
+    height="32px"
+    listtype="record_link_list"
+    field="classes"
+    onchange="onClassListChanged();"
+  >
+  </list>
+</div>
+
+<div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
   <div style="width: 100%; gap: 4px; display: flex; align-items: flex-end">
     <stringfield
       placeholder="Drag and drop a Background"
@@ -872,43 +1081,78 @@
   style="
     display: flex;
     flex-direction: row;
-    gap: 8px;
+    gap: 4px;
     margin-top: 4px;
     justify-content: center;
-    align-items: flex-end;
     width: 100%;
     margin-bottom: 4px;
   "
 >
-  <attribute field="abilityScores.str" modifierfield="strMod" label="STR"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('str')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.str"
+      label="STR" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="strMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "STR Check", "value": "roll"}]'
+      field="Roll STR" onclick="rollAbilityCheck('str')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.dex" modifierfield="dexMod" label="DEX"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('dex')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.dex"
+      label="DEX" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="dexMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "DEX Check", "value": "roll"}]'
+      field="Roll DEX" onclick="rollAbilityCheck('dex')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.con" modifierfield="conMod" label="CON"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('con')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.con"
+      label="CON" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="conMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "CON Check", "value": "roll"}]'
+      field="Roll CON" onclick="rollAbilityCheck('con')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.int" modifierfield="intMod" label="INT"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('int')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.int"
+      label="INT" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="intMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "INT Check", "value": "roll"}]'
+      field="Roll INT" onclick="rollAbilityCheck('int')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.wis" modifierfield="wisMod" label="WIS"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('wis')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.wis"
+      label="WIS" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="wisMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "WIS Check", "value": "roll"}]'
+      field="Roll WIS" onclick="rollAbilityCheck('wis')"></iconbutton>
+  </div>
 
-  <attribute field="abilityScores.cha" modifierfield="chaMod" label="CHA"
-    showbutton buttonicon="d20" onclick="rollAbilityCheck('cha')"
-    containervariant="fancy" modifiershowsign="true" defaultvalue="10"
-    updateonblur="true"></attribute>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+    <numberfield placeholder="10" size="xs" width="55px" field="abilityScores.cha"
+      label="CHA" hidecontrols="true" textalign="center"
+      onchange="onAddEditFeature(record)"></numberfield>
+    <numberfield placeholder="0" size="xs" width="55px" field="chaMod"
+      showsign="true" hidecontrols="true" editable="false" textalign="center"></numberfield>
+    <iconbutton size="xs" variant="light"
+      options='[{"icon": "D20", "label": "CHA Check", "value": "roll"}]'
+      field="Roll CHA" onclick="rollAbilityCheck('cha')"></iconbutton>
+  </div>
 </div>
 
 <!-- SAVING THROWS -->

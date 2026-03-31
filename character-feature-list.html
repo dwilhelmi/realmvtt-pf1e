@@ -1,6 +1,8 @@
 <script>
   function getFeatureFilters() {
-    const level = record.data?.level || 0;
+    debugger;
+    // Use classLevel for multiclass support, fall back to character level
+    const level = record.data?.classLevel || record.data?.level || 0;
     if (level > 0) {
       const filters = [];
       for (let i = 1; i <= level; i++) {
@@ -19,7 +21,7 @@
       return filters;
     }
     return [
-      { field: "level", operator: "equals", value: record.data?.level || 0 },
+      { field: "level", operator: "equals", value: 0 },
       { field: "level", operator: "is_empty", isOr: true },
     ];
   }

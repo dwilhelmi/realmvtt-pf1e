@@ -1,0 +1,40 @@
+<div style="height: 30px; display: flex; gap: 4px; align-items: center">
+  <numberfield
+    size="xs"
+    width="35px"
+    field="charLevel"
+    editable="false"
+    hidecontrols="true"
+    textalign="center"
+  ></numberfield>
+  <div style="flex-grow: 1">
+    <stringfield
+      size="xs"
+      field="className"
+      editable="false"
+    ></stringfield>
+  </div>
+  <stringfield
+    size="xs"
+    width="45px"
+    field="hitDieLabel"
+    editable="false"
+    textalign="center"
+  ></stringfield>
+  <numberfield
+    size="xs"
+    width="40px"
+    field="hp"
+    hidecontrols="true"
+    textalign="center"
+    onchange="onAddEditFeature(record)"
+  ></numberfield>
+  <dropdown
+    size="xs"
+    width="100px"
+    field="favoredBonus"
+    placeholder="None"
+    options='[{"label": "None", "value": "none"}, {"label": "+1 HP", "value": "hp"}, {"label": "+1 Skill", "value": "skill"}]'
+    onchange="onAddEditFeature(record)"
+  ></dropdown>
+</div>
