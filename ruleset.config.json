@@ -15,6 +15,10 @@
           "file": "characters-main.html"
         },
         {
+          "name": "Classes",
+          "file": "characters-classes.html"
+        },
+        {
           "name": "Skills",
           "file": "characters-skills.html"
         },
@@ -515,6 +519,36 @@
       "filterCriteria": [],
       "singleRow": false,
       "hideFromCompendium": false
+    },
+    {
+      "name": "Class Level List",
+      "type": "class_level_list",
+      "isList": true,
+      "minX": 500,
+      "minY": 300,
+      "tabs": [
+        {
+          "name": "Main",
+          "file": "class-level-list.html",
+          "fields": []
+        }
+      ],
+      "icon": "",
+      "showAddButton": false,
+      "showDeleteButton": false,
+      "addButtonText": "",
+      "allowedListTypes": [],
+      "newItemName": "",
+      "newItemUnidentifiedName": "",
+      "stackDuplicates": false,
+      "disableDrop": false,
+      "countFieldName": "",
+      "emptyListText": "",
+      "orderCriteria": [],
+      "maxLength": 0,
+      "filterCriteria": [],
+      "singleRow": false,
+      "hideFromCompendium": true
     },
     {
       "name": "Attached Item List",

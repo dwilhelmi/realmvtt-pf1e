@@ -3355,25 +3355,41 @@ function updateAttribute({
 
   // If this was constitution, update hitpoints
   if (attribute === "con") {
-    // PF1e HP = sum of HD rolls (or average) per level + Con mod * level + favored class HP + misc
     const conMod = value;
-    const classObj = record.data?.classes?.[0];
-    const hitDie = parseInt(classObj?.data?.hitDie || "8", 10);
+    const classes = record.data?.classes || [];
+    const classLevels = record.data?.classLevels || [];
     const level = parseInt(record.data?.level || "0", 10);
-    // Use average HD per level (rounded up): (hitDie / 2) + 0.5, max at first level
-    // First level gets max HD, subsequent levels get average
+
     let baseHp = 0;
-    if (level >= 1) {
-      baseHp = hitDie; // Max at first level
-      if (level > 1) {
-        const avgPerLevel = Math.floor(hitDie / 2) + 1;
-        baseHp += avgPerLevel * (level - 1);
+    let favoredClassHp = 0;
+    if (classLevels.length > 0) {
+      for (const lvl of classLevels) {
+        baseHp += parseInt(lvl.data?.hp || "0", 10);
+        if (lvl.data?.favoredBonus === "hp") favoredClassHp += 1;
       }
+    } else {
+      let isFirstLevel = true;
+      for (const classObj of classes) {
+        const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+        const hitDie = parseInt(classObj.data?.hitDie || "8", 10);
+        if (classLevel >= 1) {
+          if (isFirstLevel) {
+            baseHp += hitDie;
+            isFirstLevel = false;
+            if (classLevel > 1) {
+              const avg = Math.floor(hitDie / 2) + 1;
+              baseHp += avg * (classLevel - 1);
+            }
+          } else {
+            const avg = Math.floor(hitDie / 2) + 1;
+            baseHp += avg * classLevel;
+          }
+        }
+      }
+      favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
     }
-    const favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
     const totalHp = extraHitpoints + baseHp + (conMod * level) + favoredClassHp;
     valuesToSet[`data.hitpoints`] = totalHp;
-    // If curhp is not set, set it to hitpoints
     if (record.data?.curhp === undefined) {
       valuesToSet[`data.curhp`] = totalHp;
     }
@@ -3482,6 +3498,13 @@ function processChoices(record, depth = 0) {
   const feats = record.data?.feats || [];
   const bonusFeats = record.data?.bonusFeats || [];
 
+  // Build class feature groups for each class
+  const classGroups = classes.map((classObj, i) => ({
+    name: classObj.name || "Class",
+    dataPath: `data.classes.${i}.data.features`,
+    features: classObj.data?.features || [],
+  }));
+
   const groups = [
     {
       name: "Race",
@@ -3489,12 +3512,7 @@ function processChoices(record, depth = 0) {
       dataPath: "data.races.0.data.features",
       features: raceFeatures,
     },
-    {
-      name: "Class",
-      // Assume only ever 1 class
-      dataPath: "data.classes.0.data.features",
-      features: classFeatures,
-    },
+    ...classGroups,
     {
       name: "Feats",
       dataPath: "data.feats",
@@ -3634,13 +3652,14 @@ function processQueryActorTemplates(queryString, record) {
   const classes = Array.isArray(record?.data?.classes)
     ? record.data.classes
     : [];
-  const className = classes[0]?.name || "";
-  const classTrait = className
-    ? className.toLowerCase().replace(/\s+/g, "-")
-    : "";
+  // Match against all class names for multiclass
+  const classTraits = classes
+    .map((c) => c.name ? c.name.toLowerCase().replace(/\s+/g, "-") : "")
+    .filter(Boolean);
+  const classTrait = classTraits[0] || "";
 
   if (classTrait) {
-    // Has a class - simple string replacement
+    // Has a class - replace with first class trait (predicates check individual classes)
     return queryString.replace(actorClassPattern, classTrait);
   } else {
     // No class - need to remove the filter containing this pattern
@@ -3844,10 +3863,11 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
         currentFeature =
           raceFeatures.find((f) => f._id === feature._id) || feature;
       }
-    } else if (featureDataPath === "data.classes.0.data.features") {
+    } else if (/^data\.classes\.\d+\.data\.features$/.test(featureDataPath)) {
+      const classIdx = parseInt(featureDataPath.match(/data\.classes\.(\d+)/)[1], 10);
       const classList = record.data?.classes || [];
-      if (classList.length > 0) {
-        const classFeatures = classList[0].data?.features || [];
+      if (classList.length > classIdx) {
+        const classFeatures = classList[classIdx].data?.features || [];
         currentFeature =
           classFeatures.find((f) => f._id === feature._id) || feature;
       }
@@ -3995,10 +4015,11 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
 
         valuesToSet["data.races.0.data.features"] = raceFeatures;
       }
-    } else if (featureDataPath === "data.classes.0.data.features") {
+    } else if (/^data\.classes\.\d+\.data\.features$/.test(featureDataPath)) {
+      const classIdx = parseInt(featureDataPath.match(/data\.classes\.(\d+)/)[1], 10);
       const classList = record.data?.classes || [];
-      if (classList.length > 0) {
-        let classFeatures = [...(classList[0].data?.features || [])];
+      if (classList.length > classIdx) {
+        let classFeatures = [...(classList[classIdx].data?.features || [])];
 
         // Find the feature in the current record by _id
         featureIndex = classFeatures.findIndex((f) => f._id === feature._id);
@@ -4021,7 +4042,7 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
           classFeatures = [...classFeatures, ...newFeatures];
         }
 
-        valuesToSet["data.classes.0.data.features"] = classFeatures;
+        valuesToSet[featureDataPath] = classFeatures;
       }
     } else if (featureDataPath === "data.feats") {
       let feats = [...(record.data?.feats || [])];
@@ -4135,10 +4156,11 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
           currentFeature =
             raceFeatures.find((f) => f._id === feature._id) || feature;
         }
-      } else if (featureDataPath === "data.classes.0.data.features") {
+      } else if (/^data\.classes\.\d+\.data\.features$/.test(featureDataPath)) {
+        const classIdx = parseInt(featureDataPath.match(/data\.classes\.(\d+)/)[1], 10);
         const classList = record.data?.classes || [];
-        if (classList.length > 0) {
-          const classFeatures = classList[0].data?.features || [];
+        if (classList.length > classIdx) {
+          const classFeatures = classList[classIdx].data?.features || [];
           currentFeature =
             classFeatures.find((f) => f._id === feature._id) || feature;
         }
@@ -4204,10 +4226,11 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
 
           valuesToSet["data.races.0.data.features"] = raceFeatures;
         }
-      } else if (featureDataPath === "data.classes.0.data.features") {
+      } else if (/^data\.classes\.\d+\.data\.features$/.test(featureDataPath)) {
+        const classIdx = parseInt(featureDataPath.match(/data\.classes\.(\d+)/)[1], 10);
         const classList = record.data?.classes || [];
-        if (classList.length > 0) {
-          let classFeatures = [...(classList[0].data?.features || [])];
+        if (classList.length > classIdx) {
+          let classFeatures = [...(classList[classIdx].data?.features || [])];
 
           // Find the feature in the current record by _id
           featureIndex = classFeatures.findIndex((f) => f._id === feature._id);
@@ -4220,7 +4243,7 @@ function promptForChoices(record, choicesToMake, index, depth = 0) {
           // Add the new feature
           classFeatures = [...classFeatures, newFeature];
 
-          valuesToSet["data.classes.0.data.features"] = classFeatures;
+          valuesToSet[featureDataPath] = classFeatures;
         }
       } else if (
         featureDataPath === "data.feats" ||
@@ -4502,18 +4525,12 @@ function updateSpellcastingEntries(record, valuesToSet) {
 // PF1e: General feats at odd levels (1, 3, 5, 7, ...) + class bonus feat levels from class data
 function setFeatSlots(record, valuesToSet) {
   const classes = record.data?.classes || [];
-  const classObj = classes?.[0];
 
   // PF1e general feat levels: every odd level
   const generalFeatLevels = [];
   for (let i = 1; i <= 20; i += 2) {
     generalFeatLevels.push(i);
   }
-
-  // Class bonus feat levels (e.g., Fighter gets bonus combat feats at 1, 2, 4, 6, 8, ...)
-  const classBonusFeatLevels = (classObj?.data?.bonusFeatLevels || []).map(
-    (level) => parseInt(level, 10)
-  );
 
   // Get current feats to check what slots already exist
   const oldFeats = record.data?.feats || [];
@@ -4563,35 +4580,45 @@ function setFeatSlots(record, valuesToSet) {
     }
   });
 
-  // Class bonus feat slots (e.g., Fighter bonus combat feats)
-  classBonusFeatLevels.forEach((level) => {
-    if (level <= characterLevel) {
-      const existingSlot = currentFeats.find(
-        (feat) =>
-          feat.data?.featSlotType === "classBonus" && feat.data?.level === level
-      );
+  // Class bonus feat slots for each class (e.g., Fighter bonus combat feats)
+  for (const classObj of classes) {
+    const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+    const classBonusFeatLevels = (classObj.data?.bonusFeatLevels || []).map(
+      (level) => parseInt(level, 10)
+    );
+    const className = classObj?.name || "Class";
 
-      if (!existingSlot) {
-        const className = classObj?.name || "Class";
-        featSlots.push({
-          _id: generateUuid(),
-          name: `${className} Bonus Feat Slot`,
-          recordType: "feats",
-          unidentifiedName: `${className} Bonus Feat Slot`,
-          data: {
-            type: "slot",
-            level: level,
-            featSlotType: "classBonus",
-            slotOrder: slotOrder++,
-          },
-          fields: {
-            featSlot: { hidden: false },
-            featDetails: { hidden: true },
-          },
-        });
+    classBonusFeatLevels.forEach((level) => {
+      if (level <= classLevel) {
+        const existingSlot = currentFeats.find(
+          (feat) =>
+            feat.data?.featSlotType === "classBonus" &&
+            feat.data?.level === level &&
+            feat.data?.className === className
+        );
+
+        if (!existingSlot) {
+          featSlots.push({
+            _id: generateUuid(),
+            name: `${className} Bonus Feat Slot`,
+            recordType: "feats",
+            unidentifiedName: `${className} Bonus Feat Slot`,
+            data: {
+              type: "slot",
+              level: level,
+              featSlotType: "classBonus",
+              className: className,
+              slotOrder: slotOrder++,
+            },
+            fields: {
+              featSlot: { hidden: false },
+              featDetails: { hidden: true },
+            },
+          });
+        }
       }
-    }
-  });
+    });
+  }
 
   // Update feats array with filtered feats and any new slots
   const updatedFeats = [...currentFeats, ...featSlots];
@@ -4619,38 +4646,51 @@ function updateProficiencies(record, valuesToSet) {
   };
 
   const classes = record.data?.classes || [];
-  const classObj = classes?.[0];
   const characterLevel = parseInt(valuesToSet["data.level"] ?? record.data?.level ?? "1", 10);
   const size = record.data?.size || "medium";
 
-  // --- BAB ---
-  const babProgression = classObj?.data?.babProgression || "full";
-  const bab = calculateBAB(characterLevel, babProgression);
+  // Migration: ensure all classes have classLevel
+  let needsMigration = false;
+  for (const classObj of classes) {
+    if (classObj.data && classObj.data.classLevel === undefined) {
+      classObj.data.classLevel = characterLevel;
+      needsMigration = true;
+    }
+  }
+  if (needsMigration) {
+    valuesToSet["data.classes"] = classes;
+  }
+
+  // --- BAB (sum across all classes at their own level) ---
+  let bab = 0;
+  for (const classObj of classes) {
+    const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+    const babProgression = classObj.data?.babProgression || "full";
+    bab += calculateBAB(classLevel, babProgression);
+  }
   valuesToSet["data.bab"] = bab;
 
   // Iterative attacks
   const iteratives = calculateIterativeAttacks(bab);
   valuesToSet["data.iterativeAttacks"] = iteratives;
 
-  // --- Base Saves ---
-  // Class stores save progressions as fortitudeSave/reflexSave/willSave
-  // or nested as savingThrows.fortitude/reflex/will (legacy)
-  const fortProgression = classObj?.data?.fortitudeSave || classObj?.data?.savingThrows?.fortitude || "poor";
-  const refProgression = classObj?.data?.reflexSave || classObj?.data?.savingThrows?.reflex || "poor";
-  const willProgression = classObj?.data?.willSave || classObj?.data?.savingThrows?.will || "poor";
-
-  const fortBase = calculateBaseSave(characterLevel, fortProgression);
-  const refBase = calculateBaseSave(characterLevel, refProgression);
-  const willBase = calculateBaseSave(characterLevel, willProgression);
+  // --- Base Saves (sum across all classes) ---
+  let fortBase = 0;
+  let refBase = 0;
+  let willBase = 0;
+  for (const classObj of classes) {
+    const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+    const fortProg = classObj.data?.fortitudeSave || classObj.data?.savingThrows?.fortitude || "poor";
+    const refProg = classObj.data?.reflexSave || classObj.data?.savingThrows?.reflex || "poor";
+    const willProg = classObj.data?.willSave || classObj.data?.savingThrows?.will || "poor";
+    fortBase += calculateBaseSave(classLevel, fortProg);
+    refBase += calculateBaseSave(classLevel, refProg);
+    willBase += calculateBaseSave(classLevel, willProg);
+  }
 
   valuesToSet["data.fortitudeBase"] = fortBase;
   valuesToSet["data.reflexBase"] = refBase;
   valuesToSet["data.willBase"] = willBase;
-
-  // Store progressions for display
-  valuesToSet["data.fortitude"] = fortProgression;
-  valuesToSet["data.reflex"] = refProgression;
-  valuesToSet["data.will"] = willProgression;
 
   // --- Save Totals = base + ability mod + misc ---
   const conMod = getAbilityMod("con");
@@ -4678,29 +4718,59 @@ function updateProficiencies(record, valuesToSet) {
   valuesToSet["data.cmd"] = cmd;
 
   // --- HP Calculation ---
-  const hitDie = parseInt(classObj?.data?.hitDie || "8", 10);
-  let baseHp = 0;
-  if (characterLevel >= 1) {
-    baseHp = hitDie; // Max at first level
-    if (characterLevel > 1) {
-      const avgPerLevel = Math.floor(hitDie / 2) + 1;
-      baseHp += avgPerLevel * (characterLevel - 1);
-    }
-  }
-  const favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
+  const classLevels = record.data?.classLevels || [];
   const hitpointsMaxMods = getEffectsAndModifiersForToken(record, ["hitpoints"]);
   const extraHitpoints = hitpointsMaxMods.reduce((acc, mod) => {
     return acc + parseInt(mod.value || 0, 10);
   }, 0);
+
+  let baseHp = 0;
+  let favoredClassHp = 0;
+  if (classLevels.length > 0) {
+    // Use per-level HP from classLevels table
+    for (const lvl of classLevels) {
+      baseHp += parseInt(lvl.data?.hp || "0", 10);
+      if (lvl.data?.favoredBonus === "hp") {
+        favoredClassHp += 1;
+      }
+    }
+  } else {
+    // Fallback: compute from class data (legacy/migration)
+    let isFirstLevel = true;
+    for (const classObj of classes) {
+      const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+      const hitDie = parseInt(classObj.data?.hitDie || "8", 10);
+      if (classLevel >= 1) {
+        if (isFirstLevel) {
+          baseHp += hitDie;
+          isFirstLevel = false;
+          if (classLevel > 1) {
+            const avg = Math.floor(hitDie / 2) + 1;
+            baseHp += avg * (classLevel - 1);
+          }
+        } else {
+          const avg = Math.floor(hitDie / 2) + 1;
+          baseHp += avg * classLevel;
+        }
+      }
+    }
+    favoredClassHp = parseInt(record.data?.favoredClassHp || "0", 10);
+  }
   const totalHp = baseHp + (conMod * characterLevel) + favoredClassHp + extraHitpoints;
   valuesToSet["data.hitpoints"] = totalHp;
   if (record.data?.curhp === undefined) {
     valuesToSet["data.curhp"] = totalHp;
   }
 
+  // --- Class Skills (union from all classes) ---
+  const allClassSkills = [];
+  for (const classObj of classes) {
+    allClassSkills.push(...(classObj.data?.classSkills || []));
+  }
+  const classSkills = [...new Set(allClassSkills)];
+
   // --- Perception = Wis mod + ranks + class skill bonus + misc ---
   const perceptionRanks = parseInt(record.data?.perceptionRanks || "0", 10);
-  const classSkills = classObj?.data?.classSkills || [];
   const isPerceptionClassSkillFromClass = classSkills.some(
     (s) => s.toLowerCase() === "perception"
   );
@@ -4780,18 +4850,39 @@ function updateProficiencies(record, valuesToSet) {
     valuesToSet[`data.subcategorySkills[${i}].data.mod`] = total;
   }
 
-  // --- Skill Ranks Tracking ---
-  const skillRanksPerLevel = parseInt(classObj?.data?.skillRanksPerLevel || "0", 10);
-  const totalRanksAvailable = (skillRanksPerLevel + intMod) * characterLevel;
+  // --- Skill Ranks Tracking (sum across all classes) ---
+  let totalRanksAvailable = 0;
+  for (const classObj of classes) {
+    const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
+    const ranksPerLevel = parseInt(classObj.data?.skillRanksPerLevel || "0", 10);
+    totalRanksAvailable += Math.max(ranksPerLevel + intMod, 1) * classLevel;
+  }
+  // Add favored class skill ranks from classLevels
+  const classLevelsForSkills = record.data?.classLevels || [];
+  for (const lvl of classLevelsForSkills) {
+    if (lvl.data?.favoredBonus === "skill") {
+      totalRanksAvailable += 1;
+    }
+  }
   valuesToSet["data.skillRanksUsed"] = totalRanksUsed;
   valuesToSet["data.skillRanksAvailable"] = Math.max(totalRanksAvailable, 0);
 
-  // --- Store weapon/armor proficiencies from class ---
-  if (classObj?.data?.weaponProficiencies) {
-    valuesToSet["data.weaponProficiencies"] = classObj.data.weaponProficiencies;
+  // --- Store weapon/armor proficiencies (union from all classes) ---
+  const allWeaponProfs = [];
+  const allArmorProfs = [];
+  for (const classObj of classes) {
+    if (classObj.data?.weaponProficiencies) {
+      allWeaponProfs.push(...(Array.isArray(classObj.data.weaponProficiencies) ? classObj.data.weaponProficiencies : [classObj.data.weaponProficiencies]));
+    }
+    if (classObj.data?.armorProficiencies) {
+      allArmorProfs.push(...(Array.isArray(classObj.data.armorProficiencies) ? classObj.data.armorProficiencies : [classObj.data.armorProficiencies]));
+    }
   }
-  if (classObj?.data?.armorProficiencies) {
-    valuesToSet["data.armorProficiencies"] = classObj.data.armorProficiencies;
+  if (allWeaponProfs.length > 0) {
+    valuesToSet["data.weaponProficiencies"] = [...new Set(allWeaponProfs)];
+  }
+  if (allArmorProfs.length > 0) {
+    valuesToSet["data.armorProficiencies"] = [...new Set(allArmorProfs)];
   }
 }
 
@@ -5078,10 +5169,11 @@ function setProvidedItems(record, callback = undefined) {
     hasChanges = true;
   }
 
-  // Add class features
+  // Add class features (to the first class by default)
   if (itemsToAdd.classFeatures.length > 0) {
     const classList = record.data?.classes || [];
     if (classList.length > 0) {
+      // Add to the first class; features from specific classes are handled by processChoices
       const existingFeatures = classList[0].data?.features || [];
       valuesToSet["data.classes.0.data.features"] = [
         ...existingFeatures,
@@ -5158,16 +5250,16 @@ function updateTogglesList(record, valuesToSet) {
     }
   });
 
-  // Get class features (from first class)
+  // Get class features (from all classes)
   const classes = record.data?.classes || [];
-  if (classes.length > 0) {
-    const classObj = classes[0];
+  for (const classObj of classes) {
+    const classLevel = parseInt(classObj.data?.classLevel || "1", 10);
     const classFeatures = classObj.data?.features || [];
     classFeatures.forEach((feature) => {
       if (
         feature.data?.toggleable === true &&
         feature.name &&
-        record.data?.level >= feature.data?.level &&
+        classLevel >= (feature.data?.level || 0) &&
         !seenNames.has(feature.name)
       ) {
         toggleableItems.push({

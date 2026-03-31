@@ -1,0 +1,257 @@
+<script>
+  function onDrop(type, recordLink) {
+    if (type === "class") {
+      onDropClassLevel(recordLink);
+    }
+  }
+
+  function onDropClassLevel(recordLink) {
+    const className = recordLink.tooltip;
+    const classObj = { ...recordLink.value };
+    classObj.data = classObj.data || {};
+
+    // Check if this class already exists in our class records
+    const existingClasses = record.data?.classes || [];
+    const existingIndex = existingClasses.findIndex((c) => c.name === className);
+
+    let classIndex;
+    const newClasses = [...existingClasses];
+
+    if (existingIndex >= 0) {
+      // Class already exists, increment its level
+      classIndex = existingIndex;
+      newClasses[existingIndex] = {
+        ...newClasses[existingIndex],
+        data: {
+          ...newClasses[existingIndex].data,
+          classLevel: (parseInt(newClasses[existingIndex].data?.classLevel, 10) || 0) + 1,
+        },
+      };
+    } else {
+      // New class, add it
+      classIndex = newClasses.length;
+
+      // Add non-rarity traits
+      const traits = classObj.data?.traits || [];
+      const nonRarityTraits = traits.filter((trait) => !getIsTraitRarity(trait));
+      classObj.data.traits = nonRarityTraits;
+      classObj.data.classLevel = 1;
+
+      newClasses.push(classObj);
+
+      // Merge traits onto character
+      const traitsObjects = [];
+      for (const trait of nonRarityTraits) {
+        traitsObjects.push({
+          _id: generateUuid(),
+          name: trait,
+          identified: true,
+          data: {},
+        });
+      }
+      const curTraits = record.data?.traits || [];
+      const newTraits = [...new Set([...curTraits, ...nonRarityTraits])];
+      const curTraitsList = record.data?.traitsList || [];
+      const newTraitsList = [...curTraitsList, ...traitsObjects].filter(
+        (trait, index, self) =>
+          self.findIndex((t) => t.name === trait.name) === index
+      );
+      // We'll set these in the same setValues call below
+      record._pendingTraits = newTraits;
+      record._pendingTraitsList = newTraitsList;
+    }
+
+    const hitDie = parseInt(classObj.data?.hitDie || newClasses[classIndex]?.data?.hitDie || "8", 10);
+    const classLevels = record.data?.classLevels || [];
+    const newCharLevel = classLevels.length + 1;
+    const isFirstLevel = classLevels.length === 0;
+
+    // HP for this level: max at level 1, average after
+    const hp = isFirstLevel ? hitDie : Math.floor(hitDie / 2) + 1;
+
+    const newLevelEntry = {
+      _id: generateUuid(),
+      name: `${className} ${newClasses[classIndex].data.classLevel}`,
+      identified: true,
+      data: {
+        charLevel: newCharLevel,
+        className: className,
+        classIndex: classIndex,
+        hitDie: hitDie,
+        hitDieLabel: `d${hitDie}`,
+        hp: hp,
+        favoredBonus: "none",
+      },
+    };
+
+    const newClassLevels = [...classLevels, newLevelEntry];
+    const totalLevel = newCharLevel;
+
+    // Build class label
+    const classLabel = newClasses
+      .map((c) => `${c.name} ${c.data?.classLevel || 1}`)
+      .join(" / ");
+
+    const valuesToSet = {
+      "data.classes": newClasses,
+      "data.classLevels": newClassLevels,
+      "data.className": classLabel,
+      "data.level": totalLevel,
+    };
+
+    // Add traits if this was a new class
+    if (record._pendingTraits) {
+      valuesToSet["data.traitsList"] = record._pendingTraitsList;
+      valuesToSet["data.traits"] = record._pendingTraits;
+      delete record._pendingTraits;
+      delete record._pendingTraitsList;
+    }
+
+    api.setValues(valuesToSet, (updatedRecord) => {
+      onAddEditFeature(updatedRecord, () => {
+        api.setHidden("classDetailsLabel", true);
+      });
+    });
+  }
+
+  function removeLastLevel() {
+    const classLevels = record.data?.classLevels || [];
+    if (classLevels.length === 0) return;
+
+    const removedLevel = classLevels[classLevels.length - 1];
+    const newClassLevels = classLevels.slice(0, -1);
+
+    // Decrement the class level count
+    const classes = [...(record.data?.classes || [])];
+    const classIndex = removedLevel.data?.classIndex;
+    if (classIndex !== undefined && classes[classIndex]) {
+      const curLevel = parseInt(classes[classIndex].data?.classLevel || "1", 10);
+      if (curLevel <= 1) {
+        // Remove the class entirely
+        classes.splice(classIndex, 1);
+        // Re-index remaining classLevels
+        newClassLevels.forEach((lvl) => {
+          if (lvl.data.classIndex > classIndex) {
+            lvl.data.classIndex--;
+          }
+        });
+      } else {
+        classes[classIndex] = {
+          ...classes[classIndex],
+          data: { ...classes[classIndex].data, classLevel: curLevel - 1 },
+        };
+      }
+    }
+
+    const classLabel = classes.length > 0
+      ? classes.map((c) => `${c.name} ${c.data?.classLevel || 1}`).join(" / ")
+      : "";
+
+    api.setValues(
+      {
+        "data.classes": classes,
+        "data.classLevels": newClassLevels,
+        "data.className": classLabel,
+        "data.level": newClassLevels.length,
+      },
+      (updatedRecord) => {
+        onAddEditFeature(updatedRecord, () => {
+          if (classes.length === 0) {
+            api.setHidden("classDetailsLabel", false);
+          }
+        }, true);
+      }
+    );
+  }
+
+  function recalculateHp() {
+    // Recalculate HP from classLevels data
+    const classLevels = record.data?.classLevels || [];
+    let totalHp = 0;
+    for (const lvl of classLevels) {
+      totalHp += parseInt(lvl.data?.hp || "0", 10);
+      if (lvl.data?.favoredBonus === "hp") {
+        totalHp += 1;
+      }
+    }
+    // Con mod per level
+    const conMod = record.data?.conMod || 0;
+    totalHp += conMod * classLevels.length;
+
+    // Favored class skill ranks
+    let favoredSkillRanks = 0;
+    for (const lvl of classLevels) {
+      if (lvl.data?.favoredBonus === "skill") {
+        favoredSkillRanks += 1;
+      }
+    }
+
+    api.setValues({
+      "data.hitpoints": totalHp,
+      "data.favoredClassSkillRanks": favoredSkillRanks,
+    });
+  }
+</script>
+
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 4px;
+  "
+>
+  <div
+    style="
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 4px;
+      background-color: rgb(
+        from var(--mantine-color-primary-filled) r g b / 0.25
+      );
+      border-radius: 4px;
+      padding: 4px 8px;
+      align-items: center;
+    "
+  >
+    <label label="Classes and Levels" size="md" variant="bold"></label>
+    <div style="margin-left: auto; display: flex; gap: 4px">
+      <button
+        size="xs"
+        variant="light"
+        color="red"
+        label="Remove Last Level"
+        onclick="removeLastLevel()"
+        hideonlocked="true"
+      ></button>
+    </div>
+  </div>
+
+  <!-- Column Headers -->
+  <div style="display: flex; gap: 4px; align-items: center; padding: 0 4px">
+    <label size="xs" variant="bold" label="Lvl" width="35px" textalign="center"></label>
+    <label size="xs" variant="bold" label="Class" width="100%" textalign="left"></label>
+    <label size="xs" variant="bold" label="HD" width="45px" textalign="center"></label>
+    <label size="xs" variant="bold" label="HP" width="40px" textalign="center"></label>
+    <label size="xs" variant="bold" label="Favored" width="100px" textalign="center"></label>
+  </div>
+
+  <list
+    listtype="class_level_list"
+    field="classLevels"
+    emptylisttext="Drag and drop a class here to add levels"
+    variant="outline-striped"
+  ></list>
+
+  <div
+    style="
+      display: flex;
+      gap: 8px;
+      padding: 4px;
+      align-items: center;
+    "
+  >
+    <label size="xs" label="Drop a class onto this tab to add a level." variant="dimmed"></label>
+  </div>
+</div>
